@@ -1,0 +1,29 @@
+<pre>
+
+
+	POT JS Example 1: Hello
+
+	Check the console.
+
+</pre>
+
+<script src="wasm_exec.js"></script>
+
+<script>
+
+const go = new Go()
+
+WebAssembly.instantiateStreaming(fetch("pot.wasm"), go.importObject)
+
+	.then((potwasm)=>{
+
+		go.run(potwasm.instance)
+
+		pot.putTyped("hello", "Hello, P.O.T.!")
+
+		value = pot.getTyped("hello")
+
+		console.log("key hello has:", value)
+	})
+
+</script>

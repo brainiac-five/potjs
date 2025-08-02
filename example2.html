@@ -1,0 +1,50 @@
+<pre>
+
+
+	POT JS Example 2: Interactive
+
+
+	key    <input id=key>
+
+	value  <input id=value>
+
+	       <button onclick="put()"> put </button>
+
+
+<hr />
+
+
+	key    <input id=look_up_key>
+
+	       <button onclick="get()"> get </button>
+
+	value  <input id=looked_up_value>
+
+
+</pre>
+
+<script src="wasm_exec.js"></script>
+
+<script>
+
+	const go = new Go()
+
+	WebAssembly.instantiateStreaming(
+		fetch("pot.wasm"), go.importObject)
+			.then((r)=>{go.run(r.instance)})
+
+	function put() {
+
+		key = document.getElementById('key').value
+		value = document.getElementById('value').value
+		pot.putTyped(key, value)
+	}
+
+	function get() {
+
+		key = document.getElementById('look_up_key').value
+		value = pot.getTyped(key)
+		document.getElementById('looked_up_value').value = value
+	}
+
+</script>

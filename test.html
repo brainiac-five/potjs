@@ -1,0 +1,78 @@
+<head>
+
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="test.css">
+    <!-- -- -- -- -- -- -- -- -- -- -- -->
+    <script src="wasm_exec.js"></script>
+    <script src="test.js"></script>
+    <script src="kvs_test.js"></script>
+
+    <script>
+
+	async function main() {
+
+		const go = new Go()
+
+		result = await WebAssembly.instantiateStreaming(
+				fetch("pot.wasm"), go.importObject)
+
+		go.run(result.instance)
+
+		/* Test 1 */
+
+		T.head("Example Test")
+		T.start("html-inline")
+
+		pot.newSwarmKvs()
+
+		T.log("• put and get K: V")
+		pot.put("K", "V")
+		r = pot.getString("K")
+		assertEqual(T, r, "V")
+
+		/* More Tests */
+
+		TestPotKvs(T)
+	 	TestPotKvs_EdgeValues(T)
+		TestPotKvs_TypeEncoding(T)
+		TestPotKvs_TypedAccess(T)
+		TestPotKvs_Save(T)
+		await TestPotKvs_Promise(T)
+		await TestPotKvs_Proof(T)
+		await TestPotKvs_Cancellation(T)
+
+		T.balance()
+	}
+
+	main()
+    </script>
+
+    <!-- -- -- -- -- -- -- -- -- -- -- -->
+
+</head>
+<body>
+
+
+<h1> JS POT API Test Suite </h1>
+
+<p>  This is the test suite for the Javascript API to the Go implementation of the Proximity-Order-Trie (POT). </p>
+
+
+<p>  <a href=example1.html> example 1 </a> &nbsp;
+     <a href=example2.html> example 2 </a> &nbsp;
+     <a href=README.MD>     read me   </a> </p>
+
+
+<h2> Notes </h2>
+
+<p>  Tests using go pot are not touching the Swarm network at this point.
+     They are an in-memory implementation of the proximity order tree logic. </p>
+
+<p>  Tests are using different random byte sequences for keys and values at every run.</p>
+
+<h2> KVS Tests </h2>
+
+<h4 id=status> Tests not complete ... </h4>
+
+</body>
+</html>
