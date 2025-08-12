@@ -1,10 +1,19 @@
-<head>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
+    <title>POT JS API Test</title>
 
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="test.css">
     <!-- -- -- -- -- -- -- -- -- -- -- -->
     <script src="wasm_exec.js"></script>
     <script src="test.js"></script>
+    <script src="testmode.js"></script>
     <script src="kvs_test.js"></script>
 
     <script>
@@ -23,11 +32,11 @@
 		T.head("Example Test")
 		T.start("html-inline")
 
-		pot.newSwarmKvs()
+		map = pot.newSwarmKvs()
 
 		T.log("• put and get K: V")
-		pot.put("K", "V")
-		r = pot.getString("K")
+		map.put("K", "V")
+		r = map.getString("K")
 		assertEqual(T, r, "V")
 
 		/* More Tests */
@@ -50,10 +59,10 @@
     <!-- -- -- -- -- -- -- -- -- -- -- -->
 
 </head>
-<body>
+<body onload="modecolor()">
 
 
-<h1> JS POT API Test Suite </h1>
+<h1> POT JS API Test Suite <div class=modetag id=modetag>Go POT</div></h1>
 
 <p>  This is the test suite for the Javascript API to the Go implementation of the Proximity-Order-Trie (POT). </p>
 
@@ -68,7 +77,9 @@
 <p>  Tests using go pot are not touching the Swarm network at this point.
      They are an in-memory implementation of the proximity order tree logic. </p>
 
-<p>  Tests are using different random byte sequences for keys and values at every run.</p>
+<p>  Tests are using different random byte sequences for keys and values every run.</p>
+
+<p id=modenote></p>
 
 <h2> KVS Tests </h2>
 

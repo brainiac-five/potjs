@@ -2,7 +2,11 @@ body		{ margin: 3em; font-family: sans-serif; font-size: 0.7em;
 		  overflow-wrap: break-word; }
 
 h1		{ font-size: 2em; font-weight: 900; letter-spacing: 0.2em;
-		  text-transform: uppercase; }
+		  text-transform: uppercase; margin-bottom: 5em; }
+
+div.modetag	{ font-size: 0.9em; background: blue; color: white;
+		  padding: 0.1em 1em;
+		  border-radius: 1em; float: right; }
 
 h2		{ font-size: 1.2em; font-weight: 600; letter-spacing: 0.3em;
 		  text-transform: uppercase; margin: 3em 0 1.4em 0; }

@@ -17,6 +17,7 @@ import(
 	"fmt"
 	"math"
 	"time"
+	byt "bytes" /// clean up
 	"errors"
 	"strconv"
 	"context"
@@ -24,14 +25,589 @@ import(
 	"encoding/hex"
 	"encoding/binary"
 	"syscall/js"
+
+	. "pot"
+        "github.com/ethersphere/proximity-order-trie/pkg/persister"
 )
+
+// ---------------------------------------------------------------------------
+//
+// # POT JS
+//
+// The functions callable from Javascript. The signatures are uniform as 
+// required by syscall/js. The first parameter is `this`, the second the
+// array of the actual arguments.
+//
+// ---------------------------------------------------------------------------
+
+var _ KeyValueStore = (*SwarmKvs)(nil)
+
+// storage mode for save and new-by-reference. Only in-memory now.
+const (
+	inmem int = 1
+)
+
+// Create a new Swarm KVS map, with a handle in the form of a Javascript object.
+func newSwarmKvs(js_call_context js.Value, parameters []js.Value) interface{} { 
+
+	defer catch("newSwarmKvs")
+
+	log("» initialize new P.O.T.")
+
+	var ls persister.LoadSaver
+
+	smode := inmem
+	if len(parameters) > 0 {
+		smode = parameters[0].Int() /// type error check
+	}
+	switch smode {
+	case inmem:
+		ls = persister.NewInmemLoadSaver()
+	default:
+		/// error
+	}
+
+	// -------------------------------------------------------------------
+	kvs, err := NewSwarmKvs(ls)
+	// -------------------------------------------------------------------
+	if err != nil {
+		/// error message? message of error?
+		return nil
+	}
+
+	// register context and kvs handle, take numerical index as handle
+	slot_ref := len(Slots) + 1 // = starting on 1. /// add deletion
+	Slots = append(Slots, Slot{Ctx: context.Background(), Kvs: kvs, Ref: slot_ref, Ls: ls})
+
+		log("slot ref: " + strconv.Itoa(slot_ref))
+	return createJSObject(slot_ref)
+}
+
+// Get access to an existing Swarm KVS JS object, using its 32-byte save handle.
+// This method will break for in-memory load-savers when the program is stopped
+// and restarted, as they will lose their storage. It will, as is, work for
+// the connection to Swarm as the load-saver will then not be the instance
+// where the data is stored but only the connection funnel to the data. Which
+// in the case of using Swarm will mean that Swarm will persist the data.
+// However, as it is implemented now, for in-memory load-savers, it will
+// not work for Swarm either when the program is stopped and restarted, if the
+// load-saver parameter was missing. /// TODO
+func newSwarmKvsReference(this js.Value, parameters []js.Value) (rerr interface{}) {
+	/// rename
+
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil { 
+		log("### " + err.(string))
+		rerr = js.Global().Get("Error").New(err.(string))
+	}}()
+
+	log("» select P.O.T. by save reference")
+
+	if len(parameters) < 1 {
+		msg := "### error: reference parameter required"
+		log(msg)
+		return js.Global().Get("Error").New(msg)
+	}
+
+	jsref32 := parameters[0] //// react if missing, too small/big
+	ref32 := bytes(jsref32) /// roll into one line
+
+	if len(Saved) < 1 { panic("no references stored") }
+	slot_ref := Saved[bhex(ref32)] /// error handling
+	if slot_ref < 1 { panic("reference not found") }
+	slot := Slots[slot_ref-1]
+	log("slot ref: " + strconv.Itoa(slot_ref)) /// verbosity switch
+	ls := slot.Ls
+
+	// -------------------------------------------------------------------
+	_, err := NewSwarmKvsReference(ls, ref32)
+	// -------------------------------------------------------------------
+	if err != nil {
+		msg := "### error in newSwarmKvsReference: " + err.Error()
+		log(msg)
+		return js.Global().Get("Error").New(msg)
+	}
+
+///	not doing this makes the testing fragile. It does not match real operation.
+//	slot_ref := len(Slots) + 1 // = starting on 1. /// add deletion
+//	Slots = append(Slots, Slot{ctx: context.Background(), kvs: kvs, ref: slot_ref})
+
+	/// returns new object to same slot
+	return createJSObject(slot_ref)
+}
+
+func createJSObject(slot_ref int) js.Value {
+
+	// create Javascript handle object
+	jsO := js.ValueOf(make(map[string]interface{}))
+
+	// the numeric handle bridges preserved ctx and ps to JS.
+	jsO.Set("slot_ref", slot_ref)
+
+	// add standard methods
+	jsO.Set("put", js.FuncOf(put))
+	jsO.Set("get", js.FuncOf(get))
+	jsO.Set("save", js.FuncOf(save))
+	jsO.Set("getBoolean", js.FuncOf(getBoolean))
+	jsO.Set("getNumber", js.FuncOf(getNumber))
+	jsO.Set("getString", js.FuncOf(getString))
+	jsO.Set("putTyped", js.FuncOf(putTyped))
+	jsO.Set("getTyped", js.FuncOf(getTyped))
+	jsO.Set("putTypedPromise", js.FuncOf(putTypedPromise))
+	jsO.Set("getTypedPromise", js.FuncOf(getTypedPromise))
+	jsO.Set("getProof", js.FuncOf(getProof))
+
+	return jsO
+}
+
+// JS API:
+func save(this js.Value, parameters []js.Value) (rerr interface{}) {
+
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		log("### " + err.(string))
+		rerr = js.Global().Get("Error").New(err.(string))
+	}}()
+
+	log("» saving storage")
+
+	slot_ref := this.Get("slot_ref").Int() /// error check
+	if slot_ref < 1 { panic("invalid slot reference") }
+	slot := Slots[slot_ref-1] /// error check
+	//--api_test: if slot.Kvs.Slot_ref != slot_ref { panic("slot double link broken ‹" + strconv.Itoa(slot_ref) + "› / ‹" + strconv.Itoa(slot.Kvs.Slot_ref) + "›") }
+	// -------------------------------------------------------------------
+	ref32, err := slot.Kvs.Save(slot.Ctx)
+	// -------------------------------------------------------------------
+	if err != nil {
+		msg := "### error on saving: " + err.Error()
+		log(msg)
+		return js.Global().Get("Error").New(msg)
+	}
+
+	log(bhex(ref32))
+
+	Saved[bhex(ref32)] = slot_ref
+
+	// return a JS Uint8Array
+        jsref32 := js.Global().Get("Uint8Array").New(32)
+        js.CopyBytesToJS(jsref32, ref32)
+        return jsref32 
+}
+
+/* /// add async safe
+
+	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
+
+		resolve := handler_parameters[0] //// catch missing
+		reject := handler_parameters[1]
+
+		go func() {
+
+			jserr := putTyped(js_call_context, parameters)
+			if jserr != nil {
+				reject.Invoke(jserr)
+			} else {
+				resolve.Invoke()
+			}
+		}()
+
+		return nil
+	})
+
+	promise := js.Global().Get("Promise").New(handler)
+	promise.Set("cancel", js.FuncOf(func(js.Value, []js.Value) interface{} { log("cancelled!") ; return nil }) )
+
+	return promise
+*/
+// JS API: stores a raw byte value to a raw 32 byte key
+func put(this js.Value, parameters []js.Value) interface{} {
+
+	defer catch("put")
+
+	key := bytes(parameters[0]) /// error check / absence
+	pkey, perr := pad(key)
+	if perr != nil {
+		return perr
+	}
+
+	value := bytes(parameters[1])
+	slot_ref := this.Get("slot_ref").Int() /// error check
+	slot := Slots[slot_ref-1] /// error check
+
+	// -------------------------------------------------------------------
+	err := slot.Kvs.Put(slot.Ctx, pkey, value)
+	// -------------------------------------------------------------------
+	if err != nil {
+		log(err.Error())
+		/// handle
+	}
+
+	log("» put " + bhex(pkey) + ": " + bhex(value) + "")
+	return nil
+}
+
+func pad(key []byte) ([]byte, interface{}) {
+
+	if len(key) > 32 { 
+		msg := "### error: key too long"
+		log(msg)
+		return nil, js.Global().Get("Error").New(msg)
+	}
+	// pad
+	if len(key) < 32 {
+		key = append(key, byt.Repeat([]byte{0}, 32-len(key))...)
+	}
+
+	return key, nil
+}
+
+// JS API get retrieves a raw byte value for a raw 32 byte key
+func get(this js.Value, parameters []js.Value) interface{} {
+
+	defer catch("get")
+
+	bkey := bytes(parameters[0]) /// errror check
+	pkey, perr := pad(bkey)
+	if perr != nil {
+		return perr
+	}
+	slot_ref := this.Get("slot_ref").Int() /// error check
+	slot := Slots[slot_ref-1] /// error check, pre, post (?)
+
+	// -------------------------------------------------------------------
+	value, err := slot.Kvs.Get(slot.Ctx, pkey)
+	// -------------------------------------------------------------------
+	if err != nil {
+		/// handle
+	}
+
+	log("» get " + bhex(pkey) + ": " + bhex(value) + "")
+
+	return jsarray_from_bytes(value)
+}
+
+
+// Store a key-value pair, encoding the value type in the first value byte.
+// Usable directly from JS, and via putTypedPromise, its promise wrapper.
+func putTyped(this js.Value, parameters []js.Value) interface{} {
+
+	defer catch("putTyped")
+
+	key := parameters[0] /// error check / absence
+	bkey := bytes(key) /// error check / absence
+	pkey, perr := pad(bkey)
+	if perr != nil {
+		return perr
+	}
+	value := parameters[1]
+	cvalue, err := type_encoded_bytes(value)
+	if err != nil {
+		switch err.Error() {
+		case "bad type flag": //// refactor
+			msg := "trying to put unknown type"
+			log("» xxx put fail: " + msg) /// make debug-switched
+			return js.Global().Get("Error").New(msg)
+		default:
+			log("### » put error: " + err.Error()) 
+			return js.Global().Get("Error").New(err.Error())
+		}
+	}
+
+	slot_ref := this.Get("slot_ref").Int() /// error check
+	slot := Slots[slot_ref-1] /// error check
+
+	// -------------------------------------------------------------------
+	err = slot.Kvs.Put(slot.Ctx, pkey, cvalue)
+	// -------------------------------------------------------------------
+	if err != nil {
+		log(err.Error())
+		/// handle
+	}
+
+	log("» put " + key.String() + ": " + value.String() + "")
+	log("» ⟶ " + bhex(pkey) + ": " + bhex(cvalue) + "")
+	return nil
+}
+
+func hangingPromise(js_call_context js.Value, parameters []js.Value) interface{} {
+
+	done := make(chan bool)
+	quit := make(chan bool)
+
+	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
+
+		reject := handler_parameters[1]
+
+		go func() {
+			log("sleeping")
+			time.Sleep(time.Second)
+			select { case <-quit: return; default: }
+			log("done sleeping")
+			jserr := js.Global().Get("Error").New("done sleeping, nothing happened")
+			reject.Invoke(jserr)
+			done <- true
+		}()
+
+		go func() {
+			select {
+			case <- done:
+			case <- quit:
+				close(quit)
+				reject.Invoke(js.Global().Get("Error").New("canceled")) 
+			}
+		}()
+
+		return nil
+	})
+
+	promise := js.Global().Get("Promise").New(handler)
+	promise.Set("cancel", js.FuncOf(func(js.Value, []js.Value) interface{} { quit <- true ; log("canceled!") ; return nil }) )
+
+	return promise
+}
+
+
+// Async storing of a key-value pair, encoding the value type in the first value byte.
+// Returns a Javascript promise that returns a JS Error to reject() on failure.
+func putTypedPromise(js_call_context js.Value, parameters []js.Value) interface{} {
+
+	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
+
+		resolve := handler_parameters[0] //// catch missing
+		reject := handler_parameters[1]
+
+		go func() {
+
+			jserr := putTyped(js_call_context, parameters)
+			if jserr != nil {
+				reject.Invoke(jserr)
+			} else {
+				resolve.Invoke()
+			}
+		}()
+
+		return nil
+	})
+
+	promise := js.Global().Get("Promise").New(handler)
+	promise.Set("cancel", js.FuncOf(func(js.Value, []js.Value) interface{} { log("cancelled!") ; return nil }) )
+
+	return promise
+}
+
+func getTyped(this js.Value, parameters []js.Value) interface{} {
+
+	defer catch("getTyped")
+
+	key := parameters[0] /// error check / absence
+	bkey := bytes(key) /// error check / absence
+	pkey, perr := pad(bkey)
+	if perr != nil {
+		return perr
+	}
+	slot_ref := this.Get("slot_ref").Int() /// error check
+	slot := Slots[slot_ref-1] /// error check
+	// -------------------------------------------------------------------
+	bvalue, err := slot.Kvs.Get(slot.Ctx, pkey)
+	// -------------------------------------------------------------------
+	if err != nil {
+		log(err.Error())
+		/// handle
+	}
+	value, err2 := type_decoded_value(bvalue)
+	if err2 != nil {
+		switch err2.Error() {
+		case "bad type flag": //// refactor
+			msg := "trying to get unknown type"
+			log("» xxx get fail: " + msg) /// make debug-switched
+			return js.Global().Get("Error").New(msg)
+		default:
+			log("### » get error: " + err2.Error()) 
+			return js.Global().Get("Error").New(err2.Error())
+		}
+	}
+
+	log("» get " + key.String() + ": " + value.String() + "")
+	log("» ⟵ " + bhex(pkey) + ": " + bhex(bvalue) + "")
+	return value
+}
+
+// Async getting of a value, decoding the value type in the first value byte.
+// Returns a Javascript promise that returns a JS Error to reject() on failure.
+func getTypedPromise(js_call_context js.Value, parameters []js.Value) interface{} {
+
+	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
+
+		resolve := handler_parameters[0]
+		reject := handler_parameters[1]
+
+		go func() {
+
+			// The Go error type is not used, to make getTyped
+			// usable also directly from JS, where only one result
+			// is expected. Direct calls, however, may be useful
+			// for prototyping against in-memory pots only.
+			jsvalue_or_jserr := getTyped(js_call_context, parameters).(js.Value)
+			if jsvalue_or_jserr.InstanceOf(js.Global().Get("Error")) {
+				reject.Invoke(jsvalue_or_jserr)
+			} else {
+				resolve.Invoke(jsvalue_or_jserr)
+			}
+		}()
+
+		return nil
+	})
+
+	promiseConstructor := js.Global().Get("Promise")
+	return promiseConstructor.New(handler)
+}
+
+/*
+/// use?
+func getRaw(js_call_context js.Value, parameters []js.Value) interface{} {
+
+	return get(js_call_context, parameters)
+}
+*/
+
+func getBoolean(this js.Value, parameters []js.Value) interface{} {
+
+	defer catch("getBoolean")
+
+	bkey := bytes(parameters[0]) /// errror check
+	pkey, perr := pad(bkey)
+	if perr != nil {
+		return perr
+	}
+	slot_ref := this.Get("slot_ref").Int() /// error check
+	slot := Slots[slot_ref-1] /// error check, pre, post (?)
+
+	// -------------------------------------------------------------------
+	value, err := slot.Kvs.Get(slot.Ctx, pkey)
+	// -------------------------------------------------------------------
+	if err != nil {
+		/// handle
+	}
+
+	log("» get " + bhex(pkey) + ": " + bhex(value) + "")
+
+	if value[0] == 0 {
+		return false
+	}
+	return true
+}
+
+// Get a raw value as a floating point number (JS' standard for numbers).
+func getNumber(this js.Value, parameters []js.Value) interface{} {
+
+	defer catch("getNumber")
+
+	bkey := bytes(parameters[0]) /// errror check
+	pkey, perr := pad(bkey)
+	if perr != nil {
+		return perr
+	}
+	slot_ref := this.Get("slot_ref").Int() /// error check
+	slot := Slots[slot_ref-1] /// error check, pre, post (?)
+
+	// -------------------------------------------------------------------
+	value, err := slot.Kvs.Get(slot.Ctx, pkey)
+	// -------------------------------------------------------------------
+	if err != nil {
+		/// handle
+	}
+	if len(value) != 8 {
+		panic("wrong byte count of stored float")
+	}
+
+	f := math.Float64frombits(binary.BigEndian.Uint64(value))
+
+	log("» get " + bhex(pkey) + ": " + bhex(value) + " › " + fmt.Sprintf("%g",f))
+
+	return f
+}
+
+func getString(this js.Value, parameters []js.Value) interface{} {
+
+	defer catch("getString")
+
+	bkey := bytes(parameters[0]) /// errror check
+	pkey, perr := pad(bkey)
+	if perr != nil {
+		return perr
+	}
+	slot_ref := this.Get("slot_ref").Int() /// error check
+	slot := Slots[slot_ref-1] /// error check, pre, post (?)
+
+	// -------------------------------------------------------------------
+	value, err := slot.Kvs.Get(slot.Ctx, pkey)
+	// -------------------------------------------------------------------
+	if err != nil {
+		/// handle
+	}
+
+	log("» get " + bhex(pkey) + ": " + bhex(value) + "")
+
+	return string(value)
+}
+
+func getProof(js_call_context js.Value, parameters []js.Value) interface{} {
+
+	return nil  //// TODO
+}
+
+
+// ---------------------------------------------------------------------------
+
+// Expose functions to be called from JS-land, stay running on 'stand-by'.
+func main() {
+
+	log("» POTWASM")
+
+	// create pot module object
+	if js.Global().Get("pot").IsUndefined() {
+		js.Global().Set("pot", js.ValueOf(make(map[string]interface{})))
+	}
+	pot_ := js.Global().Get("pot")
+
+	// support functions
+	// -------------------------------------------------
+	pot_.Set("log", js.FuncOf(extlog))
+	pot_.Set("randKey", js.FuncOf(randKey))
+	pot_.Set("randValue", js.FuncOf(randValue))
+	pot_.Set("hello", js.FuncOf(hello))
+	// -------------------------------------------------
+	pot_.Set("newSwarmKvs", js.FuncOf(newSwarmKvs))
+	pot_.Set("newSwarmKvsReference", js.FuncOf(newSwarmKvsReference))
+	// -------------------------------------------------
+	pot_.Set("type_encoded_bytes", js.FuncOf(type_encoded_bytes_test))
+	pot_.Set("type_decoded_value", js.FuncOf(type_decoded_value_test))
+	pot_.Set("hangingPromise", js.FuncOf(hangingPromise))
+
+
+	// storage mode
+	js.Global().Set("pot_inmem", 1)
+
+	// make program pause for its above-listed functions to stay available
+	<-make(chan int)
+}
+
+// ---------------------------------------------------------------------------
+//
+// ## Support Functions
+//
+// Because they are to help with testing, some of the support functions
+// have the syscall/js signature, are exported to and can be called from
+// Javascript.
+//
+// ---------------------------------------------------------------------------
 
 // standardized log message to browser console
 func log(msg string) {
 	fmt.Println("pot:  " + msg)
 }
 
-func extlog(js_call_context js.Value, parameters []js.Value) interface{} { 
+func extlog(js_call_context js.Value, parameters []js.Value) interface{} {
 	msg := ""
 	if(len(parameters) > 0) {
 		msg = parameters[0].String()
@@ -40,7 +616,7 @@ func extlog(js_call_context js.Value, parameters []js.Value) interface{} {
 	return nil
 }
 
-// Keeping the go executable alive by catching panics in test functions.
+// Keeping the go executable alive by catching random panics in functions.
 // To be called as "defer catch()" at function start.
 func catch(function string) {
 	if err := recover(); err != nil {
@@ -49,7 +625,7 @@ func catch(function string) {
 }
 
 // Analog to pot test's keyValuePair(), kvs_tests.go.
-func randKey(js_call_context js.Value, parameters []js.Value) interface{} { 
+func randKey(js_call_context js.Value, parameters []js.Value) interface{} {
 
 	key := make([]byte, 32)
 	rand.Read(key)
@@ -60,7 +636,7 @@ func randKey(js_call_context js.Value, parameters []js.Value) interface{} {
 }
 
 // Analog to pot test's keyValuePair(), kvs_tests.go.
-func randValue(js_call_context js.Value, parameters []js.Value) interface{} { 
+func randValue(js_call_context js.Value, parameters []js.Value) interface{} {
 
 	size := rand.Intn(79)+22 // from native go pot tests, why this lenght?
 	value := make([]byte, size)
@@ -216,406 +792,4 @@ func bhex(p []byte) string {
 	return hex.EncodeToString(p)
 }
 
-// ---------------------------------------------------------------------------
-//
-// # MOCK KVS
-//
-// For JS API and js/go cross calling testing, these mock functions double
-// for their corrollaries in the go pot package.
-//
-// ---------------------------------------------------------------------------
 
-// Mock internal store for testing. It uses strings for keys as byte maps are 
-// not allowable for keys in go.
-type storeType struct {
-	store map[string][]byte
-	ctx context.Context
-}
-
-var store storeType
-var store_of_stores = make(map[int] storeType)
-var store_ref = 0
-
-func newSwarmKvs(js_call_context js.Value, parameters []js.Value) interface{} { 
-
-	defer catch("newSwarmKvs")
-	log("» initialize new P.o.T.")
-	log("» using mock in-memory test storage")
-	store = storeType{make(map[string][]byte), context.Background()}
-	store_ref = len(store_of_stores) + 1 // keeps 0 undefined
-	store_of_stores[store_ref] = store
-	return store_ref
-}
-
-func newSwarmKvsReference(js_call_context js.Value, parameters []js.Value) interface{} { 
-
-	defer catch("newSwarmKvsReference")
-	log("» select P.O.T. by reference")
-	log("» using mock in-memory test storage")
-	store_ref = parameters[0].Int() //// react if missing
-	store = store_of_stores[store_ref]
-	return store_ref
-}
-
-func save(js_call_context js.Value, parameters []js.Value) interface{} { 
-
-	defer catch("save")
-	log("» saving storage")
-	log("» mock test reference " + strconv.Itoa(store_ref))
-	if(len(store.store) < 1) {
-		return 0
-	}
-	//store_of_stores[store_ref] = store
-	return store_ref
-}
-
-func put(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	defer catch("put")
-	key := bytes(parameters[0])
-	value := bytes(parameters[1])
-	store.store[bhex(key)] = value
-	log("» put " + bhex(key) + ": " + bhex(value) + "")
-	return nil 
-}
-
-func get(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	defer catch("get")
-	key := bytes(parameters[0])
-	value := store.store[bhex(key)]
-	log("» get " + bhex(key) + ": " + bhex(value) + "")
-	return jsarray_from_bytes(value)
-}
-
-// Store a key-value pair, encoding the value type in the first value byte.
-// Usable directly from JS, and via putTypedPromise, its promise wrapper.
-func putTyped(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	defer catch("putTyped")
-	key := parameters[0] //// test & catch missing (test go still running)
-	value := parameters[1]
-	bkey := bytes(key) // same key logic as non-type coded mapping
-	bvalue, err := type_encoded_bytes(value)
-	if err != nil {
-		switch err.Error() {
-		case "bad type flag": //// refactor
-			msg := "trying to put unknown type"
-			log("» xxx put fail: " + msg) /// make debug-switched
-			return js.Global().Get("Error").New(msg)
-		default:
-			log("### » put error: " + err.Error()) 
-			return js.Global().Get("Error").New(err.Error())
-		}
-	}
-	store.store[bhex(bkey)] = bvalue
-	log("» put " + key.String() + ": " + value.String() + "")
-	log("» ⟶ " + bhex(bkey) + ": " + bhex(bvalue) + "")
-	return nil
-}
-
-func hangingPromise(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	done := make(chan bool)
-	quit := make(chan bool)
-
-	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
-
-		reject := handler_parameters[1]
-
-		go func() {
-			log("sleeping")
-			time.Sleep(time.Second)
-			select { case <-quit: return; default: }
-			log("done sleeping")
-			jserr := js.Global().Get("Error").New("done sleeping, nothing happened")
-			reject.Invoke(jserr)
-			done <- true
-		}()
-
-		go func() {
-			select {
-			case <- done:
-			case <- quit:
-				close(quit)
-				reject.Invoke(js.Global().Get("Error").New("canceled")) 
-			}
-		}()
-
-		return nil
-	})
-
-	promise := js.Global().Get("Promise").New(handler)
-	promise.Set("cancel", js.FuncOf(func(js.Value, []js.Value) interface{} { quit <- true ; log("canceled!") ; return nil }) )
-
-	return promise
-}
-
-
-// Async storing of a key-value pair, encoding the value type in the first value byte.
-// Returns a Javascript promise that returns a JS Error to reject() on failure.
-func putTypedPromise(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
-
-		resolve := handler_parameters[0] //// catch missing
-		reject := handler_parameters[1]
-
-		go func() {
-
-			jserr := putTyped(js_call_context, parameters)
-			if jserr != nil {
-				reject.Invoke(jserr)
-			} else {
-				resolve.Invoke()
-			}
-		}()
-
-		return nil
-	})
-
-	promise := js.Global().Get("Promise").New(handler)
-	promise.Set("cancel", js.FuncOf(func(js.Value, []js.Value) interface{} { log("cancelled!") ; return nil }) )
-
-	return promise
-}
-
-
-// Async storing of a key-value pair, encoding the value type in the first value byte.
-// Returns a Javascript promise that returns a JS Error to reject() on failure.
-func putTypedPromiseAttempt1(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
-
-		resolve := handler_parameters[0] //// catch missing
-		reject := handler_parameters[1]
-
-		go func() {
-
-			jserr := putTyped(js_call_context, parameters)
-			if jserr != nil {
-				reject.Invoke(jserr)
-			} else {
-				resolve.Invoke()
-			}
-		}()
-
-		return nil
-	})
-
-	cancler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
-
-		return nil
-	})
-
-
-	worker := js.Global().Get("Promise").New(handler)
-	stopper := js.Global().Get("Promise").New(cancler)
-	arr := make([]interface{}, 2)
-	arr[0] = worker
-	arr[1] = stopper
-
-	a := js.Global().Get("Object").New()
-	a.Set("0", worker)
-	a.Set("1", stopper)
-
-	log(a.Type().String())
-
-	return js.Global().Get("Promise").Get("race").Invoke(a)
-}
-
-// Async storing of a key-value pair, encoding the value type in the first value byte.
-// Returns a Javascript promise that returns a JS Error to reject() on failure.
-func putTypedPromiseWorkingWell(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
-
-		resolve := handler_parameters[0] //// catch missing
-		reject := handler_parameters[1]
-
-		go func() {
-
-			jserr := putTyped(js_call_context, parameters)
-			if jserr != nil {
-				reject.Invoke(jserr)
-			} else {
-				resolve.Invoke()
-			}
-		}()
-
-		return nil
-	})
-
-	promiseConstructor := js.Global().Get("Promise")
-	return promiseConstructor.New(handler)
-}
-
-func putTypedDeprec(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	defer catch("putTyped")
-	key := bytes(parameters[0]) // same key logic as non-type coded mapping
-	value, err := type_encoded_bytes(parameters[1])
-	if err != nil {
-		switch err.Error() {
-		case "bad type flag":
-			log("### » put error: trying to put unknown type") 
-		default:
-			log("### » put error: " + err.Error()) 
-		}
-		return js.ValueOf(err.Error())
-	}
-	store.store[bhex(key)] = value
-	log("» put " + bhex(key) + ": " + bhex(value) + "")
-	return nil
-}
-
-func getTyped(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	defer catch("getTyped")
-	key := parameters[0]
-	bkey := bytes(key)
-	bvalue := store.store[bhex(bkey)]
-	value, err := type_decoded_value(bvalue)
-	if err != nil {
-		switch err.Error() {
-		case "bad type flag": //// refactor
-			msg := "trying to get unknown type"
-			log("» xxx get fail: " + msg) /// make debug-switched
-			return js.Global().Get("Error").New(msg)
-		default:
-			log("### » get error: " + err.Error()) 
-			return js.Global().Get("Error").New(err.Error())
-		}
-	}
-	log("» get " + key.String() + ": " + value.String() + "")
-	log("» ⟵ " + bhex(bkey) + ": " + bhex(bvalue) + "")
-	return value
-}
-
-// Async getting of a value, decoding the value type in the first value byte.
-// Returns a Javascript promise that returns a JS Error to reject() on failure.
-func getTypedPromise(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
-
-		resolve := handler_parameters[0]
-		reject := handler_parameters[1]
-
-		go func() {
-
-			// The Go error type is not used, to make getTyped
-			// usable also directly from JS, where only one result
-			// is expected. Direct calls, however, may be useful
-			// for prototyping against in-memory pots only.
-			jsvalue_or_jserr := getTyped(js_call_context, parameters).(js.Value)
-			if jsvalue_or_jserr.InstanceOf(js.Global().Get("Error")) {
-				reject.Invoke(jsvalue_or_jserr)
-			} else {
-				resolve.Invoke(jsvalue_or_jserr)
-			}
-		}()
-
-		return nil
-	})
-
-	promiseConstructor := js.Global().Get("Promise")
-	return promiseConstructor.New(handler)
-}
-
-/// use?
-func getRaw(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	return get(js_call_context, parameters)
-}
-
-func getBoolean(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	defer catch("getBoolean")
-	key := bytes(parameters[0])
-	value := store.store[bhex(key)]
-	if value[0] == 0 {
-		return false
-	}
-	return true
-}
-
-// Get a raw value as a floating point number (JS' standard for numbers).
-func getNumber(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	defer catch("getNumber")
-	key := bytes(parameters[0])
-	value := store.store[bhex(key)]
-	if len(value) != 8 {
-		panic("wrong byte count of stored float")
-	}
-	f := math.Float64frombits(binary.BigEndian.Uint64(value))
-	log("» get " + bhex(key) + ": " + bhex(value) + " › " + fmt.Sprintf("%g",f))
-	return f
-}
-
-// Alternate Implementation based on storing numbers as strings.
-func getNumberAlternate(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	defer catch("getNumberAlternate")
-	key := bytes(parameters[0])
-	value := store.store[bhex(key)]
-	f, _ := strconv.ParseFloat(string(value), 64)
-	fs := fmt.Sprintf("%g", f) // for logging only
-	log("» get " + bhex(key) + ": " + bhex(value) + " › " + fs)
-	return float64(f)
-}
-
-func getString(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	defer catch("getString")
-	key := bytes(parameters[0])
-	value := store.store[bhex(key)]
-	return string(value)
-}
-
-func getProof(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	return nil
-}
-
-
-// ---------------------------------------------------------------------------
-
-// Expose functions to be called from JS-land, stay running on 'stand-by'.
-func main() {
-
-	log("» POTWASM")
-
-	// create pot module object
-	js.Global().Set("pot", js.ValueOf(make(map[string]interface{})))
-
-	pot := js.Global().Get("pot")
-
-	// support functions
-	// -------------------------------------------------
-	pot.Set("log", js.FuncOf(extlog))
-	pot.Set("randKey", js.FuncOf(randKey))
-	pot.Set("randValue", js.FuncOf(randValue))
-	pot.Set("hello", js.FuncOf(hello))
-	// -------------------------------------------------
-	pot.Set("newSwarmKvs", js.FuncOf(newSwarmKvs))
-	pot.Set("newSwarmKvsReference", js.FuncOf(newSwarmKvsReference))
-	pot.Set("save", js.FuncOf(save))
-	pot.Set("put", js.FuncOf(put))
-	pot.Set("get", js.FuncOf(get))
-	pot.Set("putTyped", js.FuncOf(putTyped))
-	pot.Set("getTyped", js.FuncOf(getTyped))
-	pot.Set("putTypedPromise", js.FuncOf(putTypedPromise))
-	pot.Set("getTypedPromise", js.FuncOf(getTypedPromise))
-	pot.Set("getBoolean", js.FuncOf(getBoolean))
-	pot.Set("getNumber", js.FuncOf(getNumber))
-	pot.Set("getString", js.FuncOf(getString))
-	pot.Set("getProof", js.FuncOf(getProof))
-	// -------------------------------------------------
-	pot.Set("type_encoded_bytes", js.FuncOf(type_encoded_bytes_test))
-	pot.Set("type_decoded_value", js.FuncOf(type_decoded_value_test))
-	pot.Set("hangingPromise", js.FuncOf(hangingPromise))
-
-	// make program pause for its above-listed functions to stay available
-	<- make(chan int)
-}

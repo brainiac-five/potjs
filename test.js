@@ -95,13 +95,32 @@ function assertNoError(T, err) {
 	else T.log("√ no error raised.")
 }
 
+function assertIsError(T, err) {
+	T.tests++
+	if(!(err instanceof Error)) {
+		T.log("### should have returned error, instead of ‹" + err + "› ###")
+		T.errors++
+	}
+	else T.log("√ returned error, as expected.")
+}
+
+function assertNotAnError(T, err) {
+	T.tests++
+	console.log(err)
+	if(err instanceof Error) {
+		T.log("### unexpected, returned error: ‹" + err + "› ###")
+		T.errors++
+	}
+	else T.log("√ no error returned.")
+}
+
 function assertError(T, err) {
 	T.tests++
 	if(!err) {
 		T.log("### Test Error: should have errored. ###")
 		T.errors++
 	}
-	else T.log("√ expected error raised.")
+	else T.log("√ error raised, as expected.")
 }
 
 function attestError(T, err) {
@@ -163,6 +182,15 @@ function assertEqual(T, res, exp) {
 		T.errors++
 	}
 	else T.log("√ as expected, ‹" + res + "›.")
+}
+
+function assertNotEqual(T, res, exp) {
+	T.tests++;
+	if(res == exp) {
+		T.log("### Test Error: result was expected to not be ‹" + exp + "› ###")
+		T.errors++
+	}
+	else T.log("√ as expected, ‹" + res + "› not ‹" + exp + "›.")
 }
 
 async function delay(millisec) {

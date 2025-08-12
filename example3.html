@@ -1,7 +1,7 @@
 <pre>
 
 
-	POT JS Example 2: Interactive
+	POT JS Example 3: Explicit Initialization 
 
 
 	key    <input id=key>
@@ -23,19 +23,20 @@
 
 </pre>
 
-<script src="wasm_exec.js" integrity="sha384-PWCs+V4BDf9yY1yjkD/p+9xNEs4iEbuvq+HezAOJiY3XL5GI6VyJXMsvnjiwNbce"></script>
-<script src="potjs.js" integrity="sha384-dUfhLIycF6GUprYxIlIiAAQR3rh3KsPxPdsgq4tP2rTe7grND7bXjAj4nawjq5Ht"></script>
+<script src="wasm_exec.js"></script>
 
 <script>
 
-	var map
+	const go = new Go()
 
-	(async () => {
+	var map;
 
-		await pot.ready()
-		map = pot.newSwarmKvs()
-
-	})()
+	WebAssembly.instantiateStreaming(
+		fetch("pot.wasm"), go.importObject)
+			.then((r)=>{
+				go.run(r.instance)
+				map = pot.newSwarmKvs()
+			})
 
 	const field = (id) => { return document.getElementById(id) }
 
