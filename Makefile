@@ -5,7 +5,7 @@
 # To build without using make, do
 #
 #	cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" .
-#	GOOS=js GOARCH=wasm go build -o pot.wasm potjs.go state.go
+#	GOOS=js GOARCH=wasm go build -o pot.wasm potjs.go 
 #
 # The rules below can help to build from scratch, run tests and as a convenient
 # way to run examples.
@@ -36,11 +36,11 @@ help:
 	# clean         prepare for building from scratch
 	# distclean     prepare for commit to repository
 
-build: go.mod wasm_exec.js potjs.go state.go Makefile unmock integrity
-	GOOS=js GOARCH=wasm go build -o pot.wasm potjs.go state.go
+build: go.mod wasm_exec.js potjs.go Makefile unmock integrity
+	GOOS=js GOARCH=wasm go build -o pot.wasm potjs.go nomock.go
 	@echo √ created pot.wasm for production
 
-example1 example2 example3: build
+example1 example2 example3 example4: build
 	open http://127.0.0.1:8080/$@.html
 	npx http-server -c-1 .
 
@@ -61,7 +61,7 @@ wasm_exec.js:
 # create the go mod file and expect the go pot implementation to ./pot
 go.mod:
 	go mod init potwasm
-	go mod edit -replace pot=./pot
+	go mod edit -replace github.com/ethersphere/proximity-order-trie=github.com/ethersphere/proximity-order-trie@2e1d9c4081359a73cf2eab49757e7ca524e5ac28
 	go get
 
 # test the js api with the go pot implementation (the standard test)
@@ -75,10 +75,13 @@ gopot_test: unmock build
 	npx http-server -c-1 . 
 
 api_test: wasm_exec.js go.mod mock
-	GOOS=js GOARCH=wasm go build -tags=api_test -o pot.wasm potjs.go state.go mock.go
+	GOOS=js GOARCH=wasm go build -tags=api_test -o pot.wasm potjs.go mock.go
 	@echo √ created pot.wasm for extended API tests
 	open http://127.0.0.1:8080/test.html
 	npx http-server -c-1 .
+
+serve:
+	npx http-server -c-1 . 
 
 # switch the meaning of package 'pot' to the test stub in mock/pot.go. The go
 # pot implementation is then ignored and the api tested stand-alone. This
@@ -86,10 +89,11 @@ api_test: wasm_exec.js go.mod mock
 # special version of pot.wasm though which behaves very similar to the real
 # one and can trip up the building.
 mock: go.mod
-	go mod edit -dropreplace pot
-	go mod edit -replace pot=./mock
+	go mod edit -dropreplace github.com/ethersphere/proximity-order-trie
+	go mod edit -replace github.com/ethersphere/proximity-order-trie=./mock
+	go get github.com/ethersphere/proximity-order-trie/pkg/persister
 	sed -i.bak -e "s/Go POT/XT API/" testmode.js
-	sed -i.bak -e "s/blue/brown/" testmode.js
+	sed -i.bak -e "s/navy/#500050/" testmode.js
 	sed -i.bak -e "s/<em>.*<\/em>/<em>extended API tests<\/em>/" testmode.js
 	rm -f testmode.js.bak
 
@@ -98,10 +102,10 @@ mock: go.mod
 # setup of the project.
 unmock: go.mod
 ifneq ($(MOCKED),)
-	go mod edit -dropreplace pot
-	go mod edit -replace pot=./pot
+	go mod edit -dropreplace github.com/ethersphere/proximity-order-trie
+	go mod tidy
 	sed -i.bak -e "s/XT API/Go POT/" testmode.js
-	sed -i.bak -e "s/brown/blue/" testmode.js
+	sed -i.bak -e "s/#500050/navy/" testmode.js
 	sed -i.bak -e "s/<em>.*<\/em>/<em>in direct interaction with the Go POT implementation<\/em>/" testmode.js
 	rm -f testmode.js.bak
 endif
@@ -111,7 +115,7 @@ clean:
 	rm -f go.mod
 	rm -f pot.wasm
 	rm -f wasm_exec.js
-	rm -f *.sha384
+	rm -f potjs.js.sha384 wasm_exec.js.sha384
 
 # prepare for repository. The repo is pushed with relevant core files built
 # because .js and .wasm files are portable and can be used without having to

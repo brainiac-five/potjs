@@ -30,6 +30,7 @@
 		/* Test 1 */
 
 		T.head("Example Test")
+		T.log("Test setup test outside of main test files.")
 		T.start("html-inline")
 
 		map = pot.newSwarmKvs()
@@ -37,7 +38,7 @@
 		T.log("• put and get K: V")
 		map.put("K", "V")
 		r = map.getString("K")
-		assertEqual(T, r, "V")
+		assertEqual(null, T, r, "V")
 
 		/* More Tests */
 
@@ -45,10 +46,14 @@
 	 	TestPotKvs_EdgeValues(T)
 		TestPotKvs_TypeEncoding(T)
 		TestPotKvs_TypedAccess(T)
-		TestPotKvs_Save(T)
 		await TestPotKvs_Promise(T)
-		await TestPotKvs_Proof(T)
 		await TestPotKvs_Cancellation(T)
+		await TestPotKvs_Mass(T)
+		await TestPotKvs_Save(T)
+		await TestPotKvs_Complex_Save(T)
+		await TestPotKvs_Complex_Concurrent(T)
+		await TestPotKvs_Proof(T) 
+		await TestPotKvs_Failures(T)
 
 		T.balance()
 	}
@@ -67,8 +72,11 @@
 <p>  This is the test suite for the Javascript API to the Go implementation of the Proximity-Order-Trie (POT). </p>
 
 
-<p>  <a href=example1.html> example 1 </a> &nbsp;
+<p>  Also see: 
+     <a href=example1.html> example 1 </a> &nbsp;
      <a href=example2.html> example 2 </a> &nbsp;
+     <a href=example3.html> example 3 </a> &nbsp;
+     <a href=example4.html> example 4 </a> &nbsp;
      <a href=README.MD>     read me   </a> </p>
 
 
@@ -83,7 +91,7 @@
 
 <h2> KVS Tests </h2>
 
-<h4 id=status> Tests not complete ... </h4>
+<h4 id=status> Tests not complete ... <span id=counter></span></h4>
 
 </body>
 </html>

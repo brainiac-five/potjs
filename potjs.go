@@ -1,13 +1,10 @@
 // ---------------------------------------------------------------------------
 //
-// # JS KVS TESTS
+// # POT JS
 //
-// For testing the JS API accessing the go pot package compiler to wasm.
-//
-// The tests are modeled on and extend the tests in go pot /kvs_test.go.
-//
-// They are made for execution in the browser to test the real target
-// environment the API is made for as opposed to node.
+// The functions callable from Javascript. The signatures are uniform as 
+// required by syscall/js. The first parameter is `this`, the second the
+// array of the actual (JS) arguments to the function call.
 //
 // ---------------------------------------------------------------------------
 package main
@@ -26,19 +23,9 @@ import(
 	"encoding/binary"
 	"syscall/js"
 
-	. "pot"
+	. "github.com/ethersphere/proximity-order-trie"
         "github.com/ethersphere/proximity-order-trie/pkg/persister"
 )
-
-// ---------------------------------------------------------------------------
-//
-// # POT JS
-//
-// The functions callable from Javascript. The signatures are uniform as 
-// required by syscall/js. The first parameter is `this`, the second the
-// array of the actual arguments.
-//
-// ---------------------------------------------------------------------------
 
 var _ KeyValueStore = (*SwarmKvs)(nil)
 
@@ -47,10 +34,29 @@ const (
 	inmem int = 1
 )
 
-// Create a new Swarm KVS map, with a handle in the form of a Javascript object.
-func newSwarmKvs(js_call_context js.Value, parameters []js.Value) interface{} { 
+var Saved = make(map[string]int)
 
-	defer catch("newSwarmKvs")
+type Slot struct {
+
+	Ref int // index+1 in slots array
+	Ctx context.Context
+	Ls persister.LoadSaver
+	Kvs *SwarmKvs
+}
+
+// array of all slots
+var Slots = []Slot{}
+
+
+// Create a new Swarm KVS map, with a handle in the form of a Javascript object.
+func newSwarmKvs(js_call_context js.Value, parameters []js.Value) (result interface{}) {
+
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in newSwarmKvs: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
 
 	log("» initialize new P.O.T.")
 
@@ -71,16 +77,53 @@ func newSwarmKvs(js_call_context js.Value, parameters []js.Value) interface{} {
 	kvs, err := NewSwarmKvs(ls)
 	// -------------------------------------------------------------------
 	if err != nil {
-		/// error message? message of error?
-		return nil
+		msg := "### error in newSwarmKvs: " + err.Error()
+		log(msg)
+		return js.Global().Get("Error").New(msg)
 	}
 
 	// register context and kvs handle, take numerical index as handle
 	slot_ref := len(Slots) + 1 // = starting on 1. /// add deletion
 	Slots = append(Slots, Slot{Ctx: context.Background(), Kvs: kvs, Ref: slot_ref, Ls: ls})
 
-		log("slot ref: " + strconv.Itoa(slot_ref))
+	log("slot ref: " + strconv.Itoa(slot_ref))
 	return createJSObject(slot_ref)
+}
+
+// Create a new Swarm KVS map, with a handle in the form of a Javascript object.
+func newSwarmKvsPromise(js_call_context js.Value, parameters []js.Value) (result interface{}) { 
+
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in newSwarmKvsPromise: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
+
+	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
+
+		resolve := handler_parameters[0]
+		reject := handler_parameters[1]
+
+		go func() {
+
+			// The Go error type is not used, to make getTyped
+			// usable also directly from JS, where only one result
+			// is expected. Direct calls, however, may be useful
+			// for prototyping against in-memory pots only.
+			jsvalue_or_jserr := newSwarmKvs(js_call_context, parameters).(js.Value)
+			if jsvalue_or_jserr.InstanceOf(js.Global().Get("Error")) {
+				reject.Invoke(jsvalue_or_jserr)
+			} else {
+				resolve.Invoke(jsvalue_or_jserr)
+			}
+		}()
+
+		return nil
+	})
+
+	promiseConstructor := js.Global().Get("Promise")
+	return promiseConstructor.New(handler)
 }
 
 // Get access to an existing Swarm KVS JS object, using its 32-byte save handle.
@@ -92,13 +135,14 @@ func newSwarmKvs(js_call_context js.Value, parameters []js.Value) interface{} {
 // However, as it is implemented now, for in-memory load-savers, it will
 // not work for Swarm either when the program is stopped and restarted, if the
 // load-saver parameter was missing. /// TODO
-func newSwarmKvsReference(this js.Value, parameters []js.Value) (rerr interface{}) {
+func newSwarmKvsReference(this js.Value, parameters []js.Value) (result interface{}) {
 	/// rename
 
 	// on panic, log, and return js Error object
-	defer func() { if err := recover(); err != nil { 
-		log("### " + err.(string))
-		rerr = js.Global().Get("Error").New(err.(string))
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in newSwarmKvsReference: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
 	}}()
 
 	log("» select P.O.T. by save reference")
@@ -136,6 +180,41 @@ func newSwarmKvsReference(this js.Value, parameters []js.Value) (rerr interface{
 	return createJSObject(slot_ref)
 }
 
+func newSwarmKvsReferencePromise(this js.Value, parameters []js.Value) (result interface{}) {
+
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in newSwarmKvsReferencePromise: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
+
+	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
+
+		resolve := handler_parameters[0] /// catch parameter errors
+		reject := handler_parameters[1]
+
+		go func() {
+
+			// The Go error type is not used, to make getTyped
+			// usable also directly from JS, where only one result
+			// is expected. Direct calls, however, may be useful
+			// for prototyping against in-memory pots only.
+			jsvalue_or_jserr := newSwarmKvsReference(this, parameters).(js.Value)
+			if jsvalue_or_jserr.InstanceOf(js.Global().Get("Error")) {
+				reject.Invoke(jsvalue_or_jserr)
+			} else {
+				resolve.Invoke(jsvalue_or_jserr)
+			}
+		}()
+
+		return nil
+	})
+
+	promiseConstructor := js.Global().Get("Promise")
+	return promiseConstructor.New(handler)
+}
+
 func createJSObject(slot_ref int) js.Value {
 
 	// create Javascript handle object
@@ -148,6 +227,7 @@ func createJSObject(slot_ref int) js.Value {
 	jsO.Set("put", js.FuncOf(put))
 	jsO.Set("get", js.FuncOf(get))
 	jsO.Set("save", js.FuncOf(save))
+	jsO.Set("savePromise", js.FuncOf(savePromise))
 	jsO.Set("getBoolean", js.FuncOf(getBoolean))
 	jsO.Set("getNumber", js.FuncOf(getNumber))
 	jsO.Set("getString", js.FuncOf(getString))
@@ -161,12 +241,13 @@ func createJSObject(slot_ref int) js.Value {
 }
 
 // JS API:
-func save(this js.Value, parameters []js.Value) (rerr interface{}) {
+func save(this js.Value, parameters []js.Value) (result interface{}) {
 
 	// on panic, log, and return js Error object
 	defer func() { if err := recover(); err != nil {
-		log("### " + err.(string))
-		rerr = js.Global().Get("Error").New(err.(string))
+		msg := "### panic in save: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
 	}}()
 
 	log("» saving storage")
@@ -194,35 +275,57 @@ func save(this js.Value, parameters []js.Value) (rerr interface{}) {
         return jsref32 
 }
 
-/* /// add async safe
+func savePromise(js_call_context js.Value, parameters []js.Value) (result interface{}) {
+
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in savePromise: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
 
 	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
 
-		resolve := handler_parameters[0] //// catch missing
+		resolve := handler_parameters[0]
 		reject := handler_parameters[1]
 
 		go func() {
 
-			jserr := putTyped(js_call_context, parameters)
-			if jserr != nil {
-				reject.Invoke(jserr)
+			// The Go error type is not used, to make getTyped
+			// usable also directly from JS, where only one result
+			// is expected. Direct calls, however, may be useful
+			// for prototyping against in-memory pots only.
+			jsvalue_or_jserr := save(js_call_context, parameters).(js.Value)
+			if jsvalue_or_jserr.InstanceOf(js.Global().Get("Error")) {
+				reject.Invoke(jsvalue_or_jserr)
 			} else {
-				resolve.Invoke()
+				resolve.Invoke(jsvalue_or_jserr)
 			}
 		}()
 
 		return nil
 	})
 
-	promise := js.Global().Get("Promise").New(handler)
-	promise.Set("cancel", js.FuncOf(func(js.Value, []js.Value) interface{} { log("cancelled!") ; return nil }) )
+	promiseConstructor := js.Global().Get("Promise")
+	return promiseConstructor.New(handler)
+}
 
-	return promise
-*/
 // JS API: stores a raw byte value to a raw 32 byte key
-func put(this js.Value, parameters []js.Value) interface{} {
+func put(this js.Value, parameters []js.Value) (result interface{}) {
 
-	defer catch("put")
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in put: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
+
+	// parameter count check
+	if(len(parameters) < 2) {
+		msg := "### parameter count error: put() requires 2, got " + strconv.Itoa(len(parameters))
+		log(msg)
+		return js.Global().Get("Error").New(msg)
+	}
 
 	key := bytes(parameters[0]) /// error check / absence
 	pkey, perr := pad(key)
@@ -238,8 +341,9 @@ func put(this js.Value, parameters []js.Value) interface{} {
 	err := slot.Kvs.Put(slot.Ctx, pkey, value)
 	// -------------------------------------------------------------------
 	if err != nil {
-		log(err.Error())
-		/// handle
+		msg := "### error in put: " + err.Error()
+		log(msg)
+		return js.Global().Get("Error").New(msg)
 	}
 
 	log("» put " + bhex(pkey) + ": " + bhex(value) + "")
@@ -262,9 +366,14 @@ func pad(key []byte) ([]byte, interface{}) {
 }
 
 // JS API get retrieves a raw byte value for a raw 32 byte key
-func get(this js.Value, parameters []js.Value) interface{} {
+func get(this js.Value, parameters []js.Value) (result interface{}) {
 
-	defer catch("get")
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in get: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
 
 	bkey := bytes(parameters[0]) /// errror check
 	pkey, perr := pad(bkey)
@@ -289,9 +398,21 @@ func get(this js.Value, parameters []js.Value) interface{} {
 
 // Store a key-value pair, encoding the value type in the first value byte.
 // Usable directly from JS, and via putTypedPromise, its promise wrapper.
-func putTyped(this js.Value, parameters []js.Value) interface{} {
+func putTyped(this js.Value, parameters []js.Value) (result interface{}) {
 
-	defer catch("putTyped")
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in putTyped: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
+
+	// parameter count check
+	if(len(parameters) < 2) {
+		msg := "### parameter count error: putTyped() requires 2, got " + strconv.Itoa(len(parameters))
+		log(msg)
+		return js.Global().Get("Error").New(msg)
+	}
 
 	key := parameters[0] /// error check / absence
 	bkey := bytes(key) /// error check / absence
@@ -320,69 +441,56 @@ func putTyped(this js.Value, parameters []js.Value) interface{} {
 	err = slot.Kvs.Put(slot.Ctx, pkey, cvalue)
 	// -------------------------------------------------------------------
 	if err != nil {
-		log(err.Error())
-		/// handle
+		msg := "### error in put: " + err.Error()
+		log(msg)
+		return js.Global().Get("Error").New(msg)
 	}
 
 	log("» put " + key.String() + ": " + value.String() + "")
 	log("» ⟶ " + bhex(pkey) + ": " + bhex(cvalue) + "")
-	return nil
+	return js.Null()
 }
-
-func hangingPromise(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	done := make(chan bool)
-	quit := make(chan bool)
-
-	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
-
-		reject := handler_parameters[1]
-
-		go func() {
-			log("sleeping")
-			time.Sleep(time.Second)
-			select { case <-quit: return; default: }
-			log("done sleeping")
-			jserr := js.Global().Get("Error").New("done sleeping, nothing happened")
-			reject.Invoke(jserr)
-			done <- true
-		}()
-
-		go func() {
-			select {
-			case <- done:
-			case <- quit:
-				close(quit)
-				reject.Invoke(js.Global().Get("Error").New("canceled")) 
-			}
-		}()
-
-		return nil
-	})
-
-	promise := js.Global().Get("Promise").New(handler)
-	promise.Set("cancel", js.FuncOf(func(js.Value, []js.Value) interface{} { quit <- true ; log("canceled!") ; return nil }) )
-
-	return promise
-}
-
 
 // Async storing of a key-value pair, encoding the value type in the first value byte.
 // Returns a Javascript promise that returns a JS Error to reject() on failure.
-func putTypedPromise(js_call_context js.Value, parameters []js.Value) interface{} {
+func putTypedPromise(js_call_context js.Value, parameters []js.Value) (result interface{}) {
+
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in putTypedPromise: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
 
 	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
 
-		resolve := handler_parameters[0] //// catch missing
+		// on panic, log, and return js Error object
+		defer func() { if err := recover(); err != nil {
+			msg := "### panic in putTypedPromise executor: " + err.(string)
+			log(msg)
+			result = js.Global().Get("Error").New(msg)
+		}}()
+
+		resolve := handler_parameters[0]
 		reject := handler_parameters[1]
 
-		go func() {
+		// parameter count check
+		if(len(parameters) < 2) { // sic. parameters, not handler_paramaters
+			msg := "### parameter count error: putTypedPromise() requires 2, got " + strconv.Itoa(len(parameters))
+			log(msg)
+			reject.Invoke(js.Global().Get("Error").New(msg))
+		}
 
-			jserr := putTyped(js_call_context, parameters)
-			if jserr != nil {
-				reject.Invoke(jserr)
+		go func() {
+			// The Go error type is not used, to make getTyped
+			// usable also directly from JS, where only one result
+			// is expected. Direct calls, however, may be useful
+			// for prototyping against in-memory pots only.
+			jsvalue_or_jserr := putTyped(js_call_context, parameters).(js.Value)
+			if jsvalue_or_jserr.InstanceOf(js.Global().Get("Error")) {
+				reject.Invoke(jsvalue_or_jserr)
 			} else {
-				resolve.Invoke()
+				resolve.Invoke(jsvalue_or_jserr)
 			}
 		}()
 
@@ -395,9 +503,14 @@ func putTypedPromise(js_call_context js.Value, parameters []js.Value) interface{
 	return promise
 }
 
-func getTyped(this js.Value, parameters []js.Value) interface{} {
+func getTyped(this js.Value, parameters []js.Value) (result interface{}) {
 
-	defer catch("getTyped")
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in getTyped: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
 
 	key := parameters[0] /// error check / absence
 	bkey := bytes(key) /// error check / absence
@@ -434,7 +547,14 @@ func getTyped(this js.Value, parameters []js.Value) interface{} {
 
 // Async getting of a value, decoding the value type in the first value byte.
 // Returns a Javascript promise that returns a JS Error to reject() on failure.
-func getTypedPromise(js_call_context js.Value, parameters []js.Value) interface{} {
+func getTypedPromise(js_call_context js.Value, parameters []js.Value) (result interface{}) {
+
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in getTypedPromise: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
 
 	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
 
@@ -462,17 +582,14 @@ func getTypedPromise(js_call_context js.Value, parameters []js.Value) interface{
 	return promiseConstructor.New(handler)
 }
 
-/*
-/// use?
-func getRaw(js_call_context js.Value, parameters []js.Value) interface{} {
+func getBoolean(this js.Value, parameters []js.Value) (result interface{}) {
 
-	return get(js_call_context, parameters)
-}
-*/
-
-func getBoolean(this js.Value, parameters []js.Value) interface{} {
-
-	defer catch("getBoolean")
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in getBoolean: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
 
 	bkey := bytes(parameters[0]) /// errror check
 	pkey, perr := pad(bkey)
@@ -498,9 +615,14 @@ func getBoolean(this js.Value, parameters []js.Value) interface{} {
 }
 
 // Get a raw value as a floating point number (JS' standard for numbers).
-func getNumber(this js.Value, parameters []js.Value) interface{} {
+func getNumber(this js.Value, parameters []js.Value) (result interface{}) {
 
-	defer catch("getNumber")
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in getNumber: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
 
 	bkey := bytes(parameters[0]) /// errror check
 	pkey, perr := pad(bkey)
@@ -527,9 +649,14 @@ func getNumber(this js.Value, parameters []js.Value) interface{} {
 	return f
 }
 
-func getString(this js.Value, parameters []js.Value) interface{} {
+func getString(this js.Value, parameters []js.Value) (result interface{}) {
 
-	defer catch("getString")
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in getString: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
 
 	bkey := bytes(parameters[0]) /// errror check
 	pkey, perr := pad(bkey)
@@ -551,7 +678,14 @@ func getString(this js.Value, parameters []js.Value) interface{} {
 	return string(value)
 }
 
-func getProof(js_call_context js.Value, parameters []js.Value) interface{} {
+func getProof(js_call_context js.Value, parameters []js.Value) (result interface{}) {
+
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in getProof: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
 
 	return nil  //// TODO
 }
@@ -578,11 +712,16 @@ func main() {
 	pot_.Set("hello", js.FuncOf(hello))
 	// -------------------------------------------------
 	pot_.Set("newSwarmKvs", js.FuncOf(newSwarmKvs))
+	pot_.Set("newSwarmKvsPromise", js.FuncOf(newSwarmKvsPromise))
 	pot_.Set("newSwarmKvsReference", js.FuncOf(newSwarmKvsReference))
+	pot_.Set("newSwarmKvsReferencePromise", js.FuncOf(newSwarmKvsReferencePromise))
 	// -------------------------------------------------
+	pot_.Set("testMode", js.FuncOf(testMode))
 	pot_.Set("type_encoded_bytes", js.FuncOf(type_encoded_bytes_test))
 	pot_.Set("type_decoded_value", js.FuncOf(type_decoded_value_test))
 	pot_.Set("hangingPromise", js.FuncOf(hangingPromise))
+	pot_.Set("setFail", js.FuncOf(setFail))
+	pot_.Set("setPanic", js.FuncOf(setPanic))
 
 
 	// storage mode
@@ -596,11 +735,8 @@ func main() {
 //
 // ## Support Functions
 //
-// Because they are to help with testing, some of the support functions
-// have the syscall/js signature, are exported to and can be called from
-// Javascript.
-//
 // ---------------------------------------------------------------------------
+
 
 // standardized log message to browser console
 func log(msg string) {
@@ -614,44 +750,6 @@ func extlog(js_call_context js.Value, parameters []js.Value) interface{} {
 	}
 	log(msg)
 	return nil
-}
-
-// Keeping the go executable alive by catching random panics in functions.
-// To be called as "defer catch()" at function start.
-func catch(function string) {
-	if err := recover(); err != nil {
-		fmt.Fprintln(os.Stderr, "### error in function", function, ":", err)
-	}
-}
-
-// Analog to pot test's keyValuePair(), kvs_tests.go.
-func randKey(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	key := make([]byte, 32)
-	rand.Read(key)
-	log("» created random key " + bhex(key) + " in go")
-	result := js.Global().Get("Uint8Array").New(32)
-	js.CopyBytesToJS(result, key)
-	return result
-}
-
-// Analog to pot test's keyValuePair(), kvs_tests.go.
-func randValue(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	size := rand.Intn(79)+22 // from native go pot tests, why this lenght?
-	value := make([]byte, size)
-	rand.Read(value)
-	log("» created random " + strconv.Itoa(size) + " byte value " + bhex(value) + " in go")
-	result := js.Global().Get("Uint8Array").New(size)
-	js.CopyBytesToJS(result, value)
-	return result
-}
-
-// Simple call target to test js/go cross calling.
-func hello(js_call_context js.Value, parameters []js.Value) interface{} {
-
-	log("hello")
-	return "hello, wasm!"
 }
 
 // Cast from JS value to go byte array for keys.
@@ -698,7 +796,7 @@ func jsarray_from_bytes(value []byte) js.Value {
 // Encode values from JS value to a go byte array leading in with a type.
 func type_encoded_bytes(p js.Value) (result []byte, rerr error) {
 
-	defer func() { if err := recover(); err != nil {
+	defer func() { if err := recover(); err != nil { /// review
 		// fmt.Fprintln(os.Stderr, "### error in function type_decoded_value:", err)
 		result = nil
 		rerr = errors.New(err.(string))
@@ -792,4 +890,95 @@ func bhex(p []byte) string {
 	return hex.EncodeToString(p)
 }
 
+// ---------------------------------------------------------------------------
+//
+// ## Test Functions
+//
+// Because they are to help with testing, some of the support functions
+// have the syscall/js signature, are exported to and can be called from
+// Javascript.
+//
+// ---------------------------------------------------------------------------
+// Keeping the go executable alive by catching random panics in functions.
+// To be called as "defer catch()" at function start.
+
+// Simple call target to test js/go cross calling.
+func hello(js_call_context js.Value, parameters []js.Value) interface{} {
+
+	log("hello")
+	return "hello, wasm!"
+}
+
+func catch(function string) {
+	if err := recover(); err != nil {
+		fmt.Fprintln(os.Stderr, "### error in function", function, ":", err)
+	}
+}
+
+// Analog to pot test's keyValuePair(), kvs_tests.go.
+func randKey(js_call_context js.Value, parameters []js.Value) interface{} {
+
+	key := make([]byte, 32)
+	rand.Read(key)
+	log("» created random key " + bhex(key) + " in go")
+	result := js.Global().Get("Uint8Array").New(32)
+	js.CopyBytesToJS(result, key)
+	return result
+}
+
+// Analog to pot test's keyValuePair(), kvs_tests.go.
+func randValue(js_call_context js.Value, parameters []js.Value) interface{} {
+
+	size := rand.Intn(79)+22 // from native go pot tests, why this lenght?
+	value := make([]byte, size)
+	rand.Read(value)
+	log("» created random " + strconv.Itoa(size) + " byte value " + bhex(value) + " in go")
+	result := js.Global().Get("Uint8Array").New(size)
+	js.CopyBytesToJS(result, value)
+	return result
+}
+
+func hangingPromise(js_call_context js.Value, parameters []js.Value) (result interface{}) {
+
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in hangingPromise: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
+
+	done := make(chan bool)
+	quit := make(chan bool)
+
+	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
+
+		reject := handler_parameters[1]
+
+		go func() {
+			log("sleeping")
+			time.Sleep(time.Second)
+			select { case <-quit: return; default: }
+			log("done sleeping")
+			jserr := js.Global().Get("Error").New("done sleeping, nothing happened")
+			reject.Invoke(jserr)
+			done <- true
+		}()
+
+		go func() {
+			select {
+			case <- done:
+			case <- quit:
+				close(quit)
+				reject.Invoke(js.Global().Get("Error").New("canceled")) 
+			}
+		}()
+
+		return nil
+	})
+
+	promise := js.Global().Get("Promise").New(handler)
+	promise.Set("cancel", js.FuncOf(func(js.Value, []js.Value) interface{} { quit <- true ; log("canceled!") ; return nil }) )
+
+	return promise
+}
 

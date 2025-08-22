@@ -1,3 +1,5 @@
+//go:build api_test
+
 package pot
 
 import (
@@ -12,5 +14,3 @@ type KeyValueStore interface {
 	Put(ctx context.Context, key, value []byte) error
 	Save(ctx context.Context) ([]byte, error)
 }
-
-

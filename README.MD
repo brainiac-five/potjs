@@ -1,8 +1,6 @@
 # DEV NOTES / WALK THROUGH
 
-This commit has a Go POT version included in `pot/` because it needs `SwarmKvs`
-exported. This version thus differs in one letter, literally, from 
-https://github.com/ethersphere/proximity-order-trie that it is a fork of.
+This version pulls Go POT from https://github.com/ethersphere/proximity-order-trie.
 
 
 ## Trying It
@@ -43,7 +41,7 @@ To try tests and examples you DON'T have to build first.
 
 To build, the essence is
 
-	GOOS=js GOARCH=wasm go build -o pot.wasm potjs.go state.go
+	GOOS=js GOARCH=wasm go build -o pot.wasm potjs.go nomock.go
 	cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" .
 
 For a more comprehensive rebuild including, if needed, integrity hashes and
@@ -58,8 +56,8 @@ or even
 which will create a new `go.mod` etc.
 
 
-For how an expected output of building and other make rules, see **Whay You
-Should See** at the end of this readme.
+For how an expected output of building and other make rules should look, see
+**What You Should See** at the end of this readme.
 
 
 
@@ -122,7 +120,7 @@ Currently in ad-hoc state.
 
 ---
 
-<center>**What follows is the stub for the production-ready readme.**</center>
+**What follows is the stub for the production-ready readme.**</center>
 
 ---
 
@@ -184,8 +182,8 @@ new map. Use `put` and `get` functions on it.
 
 See example1.html (that simple example does not use promises).
 
-You may drop `potjs.js` to initialize with more direct control: include only the 
-generic Go WASM wrapper `wasm_exec.js`, create a `Go` object and
+You may leave out `potjs.js` to initialize with more direct control: include
+only the generic Go WASM wrapper `wasm_exec.js`, create a `Go` object and
 instantiate the POT WASM object `pot.wasm`, then run it once it is loaded.
 
 ```js
@@ -227,7 +225,8 @@ This is a complete example (using synchronous put and get):
 ```
 
 To run the example, serve the main directory with `npx http-server .` and open
-`http://127.0.0.1:8080/example1.html`, which contains above code.
+`http://127.0.0.1:8080/example1.html`, which contains above code. Or use
+`make example1`.
 
 The method `pot.putTypePromise()` stores a value to the POT,
 `pot.getTypedPromise()` retrieves it. The result is shown in the console.
@@ -251,7 +250,7 @@ To rebuild, run
 
 ```bash
 
-	GOOS=js GOARCH=wasm go build -o pot.wasm potjs.go state.go
+	GOOS=js GOARCH=wasm go build -o pot.wasm potjs.go nomock.go
 	cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" .
 ```
 
@@ -274,11 +273,9 @@ To build from scratch, regeneriting `go.mod` and the integrity hashes:
         README.MD             this file
 
         potjs.go              Go JS interface
-        state.go              Separation out of state. Probably temporary
+        nomock.go             noop place holders for production build
         pot.wasm              Go POT implementation compiled to WASM
         potjs.js              Thin JS initialization convenience code
-
-        pot/                  Go POT implementation that is transpiled to WASM
 
         wasm_exec.js.sha384   SHA384 checksum for sub-component verification
         potjs.js.sha384       SHA384 checksum for sub-component verification
@@ -287,9 +284,9 @@ To build from scratch, regeneriting `go.mod` and the integrity hashes:
         example2.html         interactive example, input fields, integrity
         example3.html         dropping potjs.js for more control
 
-        wasm_exec.js          generic Go WASM wrapper
+        wasm_exec.js          Go's generic WASM wrapper
 
-        test.html             test main page
+        test.html             main test page
         kvs_test.js           tests
         testmode.js           is altered to switch to extended tests
         test.js               generic test harness
@@ -298,6 +295,7 @@ To build from scratch, regeneriting `go.mod` and the integrity hashes:
         mock.go               monkey patch mock of Go POT for extended testing
         mock/pot.go
         mock/go.mod
+        mock/pkg/persister    copy of in-memory persister from Go POT (not used)
 
         go.mod                go module locations
         go.sum                go module check sums
@@ -521,11 +519,7 @@ JS type detection of raw kvs value by leading type byte.
 Blocking promise (in Go) with 1s time out for exception testing.
 
 
-## Notes on Go POT
-
-At this point, the Go POT implementation used is not connected to Swarm yet but
-stores to an in-memory data structure for testing. Accordingly, this JS API
-cannot be used to store to Swarm yet.
+## Note on Go POT WASM
 
 Being wrapped in WASM for the interfacing with JS, the Go executable is opaque,
 it cannot be debugged as there are no debuggers for wasm, and it becomes
@@ -555,27 +549,27 @@ tests in `kvs_test.js` across the available put and get functions. The tests
 are modeled on and extend the tests in go pot /kvs_test.go.
 
 The standard tests run against the Go implementation of POT, like the use would
-be in production. The **extended tests**, however, focus on the JS AP to Go, add
-cancellation and time out cases. They do not interface with the Go POT code.
-Latency emulation, promisses, and connectivity as well as retention error
-conditions will be added to emulate the reality of an unreliable network as
-ultimate storage layer.  Run the tests with `make test` and `make xt`
+be in production. The **extended tests**, however, focus on the JS API to Go,
+add cancellation and time out cases. They do not interface with the Go POT
+code.  Latency emulation, promisses, and connectivity as well as retention
+error conditions will be added to emulate the reality of an unreliable network
+as ultimate storage layer.  Run the tests with `make test` and `make xt`
 respectively.
 
-Note that `make xt` (specifically, `make mock` change the project configuration
-and build executables (especially a `pot.wasm`) that will not work for
-production once Swarm connectivity has been established for Go POT. (They will
-appear to work but they sidestep Go POT.) Use `make unmock`, `make test` or
-`make build` to restore to the production target (build the real `pot.wasm`).
+Note that `make xt` (specifically, `make mock`) change the project
+configuration and build executables (especially a `pot.wasm`) that will not
+work for production.  (They will appear to work but they sidestep Go POT.) Use
+`make unmock`, `make test` or `make build` to restore to the production target,
+i.e., build the real `pot.wasm`.
 
 The **extended tests** use a separate, dedicated, in-memory mock storage to
-separate them from the Go POT implementation.
+separate them from the Go POT implementation (not Go POT's in-memory
+persister.)
 
 The tests are made for the browser as the final destination of the combined
 architecture, in either case (standard and extended tests) they are invoked by
-opening the file `test.html`.  The very small file that is altered between the
-test modes is `testmode.js`, and `go.mod` to replace package `pot/` with
-`mock/`
+opening the file `test.html`.  The small file that is altered between the test
+modes is `testmode.js`, and `go.mod` to replace package `pot/` with `mock/`
 
 This test page and test framework is designed to bridge the language divide and
 allow for the emulation of exceptions in one degree of separation (caused in
@@ -600,16 +594,18 @@ For extended API tests:
 	mock.go
 	mock/pot.go
 	mock/go.mod
+	mock/pkg/persister/*
 
 Files modified for extended API testing are:
 
 	go.mod
 	testmode.js
 
-The ONLY relevant (non-optical) modification is that package `pot` is replaced
-by (redirected to folder) `mock/`.
+The ONLY relevant (non-optical) modification is that the Go POT package
+`github.com/ethersphere/proximity-order-trie` is replaced by (redirected to
+folder) `mock/`.
 
-        go mod edit -replace pot=./mock
+        go mod edit -replace github.com/ethersphere/proximity-order-trie=./mock
 
 The modifications can be examined in the `Makefile`, rules `mock` and `unmock`.
 To avoid `make`, the code of these rules can be copy-pasted into the console to
@@ -625,12 +621,15 @@ codes as return values, Go-style.
 The implementation of this is in Go though (`potjs.go`), not in JS, creating
 JS code in Go, with full data/situational access on the Go side.
 
+
 ---
+
 
 # What You Should See
 
-These are example outputs of running make rules. Manual entering of the same
-commands, e.g., to build, will produce similar output.
+These are slightly dated but still useful example outputs of running make
+rules. Manual entering of the same commands, e.g., to build, will produce
+similar output.
 
 Note that you need not build to try the tests or examples. They work as cloned.
 

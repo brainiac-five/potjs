@@ -31,12 +31,11 @@
 
 	var map;
 
-	WebAssembly.instantiateStreaming(
-		fetch("pot.wasm"), go.importObject)
-			.then((r)=>{
-				go.run(r.instance)
-				map = pot.newSwarmKvs()
-			})
+	WebAssembly.instantiateStreaming(fetch("pot.wasm"), go.importObject)
+		.then((r)=>{
+			go.run(r.instance)
+			map = pot.newSwarmKvs()
+		})
 
 	const field = (id) => { return document.getElementById(id) }
 

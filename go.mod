@@ -2,12 +2,7 @@ module potwasm
 
 go 1.24.5
 
-replace pot => ./pot
-
-require (
-	github.com/ethersphere/proximity-order-trie v0.0.0-20250605072522-20f76c73ee9e
-	pot v0.0.0-00010101000000-000000000000
-)
+require github.com/ethersphere/proximity-order-trie v0.0.0-20250822090125-2e1d9c408135
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
