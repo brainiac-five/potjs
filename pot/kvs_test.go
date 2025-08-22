@@ -1,7 +1,6 @@
 package pot_test
 
 import (
-	"fmt"
 	"context"
 	"math/rand"
 	"testing"
@@ -59,8 +58,6 @@ func TestPotKvs_Save(t *testing.T) {
 
 		ref, err := s1.Save(ctx)
 		assert.NoError(t, err)
-
-		fmt.Printf("saved under: %x\n", ref)
 
 		s2, err := pot.NewSwarmKvsReference(ls, ref)
 		assert.NoError(t, err)

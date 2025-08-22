@@ -1,3 +1,5 @@
+**Work in progress, all docs may be out of sync**
+
 # DEV NOTES / WALK THROUGH
 
 This commit has a Go POT version included in `pot/` because it needs `SwarmKvs`
@@ -58,8 +60,8 @@ or even
 which will create a new `go.mod` etc.
 
 
-For how an expected output of building and other make rules, see **Whay You
-Should See** at the end of this readme.
+For how an expected output of building and other make rules should look, see
+**Whay You Should See** at the end of this readme.
 
 
 
@@ -122,7 +124,7 @@ Currently in ad-hoc state.
 
 ---
 
-<center>**What follows is the stub for the production-ready readme.**</center>
+**What follows is the stub for the production-ready readme.**</center>
 
 ---
 

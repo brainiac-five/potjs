@@ -1,0 +1,30 @@
+<pre>
+
+
+	POT JS Example 4: Promises
+
+	Check source and console.
+
+</pre>
+
+<script src="wasm_exec.js"></script>
+<script src="potjs.js"></script>
+
+<script>
+
+(async () => {
+
+	await pot.ready()
+
+	map = await pot.newSwarmKvsPromise()
+
+	await map.putTypedPromise("hello", "POT!")
+
+	value = await map.getTypedPromise("hello")
+
+	console.log("key ‹hello› has:", value)
+
+})()
+
+</script>
+

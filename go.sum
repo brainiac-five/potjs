@@ -6,6 +6,8 @@ github.com/ethersphere/bee/v2 v2.5.0 h1:eqWJFw5GyT9qglXPxL+utgSN4J/77JQ9j74aXm7+
 github.com/ethersphere/bee/v2 v2.5.0/go.mod h1:hwfKQuD3wUbcLrqow3hz9HIAPSqJAxJ8pYr59qd6eXA=
 github.com/ethersphere/proximity-order-trie v0.0.0-20250605072522-20f76c73ee9e h1:A7anqnwR1a/DAWspG2L0Sq5vaqn2b+xmnAIlExgOwSw=
 github.com/ethersphere/proximity-order-trie v0.0.0-20250605072522-20f76c73ee9e/go.mod h1:rqEHTFOxGHJtANfMmprm6sveAJC4+TLltCwgrokn2KU=
+github.com/ethersphere/proximity-order-trie v0.0.0-20250822090125-2e1d9c408135 h1:qO/9xalCwTxKdxFxkVplpJyA6+8JcQ8Xn6isRNHxZac=
+github.com/ethersphere/proximity-order-trie v0.0.0-20250822090125-2e1d9c408135/go.mod h1:rqEHTFOxGHJtANfMmprm6sveAJC4+TLltCwgrokn2KU=
 github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
 github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
 github.com/hashicorp/errwrap v1.0.0 h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=

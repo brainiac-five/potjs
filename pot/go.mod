@@ -1,4 +1,4 @@
-module pot
+module github.com/ethersphere/proximity-order-trie
 
 go 1.24.0
 
@@ -14,7 +14,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/ethersphere/proximity-order-trie v0.0.0-20250605072522-20f76c73ee9e // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/kr/text v0.2.0 // indirect

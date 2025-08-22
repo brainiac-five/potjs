@@ -12,5 +12,3 @@ type KeyValueStore interface {
 	Put(ctx context.Context, key, value []byte) error
 	Save(ctx context.Context) ([]byte, error)
 }
-
-

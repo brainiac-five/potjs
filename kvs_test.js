@@ -1,3 +1,12 @@
+const t0 = null
+const massmax = 1000 // iterations for mass concurrent tests
+
+var map
+var map1
+var map2
+var map3
+var map4
+var map5
 
 function TestPotKvs(T) {
 
@@ -9,26 +18,31 @@ function TestPotKvs(T) {
 	key1 = "K1"
 	val1 = false
 
-	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
-
 	T.start("• put " + key1 + ": " + val1)
+
+	T.log("• new map")
+	map = pot.newSwarmKvs()
+	assertNoError(t0, T, !map)
+
+	T.log("• put " + key1 + ": " + val1)
 	err = map.put(key1, val1)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• getBoolean " + key1)
 	val = map.getBoolean(key1)
-	assertEqual(T, val, val1)
+	assertEqual(t0, T, val, val1)
 
 	val1 = true
 
 	T.start("• put " + key1 + ": " + val1)
+
+	T.log("• put " + key1 + ": " + val1)
 	err = map.put(key1, val1)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• getBoolean " + key1)
 	val = map.getBoolean(key1)
-	assertEqual(T, val, val1)
+	assertEqual(t0, T, val, val1)
 
 
 	T.log("--- s t r i n g")
@@ -36,16 +50,19 @@ function TestPotKvs(T) {
 	key1 = "K1"
 	val1 = "V1"
 
-	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
-
 	T.start("• put " + key1 + ": " + val1)
+
+	T.log("• new map")
+	map = pot.newSwarmKvs()
+	assertNoError(t0, T, !map)
+
+	T.log("• put " + key1 + ": " + val1)
 	err = map.put(key1, val1)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• getString " + key1)
 	val = map.getString(key1)
-	assertEqual(T, val, val1)
+	assertEqual(t0, T, val, val1)
 
 
 	T.log("--- n u m b e r")
@@ -54,41 +71,48 @@ function TestPotKvs(T) {
 	key1 = "K1"
 	val1 = 123
 
-	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
-
 	T.start("• put " + key1 + ": " + val1)
+
+	T.log("• new map")
+	map = pot.newSwarmKvs()
+	assertNoError(t0, T, !map)
+
+	T.log("• put " + key1 + ": " + val1)
 	err = map.put(key1, val1)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• getNumber " + key1)
 	val = map.getNumber(key1)
-	assertEqual(T, val, val1)
+	assertEqual(t0, T, val, val1)
 
 
 	val1 = 123.456
 
 	T.start("• put " + key1 + ": " + val1)
+
+	T.log("• put " + key1 + ": " + val1)
 	err = map.put(key1, val1)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• getNumber " + key1)
 	val = map.getNumber(key1)
-	assertEqual(T, val, val1)
+	assertEqual(t0, T, val, val1)
 
 
 	T.log("--- r a w")
 
-	key2 = pot.randKey() 
+	key2 = pot.randKey()
 	val2 = pot.randValue()
 
 	T.start("• put " + hex(key2) + ": " + hex(val2))
+
+	T.log("• put " + hex(key2) + ": " + hex(val2))
 	err = map.put(key2, val2)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• get " + hex(key2))
 	val = map.get(key2)
-	assertEqual(T, hex(val), hex(val2)) // No direct equality check for Uint8Arrays
+	assertEqual(t0, T, hex(val), hex(val2)) // No direct equality check for Uint8Arrays
 
 }
 
@@ -102,27 +126,32 @@ function TestPotKvs_EdgeValues(T) {
 	key1 = "K1"
 	val1 = new Uint8Array([2])
 
-	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
-
 	T.start("• put " + key1 + ": " + val1)
+
+	T.log("• new map")
+	map = pot.newSwarmKvs()
+	assertNoError(t0, T, !map)
+
+	T.log("• put " + key1 + ": " + val1)
 	err = map.put(key1, val1)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• getBoolean " + key1)
 	val = map.getBoolean(key1)
-	assertEqual(T, val, true)
+	assertEqual(t0, T, val, true)
 
 
 	val1 = new Uint8Array([0,1])
 
 	T.start("• put " + key1 + ": " + val1)
+
+	T.log("• put " + key1 + ": " + val1)
 	err = map.put(key1, val1)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• getBoolean " + key1)
 	val = map.getBoolean(key1)
-	assertEqual(T, val, false)
+	assertEqual(t0, T, val, false)
 
 
 	T.log("--- s t r i n g")
@@ -130,16 +159,19 @@ function TestPotKvs_EdgeValues(T) {
 	key1 = "K1"
 	val1 = ""
 
-	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
-
 	T.start("• put " + key1 + ": " + val1)
+
+	T.log("• new map")
+	map = pot.newSwarmKvs()
+	assertNoError(t0, T, !map)
+
+	T.log("• put " + key1 + ": " + val1)
 	err = map.put(key1, val1)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• getString " + key1)
 	val = map.getString(key1)
-	assertEqual(T, val, val1)
+	assertEqual(t0, T, val, val1)
 
 
 	T.log("--- n u m b e r")
@@ -148,27 +180,32 @@ function TestPotKvs_EdgeValues(T) {
 	key1 = "K1"
 	val1 = 0
 
-	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
-
 	T.start("• put " + key1 + ": " + val1)
+
+	T.log("• new map")
+	map = pot.newSwarmKvs()
+	assertNoError(t0, T, !map)
+
+	T.log("• put " + key1 + ": " + val1)
 	err = map.put(key1, val1)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• getNumber " + key1)
 	val = map.getNumber(key1)
-	assertEqual(T, val, val1)
+	assertEqual(t0, T, val, val1)
 
 
 	val1 = 10/3
 
 	T.start("• put " + key1 + ": " + val1)
+
+	T.log("• put " + key1 + ": " + val1)
 	err = map.put(key1, val1)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• getNumber " + key1)
 	val = map.getNumber(key1)
-	assertEqual(T, val, val1)
+	assertEqual(t0, T, val, val1)
 
 
 	T.log("--- r a w")
@@ -177,45 +214,53 @@ function TestPotKvs_EdgeValues(T) {
 	val2 = new Uint8Array([])
 
 	T.start("• put " + hex(key2) + ": " + hex(val2))
+
+	T.log("• put " + hex(key2) + ": " + hex(val2))
 	err = map.put(key2, val2)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• get " + hex(key2))
 	val = map.get(key2)
-	assertEqual(T, hex(val), hex(val2)) // No direct equality check for Uint8Arrays
+	assertEqual(t0, T, hex(val), hex(val2)) // No direct equality check for Uint8Arrays
 
 	key2 = pot.randKey() 
 	val2 = new Uint8Array([0])
 
 	T.start("• put " + hex(key2) + ": " + hex(val2))
+
+	T.log("• put " + hex(key2) + ": " + hex(val2))
 	err = map.put(key2, val2)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• get " + hex(key2))
 	val = map.get(key2)
-	assertEqual(T, hex(val), hex(val2)) // No direct equality check for Uint8Arrays
+	assertEqual(t0, T, hex(val), hex(val2)) // No direct equality check for Uint8Arrays
 
 	key2 = pot.randKey() 
 	val2 = new Uint8Array([1])
 
 	T.start("• put " + hex(key2) + ": " + hex(val2))
+
+	T.log("• put " + hex(key2) + ": " + hex(val2))
 	err = map.put(key2, val2)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• get " + hex(key2))
 	val = map.get(key2)
-	assertEqual(T, hex(val), hex(val2)) // No direct equality check for Uint8Arrays
+	assertEqual(t0, T, hex(val), hex(val2)) // No direct equality check for Uint8Arrays
 
 	key2 = pot.randKey() 
 	val2 = new Uint8Array([255,0])
 
 	T.start("• put " + hex(key2) + ": " + hex(val2))
+
+	T.log("• put " + hex(key2) + ": " + hex(val2))
 	err = map.put(key2, val2)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• get " + hex(key2))
 	val = map.get(key2)
-	assertEqual(T, hex(val), hex(val2)) // No direct equality check for Uint8Arrays
+	assertEqual(t0, T, hex(val), hex(val2)) // No direct equality check for Uint8Arrays
 
 }
 
@@ -231,14 +276,14 @@ function TestPotKvs_TypeEncoding(T) {
 	e = pot.type_encoded_bytes(v)
 	T.log("encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = false
 	T.start("• testing " + v)
 	e = pot.type_encoded_bytes(v)
 	T.log("encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 
 	T.log("--- n u m b e r")
@@ -249,68 +294,68 @@ function TestPotKvs_TypeEncoding(T) {
 	e = pot.type_encoded_bytes(v)
 	T.log("IEEE 754 encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = 1
 	T.start("• testing " + v)
 	e = pot.type_encoded_bytes(v)
 	T.log("IEEE 754 encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = 100000000000000
 	T.start("• testing " + v)
 	e = pot.type_encoded_bytes(v)
 	T.log("IEEE 754 encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = 1e20
 	T.start("• testing " + v)
 	e = pot.type_encoded_bytes(v)
 	T.log("IEEE 754 encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = 0.1
 	T.start("• testing " + v)
 	e = pot.type_encoded_bytes(v)
 	T.log("IEEE 754 encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = 1/3
 	T.start("• testing " + v)
 	e = pot.type_encoded_bytes(v)
 	T.log("IEEE 754 encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = 10/3
 	T.start("• testing " + v)
 	e = pot.type_encoded_bytes(v)
 	T.log("IEEE 754 encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = Math.PI
 	T.start("• testing " + v)
 	e = pot.type_encoded_bytes(v)
 	T.log("IEEE 754 encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = Math.PI^2
 	T.start("• testing " + v)
 	e = pot.type_encoded_bytes(v)
 	T.log("IEEE 754 encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = 10000n * 10n^18n
 	T.start("• testing bigint " + v)
 	e = pot.type_encoded_bytes(v)
-	assertEqual(T, typeof new Uint8Array(), typeof e)
+	assertEqual(t0, T, typeof new Uint8Array(), typeof e)
 
 
 	T.log("--- s t r i n g")
@@ -320,63 +365,63 @@ function TestPotKvs_TypeEncoding(T) {
 	e = pot.type_encoded_bytes(v)
 	T.log("encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = "The fox and such hunting that hen and jumping fences? "
 	T.start("• testing " + v)
 	e = pot.type_encoded_bytes(v)
 	T.log("encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = " "
 	T.start("• testing space")
 	e = pot.type_encoded_bytes(v)
 	T.log("encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = "  "
 	T.start("• testing spaces")
 	e = pot.type_encoded_bytes(v)
 	T.log("encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = "0"
 	T.start("• testing " + v)
 	e = pot.type_encoded_bytes(v)
 	T.log("encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = "1.1.1"
 	T.start("• testing " + v)
 	e = pot.type_encoded_bytes(v)
 	T.log("encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = "0\n\t\b\0"
 	T.start("• testing zero digit and special chars")
 	e = pot.type_encoded_bytes(v)
 	T.log("encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = "\n"
 	T.start("• testing line break" + v)
 	e = pot.type_encoded_bytes(v)
 	T.log("encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 	v = "\n\t\b\0"
 	T.start("• testing special chars")
 	e = pot.type_encoded_bytes(v)
 	T.log("encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, v, r)
+	assertEqual(t0, T, v, r)
 
 
 	T.log("--- r a w")
@@ -386,28 +431,28 @@ function TestPotKvs_TypeEncoding(T) {
 	e = pot.type_encoded_bytes(v)
 	T.log("encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, hexa(v), hexa(r))
+	assertEqual(t0, T, hexa(v), hexa(r))
 
 	T.start("• testing empty array")
 	v = new Uint8Array()
 	e = pot.type_encoded_bytes(v)
 	T.log("encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, hexa(v), hexa(r))
+	assertEqual(t0, T, hexa(v), hexa(r))
 
 	T.start("• testing array of sole 0")
 	v = new Uint8Array([0])
 	e = pot.type_encoded_bytes(v)
 	T.log("encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, hexa(v), hexa(r))
+	assertEqual(t0, T, hexa(v), hexa(r))
 
 	T.start("• testing array starting on 0")
 	v = new Uint8Array([0,1,2,3])
 	e = pot.type_encoded_bytes(v)
 	T.log("encoded bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	assertEqual(T, hexa(v), hexa(r))
+	assertEqual(t0, T, hexa(v), hexa(r))
 
 
 	T.log("--- w r o n g  t y p e")
@@ -418,15 +463,15 @@ function TestPotKvs_TypeEncoding(T) {
 	e = v
 	T.log("• testing these wrongly marked bytes: " + hexa(e))
 	r = pot.type_decoded_value(e)
-	if(r instanceof Error) attestExpectedError(T, r.message)
-	else attestMissingError(T)
+	if(r instanceof Error) attestExpectedError(t0, T, r.message)
+	else attestMissingError(t, T)
 
 	T.start("• testing byte sequence too short for a number")
 	e = new Uint8Array([2,1,0]) // 2 = number, which expects 9 bytes total
 	T.log("• testing these too short bytes (for a number): " + hexa(e))
 	r = pot.type_decoded_value(e)
-	if(r instanceof Error) attestExpectedError(T, r.message)
-	else attestMissingError(T)
+	if(r instanceof Error) attestExpectedError(t0, T, r.message)
+	else attestMissingError(t, T)
 
 }
 
@@ -440,23 +485,25 @@ function TestPotKvs_TypedAccess(T) {
 
 	v = true
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = false
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !pot)
+	assertNoError(t0, T, !pot)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 
 	T.log("--- n u m b e r")
@@ -464,231 +511,253 @@ function TestPotKvs_TypedAccess(T) {
 
 	v = 0
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = 1
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = 100000000000000
 
 	v = 1e20
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = 0.1
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = 1/3
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = 10/3
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = Math.PI
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = Math.PI^2
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = 10000n * 10n^18n
 	T.start("• put " + k + ": " + v + " as bigint")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertError(T, err) // can't write bigint
+	assertError(t0, T, err) // can't write bigint
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, null) // because not written
+	assertEqual(t0, T, r, null) // because not written
 
 
 	T.log("--- s t r i n g")
 
 	v = "A"
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = "The fox and such hunting that hen and jumping fences? "
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = " "
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = "  "
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = "0"
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = "1.1.1"
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = "0\n\t\b\0"
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = "\n"
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 	v = "\n\t\b\0"
 	T.start("• put " + k + ": " + v)
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.putTyped(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	assertEqual(T, r, v)
+	assertEqual(t0, T, r, v)
 
 
 	T.log("--- r a w")
 
 	T.start("• testing random raw bytes")
 	v = pot.randValue()
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.put(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.get(k)
-	assertEqual(T, hexa(r), hexa(v))
+	assertEqual(t0, T, hexa(r), hexa(v))
 
 	T.start("• testing empty array")
 	v = new Uint8Array()
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.put(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.get(k)
-	assertEqual(T, hexa(r), hexa(v))
+	assertEqual(t0, T, hexa(r), hexa(v))
 
 	T.start("• testing array of sole 0")
 	v = new Uint8Array([0])
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.put(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.get(k)
-	assertEqual(T, hexa(r), hexa(v))
+	assertEqual(t0, T, hexa(r), hexa(v))
 
 	T.start("• testing array starting on 0")
 	v = new Uint8Array([0,1,2,3])
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.put(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.get(k)
-	assertEqual(T, hexa(r), hexa(v))
+	assertEqual(t0, T, hexa(r), hexa(v))
 
 
 	T.log("--- w r o n g  t y p e")
@@ -697,26 +766,28 @@ function TestPotKvs_TypedAccess(T) {
 	v = pot.randValue()
 	v[0] = 10 // not a type code
 	T.log("• testing these wrongly marked bytes: " + hexa(v))
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.put(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	if(r instanceof Error) attestExpectedError(T, r.message)
-	else attestMissingError(T)
+	if(r instanceof Error) attestExpectedError(t0, T, r.message)
+	else attestMissingError(t, T)
 
 	T.start("• testing byte sequence too short for a number")
 	v = new Uint8Array([2,1,0]) // 2 = number, which expects 9 bytes total
 	T.log("• testing these too short bytes (for a number): " + hexa(v))
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	err = map.put(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	T.log("• get " + k)
 	r = map.getTyped(k)
-	if(r instanceof Error) attestExpectedError(T, r.message)
-	else attestMissingError(T)
+	if(r instanceof Error) attestExpectedError(t0, T, r.message)
+	else attestMissingError(t, T)
 }
 
 async function TestPotKvs_Promise(T) {
@@ -729,32 +800,34 @@ async function TestPotKvs_Promise(T) {
 
 	v = true
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	v = false
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 
@@ -763,138 +836,147 @@ async function TestPotKvs_Promise(T) {
 
 	v = 0
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	v = 1
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 
 	v = 100000000000000
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	v = 1e20
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	v = 0.1
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	v = 1/3
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	v = 10/3
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	v = Math.PI
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	v = Math.PI^2
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 
@@ -902,137 +984,146 @@ async function TestPotKvs_Promise(T) {
 
 	v = "A"
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	v = "The fox and such hunting that hen and jumping fences? "
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	v = " "
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	v = "  "
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	v = "0"
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	v = "1.1.1"
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	v = "0\n\t\b\0"
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	v = "\n"
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	v = "\n\t\b\0"
 	T.start("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, r, v)
+		attestNoError(t0, T)
+		assertEqual(t0, T, r, v)
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 
@@ -1040,66 +1131,70 @@ async function TestPotKvs_Promise(T) {
 
 	T.start("• testing random raw bytes" + " by promise")
 	v = pot.randValue()
-	T.log("• put " + k + ": " + v + " by promise")
+	T.log("• put " + k + ": " + hex(v) + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, hexa(r), hexa(v)) // no direct comparison between Uint8Arrays
+		attestNoError(t0, T)
+		assertEqual(t0, T, hexa(r), hexa(v)) // no direct comparison between Uint8Arrays
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	T.start("• testing empty array" + " by promise")
 	v = new Uint8Array()
 	T.log("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, hexa(r), hexa(v)) // no direct comparison between Uint8Arrays
+		attestNoError(t0, T)
+		assertEqual(t0, T, hexa(r), hexa(v)) // no direct comparison between Uint8Arrays
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	T.start("• testing array of sole 0" + " by promise")
 	v = new Uint8Array([0])
 	T.log("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, hexa(r), hexa(v)) // no direct comparison between Uint8Arrays
+		attestNoError(t0, T)
+		assertEqual(t0, T, hexa(r), hexa(v)) // no direct comparison between Uint8Arrays
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 	T.start("• testing array starting on 0" + " by promise")
 	v = new Uint8Array([0,1,2,3])
 	T.log("• put " + k + ": " + v + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	try {
 		await map.putTypedPromise(k, v)
-		attestNoError(T)
+		attestNoError(t0, T)
 		T.log("• get " + k + " by promise")
 		r = await map.getTypedPromise(k)
-		attestNoError(T)
-		assertEqual(T, hexa(r), hexa(v)) // no direct comparison between Uint8Arrays
+		attestNoError(t0, T)
+		assertEqual(t0, T, hexa(r), hexa(v)) // no direct comparison between Uint8Arrays
 	} catch(e) {
-		attestUnexpectedError(T, e)
+		attestUnexpectedError(t0, T, e)
 	}
 
 
@@ -1107,14 +1202,15 @@ async function TestPotKvs_Promise(T) {
 
 	v = 1n
 	T.start("• put " + k + ": " + v + " as bigint" + " by promise")
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	errored = false
 	try {
 		await map.putTypedPromise(k, v)
-		attestMissingError(T)
+		attestMissingError(t, T)
 	} catch(e) {
-		attestExpectedError(T, e)
+		attestExpectedError(t0, T, e)
 	}
 
 	T.start("• testing wrong type code" + " by promise")
@@ -1122,97 +1218,143 @@ async function TestPotKvs_Promise(T) {
 	v[0] = 10 // not a type code
 	T.log("This would be an internal error, or trying to access an entry put raw with the higher-level type-aware get.")
 	T.log("• testing these wrongly marked bytes: " + hexa(v))
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	T.log("• putting bytes raw")
 	err = map.put(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	errored = false
 	try {
 	T.log("• get " + k + " by promise")
 		await map.getTypedPromise(k)
-		attestMissingError(T)
+		attestMissingError(t, T)
 	} catch(err) {
-		attestExpectedError(T, err)
+		attestExpectedError(t0, T, err)
 	}
 
 	T.start("• testing byte sequence too short for a number" + " by promise")
 	v = new Uint8Array([2,1,0]) // 2 = number, which expects 9 bytes total
 	T.log("This would be an internal error, or trying to access an entry put raw with the higher-level type-aware get.")
 	T.log("• testing these too short bytes (for a number): " + hexa(v))
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 	T.log("• putting bytes raw")
 	err = map.put(k, v)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 	errored = false
 	try {
 	T.log("• get " + k + " by promise")
 		await map.getTypedPromise(k)
-		attestMissingError(T)
+		attestMissingError(t, T)
 	} catch(err) {
-		attestExpectedError(T, err)
+		attestExpectedError(t0, T, err)
 	}
 
 }
 
-function TestPotKvs_Save(T) {
+async function TestPotKvs_Save(T) {
 
 	T.head("Saving and Loading")
 
 
 	T.start("Save empty KVS, return error")
 
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 
+	T.log("• save")
 	ref = map.save()
-	assertIsError(T, ref)
+	assertIsError(t0, T, ref)
 
 
 	T.start("Save not empty KVS return valid swarm address")
 
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 
 	key1 = "K1"
 	val1 = "V1"
 
 	T.log("• put " + key1 + ": " + val1)
 	err = map.putTyped(key1, val1)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• get " + key1)
 	val = map.getTyped(key1)
-	assertEqual(T, val, val1)
+	assertEqual(t0, T, val, val1)
 
+	T.log("• save")
 	ref = map.save()
-	assertNotAnError(T, ref)
+	assertNotAnError(t0, T, ref)
+
+
+	T.start("Save not empty KVS return valid swarm address, with Promises")
+
+	key1 = "K1"
+	val1 = "V1"
+
+	try {
+		T.log("• new map")
+		map = await pot.newSwarmKvsPromise()
+		assertNoError(t0, T, !map)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• put " + key1 + ": " + val1)
+	try {
+		err = await map.putTypedPromise(key1, val1)
+		assertNoError(t0, T, err)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• get " + key1)
+	try {
+		val = await map.getTypedPromise(key1)
+		assertEqual(t0, T, val, val1)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• save")
+	try {
+		save_ref = map.savePromise()
+		assertNotAnError(t0, T, save_ref)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
 
 
 	T.start("Save KVS with one item, no error, pre-save and after-save value exist")
 	T.log("Note, this order is worth testing because of how POT internally stores values.")
 
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 
 	key1 = "K1"
 	val1 = "V1"
 
 	T.log("• put " + key1 + ": " + val1)
 	err = map.putTyped(key1, val1)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• get " + key1)
 	val = map.getTyped(key1)
-	assertEqual(T, val, val1)
+	assertEqual(t0, T, val, val1)
 
-	ref = map.save()
-	assertNotAnError(T, ref)
+	T.log("• save")
+	save_ref = map.save()
+	assertNotAnError(t0, T, save_ref)
 
 	T.log("• getString " + key1)
 	val = map.getTyped(key1)
-	assertEqual(T, val, val1)
+	assertEqual(t0, T, val, val1)
 
 
 	T.start("Save KVS and add one item, activate new, re-activate previous")
@@ -1220,39 +1362,1676 @@ function TestPotKvs_Save(T) {
 	key1 = "K1"
 	val1 = "V1"
 
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 
 	T.log("• put " + key1 + ": " + val1)
 	err = map.putTyped(key1, val1)
-	assertNoError(T, err)
+	assertNoError(t0, T, err)
 
 	T.log("• get " + key1)
 	val = map.getTyped(key1)
-	assertEqual(T, val, val1)
+	assertEqual(t0, T, val, val1)
 
+	T.log("• save")
 	save_ref = map.save()
-	assertNotAnError(T, save_ref)
-	T.log("KVS saved under key " + hex(save_ref))
+	assertNotAnError(t0, T, save_ref)
+	T.log("√ KVS saved under key " + hex(save_ref))
 
+	T.log("• new map")
 	map2 = pot.newSwarmKvs()
-	assertNoError(T, !map2)
+	assertNoError(t0, T, !map2)
 
 	// lookup in all-new map: will fail
 	T.log("• get " + key1 + " from new map")
 	val = map2.getTyped(key1)
-	assertEqual(T, val, null)
+	assertEqual(t0, T, val, null)
 
+	T.log("• retrieve map " + hex(save_ref))
 	map3 = pot.newSwarmKvsReference(save_ref)
-	assertNotAnError(T, map3)
-	assertNotEqual(T, map3, null)
+	assertNotAnError(t0, T, map3)
+	assertNotEqual(t0, T, map3, null)
 	console.log(map3)
-	assertEqual(T, map.store_ref, map3.store_ref)
+	assertEqual(t0, T, map.slot_ref, map3.slot_ref)
 
 	T.log("• get " + key1 + " from reloaded map")
 	val = map3.getTyped(key1)
-	assertEqual(T, val, val1)
+	assertEqual(t0, T, val, val1)
 
+}
+
+async function TestPotKvs_Complex_Save(T) {
+
+	T.head("Saving and Loading, Switching, with Promises")
+
+	T.start("Save KVS and add one item, activate new, re-activate previous, with Promises")
+
+	key1 = "K1"
+	val1 = "V1"
+
+	try {
+		T.log("• new map")
+		map = await pot.newSwarmKvsPromise()
+		assertNoError(t0, T, !map)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• put " + key1 + ": " + val1)
+	try {
+		err = await map.putTypedPromise(key1, val1)
+		assertNoError(t0, T, err)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• get " + key1)
+	try {
+		val = await map.getTypedPromise(key1)
+		assertEqual(t0, T, val, val1)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• save")
+	try {
+		save_ref = await map.savePromise()
+		assertNotAnError(t0, T, save_ref)
+		T.log("√ KVS saved under key " + hex(save_ref))
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• new map")
+	try {
+		map2 = await pot.newSwarmKvsPromise()
+		assertNoError(t0, T, !map2)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup in all-new map: will not find it
+	T.log("• get " + key1 + " from new map")
+	try {
+		val = await map2.getTypedPromise(key1)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• retrieve map " + hex(save_ref))
+	try {
+		map3 = await pot.newSwarmKvsReferencePromise(save_ref)
+		assertNotAnError(t0, T, map3)
+		assertNotEqual(t0, T, map3, null)
+		console.log(map3)
+		assertEqual(t0, T, map.slot_ref, map3.slot_ref)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+
+	T.start("Save KVS, re-activate previous, interact, with Promises")
+
+	key1 = "K1"
+	val1 = "V1"
+	key2 = "K2"
+	val2 = "V2"
+	key3 = "K3"
+	val3 = "V3"
+
+	try {
+		T.log("• new map")
+		map = await pot.newSwarmKvsPromise()
+		assertNoError(t0, T, !map)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• put " + key1 + ": " + val1)
+	try {
+		err = await map.putTypedPromise(key1, val1)
+		assertNoError(t0, T, err)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• get " + key1)
+	try {
+		val = await map.getTypedPromise(key1)
+		assertEqual(t0, T, val, val1)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup in all-new map: will not find it
+	T.log("• get " + key2 + " that should not exist")
+	try {
+		val = await map.getTypedPromise(key2)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• save")
+	try {
+		save_ref = await map.savePromise()
+		assertNotAnError(t0, T, save_ref)
+		T.log("√ KVS saved under key " + hex(save_ref))
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• new map")
+	try {
+		map2 = await pot.newSwarmKvsPromise()
+		assertNoError(t0, T, !map2)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 1 in all-new map: will not find it
+	T.log("• get " + key1 + " from new map")
+	try {
+		val = await map2.getTypedPromise(key1)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 2 in all-new map: will not find it
+	T.log("• get " + key2 + " from new map")
+	try {
+		val = await map2.getTypedPromise(key2)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• put " + key2 + ": " + val2)
+	try {
+		err = await map2.putTypedPromise(key2, val2)
+		assertNoError(t0, T, err)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• get " + key2)
+	try {
+		val = await map2.getTypedPromise(key2)
+		assertEqual(t0, T, val, val2)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// no saving of 2nd map
+
+	T.log("• retrieve first map " + hexa(save_ref))
+	try {
+		map3 = await pot.newSwarmKvsReferencePromise(save_ref)
+		assertNotAnError(t0, T, map3)
+		assertNotEqual(t0, T, map3, null)
+		assertEqual(t0, T, map.slot_ref, map3.slot_ref)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• get " + key1 + " from first map")
+	try {
+		val = await map3.getTypedPromise(key1)
+		assertEqual(t0, T, val, val1)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 2 in all-new map: should not find it
+	T.log("• get " + key2 + " from first map")
+	try {
+		val = await map3.getTypedPromise(key2)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• put " + key3 + ": " + val3 + " to first map")
+	try {
+		err = await map3.putTypedPromise(key3, val3)
+		assertNoError(t0, T, err)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• get " + key3 + " from first map")
+	try {
+		val = await map3.getTypedPromise(key3)
+		assertEqual(t0, T, val, val3)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• save first map again")
+	try {
+		save_ref_again = await map.savePromise()
+		assertNotAnError(t0, T, save_ref_again)
+		T.log("√ KVS saved under key " + hex(save_ref_again))
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• third new map")
+	try {
+		// called map4 because map3 is the retrieved first
+		map4 = await pot.newSwarmKvsPromise() 
+		assertNoError(t0, T, !map4)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 1 in all-new map: will not find it
+	T.log("• get " + key1 + " from third map")
+	try {
+		val = await map4.getTypedPromise(key1)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 2 in all-new map: will not find it
+	T.log("• get " + key2 + " from third map")
+	try {
+		val = await map4.getTypedPromise(key2)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 3 in all-new map: will not find it
+	T.log("• get " + key3 + " from third map")
+	try {
+		val = await map4.getTypedPromise(key3)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+
+	T.start("Save KVS, re-activate previous, interact, with Promises / Variation")
+
+	key1 = "K1"
+	val1 = "V1"
+	key2 = "K2"
+	val2 = "V2"
+	key3 = "K3"
+	val3 = "V3"
+
+	try {
+		T.log("• new map")
+		map = await pot.newSwarmKvsPromise()
+		assertNoError(t0, T, !map)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• put " + key1 + ": " + val1)
+	try {
+		err = await map.putTypedPromise(key1, val1)
+		assertNoError(t0, T, err)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• get " + key1)
+	try {
+		val = await map.getTypedPromise(key1)
+		assertEqual(t0, T, val, val1)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup in all-new map: will not find it
+	T.log("• get " + key2 + " that should not exist")
+	try {
+		val = await map.getTypedPromise(key2)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• save")
+	try {
+		save_ref = await map.savePromise()
+		assertNotAnError(t0, T, save_ref)
+		T.log("√ KVS saved under key " + hex(save_ref))
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• new map")
+	try {
+		map2 = await pot.newSwarmKvsPromise()
+		assertNoError(t0, T, !map2)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 1 in all-new map: will not find it
+	T.log("• get " + key1 + " from new map")
+	try {
+		val = await map2.getTypedPromise(key1)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 2 in all-new map: will not find it
+	T.log("• get " + key2 + " from new map")
+	try {
+		val = await map2.getTypedPromise(key2)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• put " + key2 + ": " + val2)
+	try {
+		err = await map2.putTypedPromise(key2, val2)
+		assertNoError(t0, T, err)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• get " + key2)
+	try {
+		val = await map2.getTypedPromise(key2)
+		assertEqual(t0, T, val, val2)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• save second map")
+	try {
+		save_ref_2 = await map2.savePromise()
+		assertNotAnError(t0, T, save_ref_2)
+		T.log("√ KVS saved under key " + hex(save_ref_2))
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• retrieve first map " + hex(save_ref))
+	try {
+		map3 = await pot.newSwarmKvsReferencePromise(save_ref)
+		assertNotAnError(t0, T, map3)
+		assertNotEqual(t0, T, map3, null)
+		console.log(map3)
+		assertEqual(t0, T, map.slot_ref, map3.slot_ref)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• get " + key1 + " from first map")
+	try {
+		val = await map3.getTypedPromise(key1)
+		assertEqual(t0, T, val, val1)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 2 in first map: should not find it
+	T.log("• get " + key2 + " from first map")
+	try {
+		val = await map3.getTypedPromise(key2)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• put " + key3 + ": " + val3 + " to first map")
+	try {
+		err = await map3.putTypedPromise(key3, val3)
+		assertNoError(t0, T, err)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• get " + key3 + " from first map")
+	try {
+		val = await map3.getTypedPromise(key3)
+		assertEqual(t0, T, val, val3)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• save first map again")
+	try {
+		save_ref_again = await map.savePromise()
+		assertNotAnError(t0, T, save_ref_again)
+		T.log("√ KVS saved under key " + hex(save_ref_again))
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• third new map")
+	try {
+		// called map4 because map3 is the retrieved first
+		map4 = await pot.newSwarmKvsPromise() 
+		assertNoError(t0, T, !map4)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 1 in all-new map: will not find it
+	T.log("• get " + key1 + " from third map")
+	try {
+		val = await map4.getTypedPromise(key1)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 2 in all-new map: will not find it
+	T.log("• get " + key2 + " from third map")
+	try {
+		val = await map4.getTypedPromise(key2)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 3 in all-new map: will not find it
+	T.log("• get " + key3 + " from third map")
+	try {
+		val = await map4.getTypedPromise(key3)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• retrieve second map " + hexa(save_ref_2))
+	try {
+		map5 = await pot.newSwarmKvsReferencePromise(save_ref_2)
+		assertNotAnError(t0, T, map5)
+		assertNotEqual(t0, T, map5, null)
+		console.log(map5)
+		assertEqual(t0, T, map2.slot_ref, map5.slot_ref)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 1 in 2nd ('new') map: will not find it
+	T.log("• get " + key1 + " from retrieved second map")
+	try {
+		val = await map5.getTypedPromise(key1)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• get " + key2 + " from second map")
+	try {
+		val = await map5.getTypedPromise(key2)
+		assertEqual(t0, T, val, val2)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 3 in 2nd map: will not find it
+	T.log("• get " + key3 + " from second map")
+	try {
+		val = await map5.getTypedPromise(key3)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+
+	T.start("Interact with Different Maps, without Savinng, with Promises / Variation")
+
+	key1 = "K1"
+	val1 = "V1"
+	key2 = "K2"
+	val2 = "V2"
+	key3 = "K3"
+	val3 = "V3"
+
+	T.log("• new map")
+	try {
+		map = await pot.newSwarmKvsPromise()
+		assertNoError(t0, T, !map)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• put " + key1 + ": " + val1)
+	try {
+		err = await map.putTypedPromise(key1, val1)
+		assertNoError(t0, T, err)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• get " + key1)
+	try {
+		val = await map.getTypedPromise(key1)
+		assertEqual(t0, T, val, val1)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup in map: will not find it
+	T.log("• get " + key2 + " that should not exist")
+	try {
+		val = await map.getTypedPromise(key2)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• new map")
+	try {
+		map2 = await pot.newSwarmKvsPromise()
+		assertNoError(t0, T, !map2)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 1 in new map: will not find it
+	T.log("• get " + key1 + " from new map")
+	try {
+		val = await map2.getTypedPromise(key1)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 2 in new map: will not find it
+	T.log("• get " + key2 + " from new map")
+	try {
+		val = await map2.getTypedPromise(key2)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• put " + key2 + ": " + val2)
+	try {
+		err = await map2.putTypedPromise(key2, val2)
+		assertNoError(t0, T, err)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• get " + key2 + " from second map")
+	try {
+		val = await map2.getTypedPromise(key2)
+		assertEqual(t0, T, val, val2)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• get " + key1 + " from first map")
+	try {
+		val = await map.getTypedPromise(key1)
+		assertEqual(t0, T, val, val1)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 2 in first map: should not find it
+	T.log("• get " + key2 + " from first map")
+	try {
+		val = await map.getTypedPromise(key2)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• put " + key3 + ": " + val3 + " to first map")
+	try {
+		err = await map.putTypedPromise(key3, val3)
+		assertNoError(t0, T, err)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• get " + key3 + " from first map")
+	try {
+		val = await map.getTypedPromise(key3)
+		assertEqual(t0, T, val, val3)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• third new map")
+	try {
+		map3 = await pot.newSwarmKvsPromise() 
+		assertNoError(t0, T, !map3)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 1 in all-new map: will not find it
+	T.log("• get " + key1 + " from third map")
+	try {
+		val = await map3.getTypedPromise(key1)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 2 in all-new map: will not find it
+	T.log("• get " + key2 + " from third map")
+	try {
+		val = await map3.getTypedPromise(key2)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 3 in all-new map: will not find it
+	T.log("• get " + key3 + " from third map")
+	try {
+		val = await map3.getTypedPromise(key3)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 1 in 2nd new map: will not find it
+	T.log("• get " + key1 + " from second map")
+	try {
+		val = await map2.getTypedPromise(key1)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• get " + key2 + " from second map")
+	try {
+		val = await map2.getTypedPromise(key2)
+		assertEqual(t0, T, val, val2)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+	// lookup key 3 in 2nd map: will not find it
+	T.log("• get " + key3 + " from second map")
+	try {
+		val = await map2.getTypedPromise(key3)
+		assertEqual(t0, T, val, null)
+	} catch(err) {
+		attestUnexpectedError(t0, T, err)
+	}
+
+}
+
+
+async function TestPotKvs_Complex_Concurrent(T) {
+
+	T.head("Concurrent Access")
+
+	{
+
+		T.start("store and retrieve "+massmax+" values concurrently, sync calls")
+
+		T.log("• new map")
+		let map = pot.newSwarmKvs()
+		assertNoError(t0, T, !map)
+
+		T.log("• store and retrieve "+massmax+" random values under random keys concurrently, parallel sync calls")
+		let group = 0
+		for(let i=0; i<massmax; i++) {
+			; (async() => {
+				let t = i+1
+				try {
+					group++
+					let key = pot.randKey()
+					let val = pot.randValue()
+					let e = map.putTyped(key, val)
+					assertNoError(t, T, e, true) // suppress ok
+					let res = map.getTyped(key)
+					attestNoError(t, T, true) // suppress ok
+					assertEqual(t, T, val, res, true) // suppress ok
+					group--
+				} catch(err) {
+					attestUnexpectedError(t, T, err)
+					group--
+				}
+			})()
+		}
+
+		await completion(null, T, ()=>{return group}, 100, 10000)
+
+	}{
+
+		T.start("store and retrieve "+massmax+" values concurrently, awaiting promises")
+
+		T.log("• new map")
+		map = pot.newSwarmKvs()
+		assertNoError(t0, T, !map)
+
+		T.log("• store and retrieve "+massmax+" random values under random keys concurrently, awaiting promises")
+		let group = 0
+		for(let i=0; i<massmax; i++) {
+			; (async() => {
+				let t = i+1
+				try {
+					group++
+					let key = pot.randKey()
+					let val = pot.randValue()
+					let e = await map.putTypedPromise(key, val)
+					assertNoError(t, T, e, true) // suppress ok
+					let res = await map.getTypedPromise(key)
+					attestNoError(t, T, true) // suppress ok
+					assertEqual(t, T, val, res, true) // suppress ok
+					group--
+				} catch(err) {
+					attestUnexpectedError(t, T, err)
+					group--
+				}
+			})()
+		}
+
+		await completion(null, T, ()=>{return group}, 10, 5000)
+
+	}{
+
+		T.start("Concurrent Putting, Getting, Saving and Loading, Switching Maps, with Promises")
+
+		key1 = "K1"
+		val1 = "V1"
+		key2 = pot.randKey()
+		val2 = pot.randValue()
+		key3 = pot.randKey()
+		val3 = pot.randValue()
+		let group = 0
+
+		; (async ()=>{
+
+			group++
+			let t = 1
+
+			T.log(1, "• new map")
+			try {
+				map = await pot.newSwarmKvsPromise()
+				attestNoError(t, T, !map)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• put " + key1 + ": " + val1)
+			try {
+				err = await map.putTypedPromise(key1, val1)
+				assertNoError(t, T, err)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• get " + key1)
+			try {
+				val = await map.getTypedPromise(key1)
+				assertEqual(t, T, val, val1)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• save")
+			try {
+				save_ref = await map.savePromise()
+				assertNotAnError(t, T, save_ref)
+				T.log(t, "√ KVS saved under key " + hex(save_ref))
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• put " + hexa(key2) + ": " + hexa(val2))
+			try {
+				err = await map.putTypedPromise(key2, val2)
+				assertNoError(t, T, err)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• get " + hexa(key2))
+			try {
+				val = await map.getTypedPromise(key2)
+				assertEqual(t, T, val, val2)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• retrieve first map as saved as " + hex(save_ref))
+			try {
+				map3 = await pot.newSwarmKvsReferencePromise(save_ref)
+				assertNotAnError(t, T, map3)
+				assertNotEqual(t, T, map3, null)
+				console.log(map3)
+				assertEqual(t, T, map.slot_ref, map3.slot_ref)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• get " + key1 + " from retrieved map")
+			try {
+				val = await map3.getTypedPromise(key1)
+				assertEqual(t, T, val, val1)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• get " + key1 + " from original map")
+			try {
+				val = await map3.getTypedPromise(key1)
+				assertEqual(t, T, val, val1)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• get " + key1 + " from retrieved map again")
+			try {
+				val = await map3.getTypedPromise(key1)
+				assertEqual(t, T, val, val1)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• get " + hexa(key2) + " from original map")
+			try {
+				val = await map3.getTypedPromise(key2)
+				assertEqual(t, T, val, val2)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 2 in retrieved map: will not find it
+			T.log(1, "• get " + hexa(key2) + " from retrieved map")
+			try {
+				val = await map3.getTypedPromise(key2)
+				assertEqual(1, T, val, val2)
+			} catch(err) {
+				attestUnexpectedError(1, T, err)
+			}
+
+			T.log(1, "• put " + hexa(key2) + ": " + hexa(val2) + " to retrieved map")
+			try {
+				err = await map3.putTypedPromise(key2, val2)
+				assertNoError(1, T, err)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• get " + hexa(key2) + " from retrieved map")
+			try {
+				val = await map3.getTypedPromise(key2)
+				assertEqual(t, T, val, val2)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			group--
+		})()
+
+		; (async ()=>{
+
+			group++
+			let t = 2
+
+			T.log(t, "• second new map")
+			try {
+				map2 = await pot.newSwarmKvsPromise()
+				assertNoError(t, T, !map2)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup in all-new map: will not find it
+			T.log(t, "• get " + key1 + " from second map")
+			try {
+				val = await map2.getTypedPromise(key1)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• put " + key1 + ": " + val1)
+			try {
+				err = await map2.putTypedPromise(key1, val1)
+				assertNoError(t, T, err)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• get " + key1)
+			try {
+				val = await map2.getTypedPromise(key1) /// xxx
+				assertEqual(t, T, val, val1)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 2 in 2nd map: will not find it
+			T.log(t, "• get " + hexa(key2) + " from 2nd (new) map")
+			try {
+				val = await map2.getTypedPromise(key2)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t0, T, err)
+			}
+
+			T.log(t, "• put " + hexa(key2) + ": " + hexa(val2) + " to 2nd map")
+			try {
+				err = await map2.putTypedPromise(key2, val2)
+				assertNoError(t, T, err)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• get " + hexa(key2) + " from 2nd map")
+			try {
+				val = await map2.getTypedPromise(key2)
+				assertEqual(t, T, val, val2)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			group--
+		})()
+
+		await completion(null, T, ()=>{return group}, 100, 1000)
+
+	}{
+
+		T.start("Crossover Concurrent Putting, Getting, Saving and Loading, Switching Maps across threads, with Promises")
+
+		key1 = "K1"
+		val1 = "V1"
+		key2 = pot.randKey()
+		val2 = pot.randValue()
+		key3 = pot.randKey()
+		val3 = pot.randValue()
+
+		// key2 etc from before, random bytes
+		let group = 0
+
+		; (async ()=>{
+
+			group++
+			let t = 1
+
+			T.log(1, "• new map")
+			try {
+				map = await pot.newSwarmKvsPromise()
+				attestNoError(t, T, !map)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• put " + key1 + ": " + val1)
+			try {
+				err = await map.putTypedPromise(key1, val1)
+				assertNoError(t, T, err)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• get " + key1)
+			try {
+				val = await map.getTypedPromise(key1)
+				assertEqual(t, T, val, val1)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• save")
+			try {
+				save_ref = await map.savePromise()
+				assertNotAnError(t, T, save_ref)
+				T.log(t, "√ KVS saved under key " + hex(save_ref))
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• put " + hexa(key2) + ": " + hexa(val2))
+
+			try {
+				err = await map.putTypedPromise(key2, val2)
+				assertNoError(t, T, err)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• get " + hexa(key2))
+			try {
+				val = await map.getTypedPromise(key2)
+				assertEqual(t, T, val, val2)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• retrieve first map as saved as " + hex(save_ref))
+			try {
+				map3 = await pot.newSwarmKvsReferencePromise(save_ref)
+				assertNotAnError(t, T, map3)
+				assertNotEqual(t, T, map3, null)
+				console.log(map3)
+				assertEqual(t, T, map.slot_ref, map3.slot_ref)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• get " + key1 + " from retrieved map")
+			try {
+				val = await map3.getTypedPromise(key1)
+				assertEqual(t, T, val, val1)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• get " + key1 + " from original map")
+			try {
+				val = await map3.getTypedPromise(key1)
+				assertEqual(t, T, val, val1)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• get " + key1 + " from retrieved map again")
+			try {
+				val = await map3.getTypedPromise(key1)
+				assertEqual(t, T, val, val1)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• get " + hexa(key2) + " from original map")
+			try {
+				val = await map3.getTypedPromise(key2)
+				assertEqual(t, T, val, val2)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 2 in retrieved map: will not find it
+			T.log(1, "• get " + hexa(key2) + " from retrieved map")
+			try {
+				val = await map3.getTypedPromise(key2)
+				assertEqual(1, T, val, val2)
+			} catch(err) {
+				attestUnexpectedError(1, T, err)
+			}
+
+			T.log(1, "• put " + hexa(key2) + ": " + hexa(val2) + " to retrieved map")
+			try {
+				err = await map3.putTypedPromise(key2, val2)
+				assertNoError(1, T, err)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(1, "• get " + hexa(key2) + " from retrieved map")
+			try {
+				val = await map3.getTypedPromise(key2)
+				assertEqual(t, T, val, val2)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			group--
+		})()
+
+		; (async ()=>{
+
+			group++
+			let t = 2
+
+			T.log(t, "• second new map")
+			try {
+				map2 = await pot.newSwarmKvsPromise()
+				assertNoError(t, T, !map2)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup in all-new map: will not find it
+			T.log(t, "• get " + key1 + " from second map")
+			try {
+				val = await map2.getTypedPromise(key1)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• put " + key1 + ": " + val1 + " to second map")
+			try {
+				err = await map2.putTypedPromise(key1, val1)
+				assertNoError(t, T, err)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• get " + key1 + " from second map")
+			try {
+				val = await map2.getTypedPromise(key1)
+				assertEqual(t, T, val, val1)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			/// GETTING FROM FIRST MAP
+			T.log(t, "• get " + key1 + " from FIRST map")
+			try {
+				val = await map.getTypedPromise(key1)
+				assertEqual(t, T, val, val1)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 2 in 2nd map: will not find it
+			T.log(t, "• get " + hexa(key2) + " from 2nd (new) map")
+			try {
+				val = await map2.getTypedPromise(key2)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t0, T, err)
+			}
+
+			T.log(t, "• put " + hexa(key2) + ": " + hexa(val2) + " to 2nd map")
+			try {
+				err = await map2.putTypedPromise(key2, val2)
+				assertNoError(t, T, err)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• get " + hexa(key2) + " from 2nd map")
+			try {
+				val = await map2.getTypedPromise(key2)
+				assertEqual(t, T, val, val2)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			group--
+		})()
+
+		await completion(null, T, ()=>{return group}, 100, 1000)
+
+	}{
+
+		T.start("Concurrent save of KVS, re-activate previous, interact, with Promises / Variation")
+
+		key1 = "K1"
+		val1 = "V1"
+		key2 = "K2"
+		val2 = "V2"
+		key3 = "K3"
+		val3 = "V3"
+
+		let map
+		let map2
+		let map3
+		let map4
+		let map5
+
+		group = 0
+
+		; (async () => {
+
+			T.log("» first thread")
+			group++
+			let t = 1
+
+			T.log(t, "• new map")
+			try {
+				map = await pot.newSwarmKvsPromise()
+				assertNoError(t, T, !map)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• put " + key1 + ": " + val1)
+			try {
+				err = await map.putTypedPromise(key1, val1)
+				assertNoError(t, T, err)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• get " + key1)
+			try {
+				val = await map.getTypedPromise(key1)
+				assertEqual(t, T, val, val1)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup in all-new map: will not find it
+			T.log(t, "• get " + key2 + " that should not exist")
+			try {
+				val = await map.getTypedPromise(key2)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• save")
+			try {
+				save_ref = await map.savePromise()
+				assertNotAnError(t, T, save_ref)
+				T.log(t, "√ KVS saved under key " + hex(save_ref))
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• retrieve first map " + hex(save_ref))
+			try {
+				map3 = await pot.newSwarmKvsReferencePromise(save_ref)
+				assertNotAnError(t, T, map3)
+				assertNotEqual(t, T, map3, null)
+				console.log(map3)
+				assertEqual(t, T, map.slot_ref, map3.slot_ref)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• get " + key1 + " from retrieved first map")
+			try {
+				val = await map3.getTypedPromise(key1)
+				assertEqual(t, T, val, val1)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 2 in retrieved map: should not find it
+			T.log(t, "• get " + key2 + " from retrieved first map")
+			try {
+				val = await map3.getTypedPromise(key2)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• put " + key3 + ": " + val3 + " to retrieved first map")
+			try {
+				err = await map3.putTypedPromise(key3, val3)
+				assertNoError(t, T, err)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• get " + key3 + " from retrieved first map")
+			try {
+				val = await map3.getTypedPromise(key3)
+				assertEqual(t, T, val, val3)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• save first map again")
+			try {
+				save_ref_again = await map.savePromise()
+				assertNotAnError(t, T, save_ref_again)
+				T.log(t, "√ KVS saved under key " + hex(save_ref_again))
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+			group--
+		})()
+
+		; (async () => {
+
+			group++
+			let t = 2
+
+			T.log(t, "» second thread")
+
+			T.log(t, "• second new map")
+			try {
+				map2 = await pot.newSwarmKvsPromise()
+				assertNoError(t, T, !map2)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 1 in all-new map: will not find it
+			T.log(t, "• get " + key1 + " from new map")
+			try {
+				val = await map2.getTypedPromise(key1)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 2 in all-new map: will not find it
+			T.log(t, "• get " + key2 + " from new map")
+			try {
+				val = await map2.getTypedPromise(key2)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• put " + key2 + ": " + val2)
+			try {
+				err = await map2.putTypedPromise(key2, val2)
+				assertNoError(t, T, err)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• get " + key2)
+			try {
+				val = await map2.getTypedPromise(key2)
+				assertEqual(t, T, val, val2)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• save second map")
+			try {
+				save_ref_2 = await map2.savePromise()
+				assertNotAnError(t, T, save_ref_2)
+				T.log(t, "√ KVS saved under key " + hex(save_ref_2))
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• retrieve second map " + hexa(save_ref_2))
+			try {
+				map5 = await pot.newSwarmKvsReferencePromise(save_ref_2)
+				assertNotAnError(t, T, map5)
+				assertNotEqual(t, T, map5, null)
+				console.log(map5)
+				assertEqual(t, T, map2.slot_ref, map5.slot_ref)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 1 in 2nd new map: will not find it
+			T.log(t, "• get " + key1 + " from second map")
+			try {
+				val = await map5.getTypedPromise(key1)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• get " + key2 + " from second map")
+			try {
+				val = await map5.getTypedPromise(key2)
+				assertEqual(t, T, val, val2)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 3 in all-new map: will not find it
+			T.log(t, "• get " + key3 + " from second map")
+			try {
+				val = await map5.getTypedPromise(key3)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+			group--
+		})()
+
+		; (async () => {
+
+			group++
+			let t = 3
+
+			T.log(t, "» third thread")
+
+			T.log(t, "• third new map")
+			try {
+				// called map4 because map3 is the retrieved first
+				map4 = await pot.newSwarmKvsPromise() 
+				assertNoError(t, T, !map4)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 1 in all-new map: will not find it
+			T.log(t, "• get " + key1 + " from third map")
+			try {
+				val = await map4.getTypedPromise(key1)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 2 in all-new map: will not find it
+			T.log(t, "• get " + key2 + " from third map")
+			try {
+				val = await map4.getTypedPromise(key2)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 3 in all-new map: will not find it
+			T.log(t, "• get " + key3 + " from third map")
+			try {
+				val = await map4.getTypedPromise(key3)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+			group--
+		})()
+
+		await completion(null, T, ()=>{return group}, 100, 1000)
+
+	}{
+
+		T.start("Interact with Different Maps, without Savinng, with Promises / Variation")
+
+		key1 = "K1"
+		val1 = "V1"
+		key2 = "K2"
+		val2 = "V2"
+		key3 = "K3"
+		val3 = "V3"
+
+		let group = 0
+
+		; (async () => {
+
+			group++
+			let t=1
+
+			T.log(t, "• new map")
+			try {
+				map = await pot.newSwarmKvsPromise()
+				assertNoError(t, T, !map)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• put " + key1 + ": " + val1)
+			try {
+				err = await map.putTypedPromise(key1, val1)
+				assertNoError(t, T, err)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• get " + key1)
+			try {
+				val = await map.getTypedPromise(key1)
+				assertEqual(t, T, val, val1)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup in all-new map: will not find it
+			T.log(t, "• get " + key2 + " that should not exist")
+			try {
+				val = await map.getTypedPromise(key2)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• get " + key1 + " from first map")
+			try {
+				val = await map.getTypedPromise(key1)
+				assertEqual(t, T, val, val1)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 2 in new map: should not find it
+			T.log(t, "• get " + key2 + " from first map")
+			try {
+				val = await map.getTypedPromise(key2)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• put " + key3 + ": " + val3 + " to first map")
+			try {
+				err = await map.putTypedPromise(key3, val3)
+				assertNoError(t, T, err)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• get " + key3 + " from first map")
+			try {
+				val = await map.getTypedPromise(key3)
+				assertEqual(t, T, val, val3)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			group--
+		})()
+
+		; (async () => {
+
+			group++
+			let t=2
+
+			T.log(t, "• new map")
+			try {
+				map2 = await pot.newSwarmKvsPromise()
+				assertNoError(t, T, !map2)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 1 in all-new map: will not find it
+			T.log(t, "• get " + key1 + " from new map")
+			try {
+				val = await map2.getTypedPromise(key1)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 2 in all-new map: will not find it
+			T.log(t, "• get " + key2 + " from new map")
+			try {
+				val = await map2.getTypedPromise(key2)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• put " + key2 + ": " + val2)
+			try {
+				err = await map2.putTypedPromise(key2, val2)
+				assertNoError(t, T, err)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• get " + key2 + " from second map")
+			try {
+				val = await map2.getTypedPromise(key2)
+				assertEqual(t, T, val, val2)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 1 in 2nd new map: will not find it
+			T.log(t, "• get " + key1 + " from second map")
+			try {
+				val = await map2.getTypedPromise(key1)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			T.log(t, "• get " + key2 + " from second map")
+			try {
+				val = await map2.getTypedPromise(key2)
+				assertEqual(t, T, val, val2)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 3 in all-new map: will not find it
+			T.log(t, "• get " + key3 + " from second map")
+			try {
+				val = await map2.getTypedPromise(key3)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			group--
+
+		})()
+
+		; (async () => {
+
+			group++
+			let t=3
+
+			T.log(t, "• third new map")
+			try {
+				map3 = await pot.newSwarmKvsPromise() 
+				assertNoError(t, T, !map3)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 1 in all-new map: will not find it
+			T.log(t, "• get " + key1 + " from third map")
+			try {
+				val = await map3.getTypedPromise(key1)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 2 in all-new map: will not find it
+			T.log(t, "• get " + key2 + " from third map")
+			try {
+				val = await map3.getTypedPromise(key2)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			// lookup key 3 in all-new map: will not find it
+			T.log(t, "• get " + key3 + " from third map")
+			try {
+				val = await map3.getTypedPromise(key3)
+				assertEqual(t, T, val, null)
+			} catch(err) {
+				attestUnexpectedError(t, T, err)
+			}
+
+			group--
+		})()
+
+		await completion(null, T, ()=>{return group}, 100, 2000)
+
+	}
 }
 
 function TestPotKvs_Proof(T) {
@@ -1262,12 +3041,13 @@ function TestPotKvs_Proof(T) {
 
 	T.start("Return a Proof")
 
+	T.log("• new map")
 	map = pot.newSwarmKvs()
-	assertNoError(T, !map)
+	assertNoError(t0, T, !map)
 
 	T.log("• get proof for " + key1)
 	val = map.getProof(key1)
-	assertEqual(T, val, null)
+	assertEqual(t0, T, val, null)
 
 }
 
@@ -1282,9 +3062,9 @@ async function TestPotKvs_Cancellation(T) {
 	T.log("create hanging test promise and let it time out (try-catch)")
 	try {
 		ref = await pot.hangingPromise()
-		attestMissingError(T)
+		attestMissingError(t, T)
 	} catch(err) {
-		attestExpectedError(T, err, "Error: done sleeping, nothing happened")
+		attestExpectedError(t0, T, err, "Error: done sleeping, nothing happened")
 	}
 
 
@@ -1292,7 +3072,7 @@ async function TestPotKvs_Cancellation(T) {
 
 	T.log("create hanging test promise and let it time out (chained catch)")
 	ref = await pot.hangingPromise()
-		.catch((err)=>attestExpectedError(T, err, "Error: done sleeping, nothing happened"))
+		.catch((err)=>attestExpectedError(t0, T, err, "Error: done sleeping, nothing happened"))
 
 
 	T.start("Cancel Timer")
@@ -1302,9 +3082,9 @@ async function TestPotKvs_Cancellation(T) {
 		ref = pot.hangingPromise()
 		setTimeout(ref.cancel, 500)
 		await ref
-		attestMissingError(T)
+		attestMissingError(t, T)
 	} catch(err) {
-		attestExpectedError(T, err, "Error: canceled")
+		attestExpectedError(t0, T, err, "Error: canceled")
 	}
 
 
@@ -1315,9 +3095,9 @@ async function TestPotKvs_Cancellation(T) {
 		ref = pot.hangingPromise()
 		setTimeout(ref.cancel, 500)
 		// note, don't chain the .catch above to get the wrong ref. 
-		await ref.catch((err)=>attestExpectedError(T, err, "Error: canceled"))
+		await ref.catch((err)=>attestExpectedError(t0, T, err, "Error: canceled"))
 	} catch(err) {
-		attestUnexpectedError(T, err)
+		attestUnexpectedError(t0, T, err)
 	}
 
 
@@ -1327,11 +3107,11 @@ async function TestPotKvs_Cancellation(T) {
 	try {
 		ref = pot.hangingPromise()
 		// note, don't chain the .catch above to get the wrong ref. 
-		ref.catch((err)=>attestExpectedError(T, err, "Error: canceled"))
-		await delay(500);
+		ref.catch((err)=>attestExpectedError(t0, T, err, "Error: canceled"))
+		await delay(500)
 		ref.cancel()
 	} catch(err) {
-		attestUnexpectedError(T, err)
+		attestUnexpectedError(t0, T, err)
 	}
 
 	await delay(700)
@@ -1345,9 +3125,9 @@ async function TestPotKvs_Cancellation(T) {
 		ref = pot.hangingPromise()
 		ref.cancel()
 		// also does not work with 500ms delay here
-		attestMissingError(T)
+		attestMissingError(t, T)
 	} catch(err) {
-		attestExpectedError(T, err, "Error: canceled")
+		attestExpectedError(t0, T, err, "Error: canceled")
 	}
 */
 
@@ -1357,11 +3137,256 @@ async function TestPotKvs_Cancellation(T) {
 	try {
 		ref = pot.hangingPromise()
 		// note, don't chain the .catch above to get the wrong ref. 
-		ref.catch((err)=>attestExpectedError(T, err, "Error: canceled"))
+		ref.catch((err)=>attestExpectedError(t0, T, err, "Error: canceled"))
 		ref.cancel()
 	} catch(err) {
-		attestUnexpectedError(T, err)
+		attestUnexpectedError(t0, T, err)
 	}
 
 }
+
+async function TestPotKvs_Mass(T) {
+
+	T.head("Mass Access")
+
+
+	T.start("store and retrieve "+massmax+" values sequentially")
+
+	T.log("• new map")
+	map = pot.newSwarmKvs()
+	assertNoError(t0, T, !map)
+
+	k = []
+	v = []
+
+	T.log("• store "+massmax+" random values under random keys")
+	for(let i=0; i<massmax; i++) {
+		k.push(key = pot.randKey())
+		v.push(val = pot.randValue())
+		e = map.putTyped(key, val)
+		assertNotAnError(t0, T, e, true) // suppress ok
+	}
+	attestNoError(t0, T)
+
+	T.log("• retrieve "+massmax+" random values under random keys")
+	for(let i=0; i<massmax; i++) {
+		val = map.getTyped(k[i])
+		assertEqual(t0, T, val, v[i], true) // suppress ok
+	}
+	attestNoError(t0, T)
+
+}
+
+// Testing failure modes: internal error (returned), and Go panic.
+async function TestPotKvs_Failures(T) {
+
+	T.head("Failures", pot.testMode() != "extended")
+
+	if(pot.testMode() != "extended") {
+		T.log("Failure tests are available in extended API test mode. Run `$make xt`.")
+		return
+	}
+
+	// (This comes out as note right under the case head)
+	T.log("Testing wether all error condition types are contained and don't bring down the Go executable.")
+
+
+	T.start("pot initialization failure")
+
+	T.log("Using pot before wasm streaming initialization is complete.")
+	T.log("NOTE THAT THIS TEST MIGHT FAIL without good cause if the" +
+		" streaming completes so fast that the test cannot interject.")
+	T.log(" This test adds the information how the error looks if the" +
+		" failure happens, and that the test code as an example can" +
+		" catch it.")
+	{
+
+		const go = new Go()
+		potbak = pot
+		pot = {}
+
+		pot.start = new Promise((resolve, reject) => {
+			WebAssembly.instantiateStreaming(fetch("pot.wasm"), go.importObject)
+				.then((r) => { go.run(r.instance) ; resolve(pot) })
+				.catch((e) => { reject(e) })
+		})
+
+		pot.ready = () => { return pot.start }
+
+		// too early, fail. MIGHT SOMETIMES SUCCEED:
+		// In case this error unintentionally succeeds,
+		// cut it.
+		T.log("• new map (first attempt, before pot is ready)")
+		try {
+			pot.newSwarmKvs()
+			attestMissingError(t0, T)
+		} catch(err) {
+			attestExpectedError(t0, T, err)
+		}
+
+		await pot.ready()
+
+		// .. should work now
+		T.log("• new map (second attempt, after pot is ready)")
+		try {
+			pot.newSwarmKvs()
+			attestNoError(t0, T)
+		} catch(err) {
+			attestUnexpectedError(t0, T, err)
+		}
+
+		// re original instance
+		pot = potbak
+	}
+
+
+	T.start("new map creation failure conditions")
+
+	// happy path
+	T.log("• new map, synchronous happy path")
+	map = pot.newSwarmKvs()
+	assertNoError(t0, T, !map)
+
+	// fail synchronously
+	pot.setFail(true)
+	T.log("• new map synchronous call failure")
+	map = pot.newSwarmKvs()
+	assertError(t0, T, map)
+
+	// fail asynchronously
+	pot.setFail(true)
+	T.log("• new map asynchronous call failure")
+	try {
+		map = await pot.newSwarmKvsPromise()
+		attestMissingError(t0, T)
+	} catch(err) {
+		attestExpectedError(t0, T, err)
+	}
+
+	// panic synchronously
+	pot.setPanic(true)
+	T.log("• new map synchronous call panic")
+	map = pot.newSwarmKvs()
+	assertError(t0, T, map)
+
+	// panic asynchronously
+	pot.setPanic(true)
+	T.log("• new map asynchronous call panic")
+	try {
+		map = await pot.newSwarmKvsPromise()
+		attestMissingError(t0, T)
+	} catch(err) {
+		attestExpectedError(t0, T, err)
+	}
+
+
+	T.start("put - failure conditions")
+
+	key1 = "kappa 1"
+	val1 = "gamma 1"
+
+	// happy path
+	T.log("• new map, synchronous")
+	map = pot.newSwarmKvs()
+	assertNoError(t0, T, !map)
+
+	T.log("• put " + key1 + ": " + val1)
+	err = map.put(key1, val1)
+	assertNoError(t0, T, err)
+
+	// fail raw synchronously
+	pot.setFail(true)
+	T.log("• put raw - synchronous call failure")
+	err = map.put(key1, val1)
+	assertError(t0, T, err, /mock fail/)
+
+	// fail typed synchronously
+	pot.setFail(true)
+	T.log("• put typed - synchronous call failure")
+	err = map.putTyped(key1, val1)
+	assertError(t0, T, err, /mock fail/)
+
+	// fail typed asynchronously
+	pot.setFail(true)
+	T.log("• put typed - asynchronous (promise) call failure")
+	try {
+		err = await map.putTypedPromise(key1, val1)
+		attestMissingError(t0, T)
+	} catch(err) {
+		assertError(t0, T, err, /mock fail/)
+	}
+
+	// panic raw synchronously
+	pot.setPanic(true)
+	T.log("• put raw - panic")
+	err = map.put(key1, val1)
+	assertError(t0, T, err, /mock panic/)
+
+	// panic typed synchronously
+	pot.setPanic(true)
+	T.log("• put typed -  synchronous call panic")
+	err = map.putTyped(key1, val1)
+	assertError(t0, T, err, /mock panic/)
+
+	// panic asynchronously
+	pot.setPanic(true)
+	T.log("• put typed - asynchronous call panic")
+	try {
+		err = await map.putTypedPromise(key1, val1)
+		attestMissingError(t0, T)
+	} catch(err) {
+		assertError(t0, T, err, /mock panic/)
+	}
+
+
+	T.start("put - parameter error")
+
+	T.log("• new map, synchronous")
+	map = pot.newSwarmKvs()
+	assertNoError(t0, T, !map)
+
+	// 1 less
+
+	// fail raw synchronously
+	T.log("• put raw, synchronous - missing value parameter")
+	err = map.put(key1)
+	assertError(t0, T, err, /parameter count.*requires 2, got 1/)
+
+	// fail typed synchronously
+	T.log("• put typed, synchronous - missing value parameter")
+	err = map.putTyped(key1)
+	assertError(t0, T, err, /parameter count.*requires 2, got 1/)
+
+	// fail typed asynchronously
+	T.log("• put typed, asynchronous (promise) - missing value parameter")
+	try {
+		err = await map.putTypedPromise(key1)
+		attestMissingError(t0, T)
+	} catch(err) {
+		assertError(t0, T, err, /parameter count.*requires 2, got 1/)
+	}
+
+	// 2 less
+
+	// fail raw synchronously
+	T.log("• put raw, synchronous - missing both parameters")
+	err = map.put()
+	assertError(t0, T, err, /parameter count.*requires 2, got 0/)
+
+	// fail typed synchronously
+	T.log("• put typed, synchronous - missing both parameters")
+	err = map.putTyped()
+	assertError(t0, T, err, /parameter count.*requires 2, got 0/)
+
+	// fail typed asynchronously
+	T.log("• put typed, asynchronous (promise) - missing both parameters")
+	try {
+		err = await map.putTypedPromise()
+		attestMissingError(t0, T)
+	} catch(err) {
+		assertError(t0, T, err, /parameter count.*requires 2, got 0/)
+	}
+
+}
+
 
