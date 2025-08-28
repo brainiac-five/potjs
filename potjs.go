@@ -29,11 +29,6 @@ import(
 
 var _ KeyValueStore = (*SwarmKvs)(nil)
 
-// storage mode for save and new-by-reference. Only in-memory now.
-const (
-	inmem int = 1
-)
-
 var Saved = make(map[string]int)
 
 type Slot struct {
@@ -41,6 +36,7 @@ type Slot struct {
 	Ref int // index+1 in slots array
 	Ctx context.Context
 	Ls persister.LoadSaver
+	allowSync bool
 	Kvs *SwarmKvs
 }
 
@@ -61,16 +57,19 @@ func newSwarmKvs(js_call_context js.Value, parameters []js.Value) (result interf
 	log("» initialize new P.O.T.")
 
 	var ls persister.LoadSaver
+	var allowSync bool
 
-	smode := inmem
-	if len(parameters) > 0 {
-		smode = parameters[0].Int() /// type error check
-	}
-	switch smode {
-	case inmem:
+	if len(parameters) == 2 && !parameters[0].IsNull() {
+		beeAPIURL := parameters[0].String() /// catch error
+		postageIDBytes := bytes(parameters[1]) /// catch error / missing
+		log(string(postageIDBytes))
+		log(strconv.Itoa(len(postageIDBytes)))
+		ls = persister.NewSwarmLoadSaver(beeAPIURL, postageIDBytes)
+		allowSync = false
+	// (note: make sure mock tests use this branch to allow sync calls)
+	} else { /// error check for other parameter constellations
 		ls = persister.NewInmemLoadSaver()
-	default:
-		/// error
+		allowSync = true
 	}
 
 	// -------------------------------------------------------------------
@@ -84,10 +83,10 @@ func newSwarmKvs(js_call_context js.Value, parameters []js.Value) (result interf
 
 	// register context and kvs handle, take numerical index as handle
 	slot_ref := len(Slots) + 1 // = starting on 1. /// add deletion
-	Slots = append(Slots, Slot{Ctx: context.Background(), Kvs: kvs, Ref: slot_ref, Ls: ls})
+	Slots = append(Slots, Slot{Ctx: context.Background(), Kvs: kvs, Ref: slot_ref, Ls: ls, allowSync: allowSync})
 
 	log("slot ref: " + strconv.Itoa(slot_ref))
-	return createJSObject(slot_ref)
+	return createMapObject(slot_ref)
 }
 
 // Create a new Swarm KVS map, with a handle in the form of a Javascript object.
@@ -107,10 +106,9 @@ func newSwarmKvsPromise(js_call_context js.Value, parameters []js.Value) (result
 
 		go func() {
 
-			// The Go error type is not used, to make getTyped
+			// The Go error type is not used, to make newSwarmKvs()
 			// usable also directly from JS, where only one result
-			// is expected. Direct calls, however, may be useful
-			// for prototyping against in-memory pots only.
+			// is expected.
 			jsvalue_or_jserr := newSwarmKvs(js_call_context, parameters).(js.Value)
 			if jsvalue_or_jserr.InstanceOf(js.Global().Get("Error")) {
 				reject.Invoke(jsvalue_or_jserr)
@@ -156,15 +154,22 @@ func newSwarmKvsReference(this js.Value, parameters []js.Value) (result interfac
 	jsref32 := parameters[0] //// react if missing, too small/big
 	ref32 := bytes(jsref32) /// roll into one line
 
+	/// refactor to work without saving having happened first to fill the slot
 	if len(Saved) < 1 { panic("no references stored") }
 	slot_ref := Saved[bhex(ref32)] /// error handling
 	if slot_ref < 1 { panic("reference not found") }
 	slot := Slots[slot_ref-1]
 	log("slot ref: " + strconv.Itoa(slot_ref)) /// verbosity switch
 	ls := slot.Ls
-
+/* ///
+	if sync && !slot.allowSync {
+		msg := "### error in getBoolean: no sync calls to swarm network"
+		log(msg)
+		return js.Global().Get("Error").New(msg)
+	}
+*/
 	// -------------------------------------------------------------------
-	_, err := NewSwarmKvsReference(ls, ref32)
+	_, err := NewSwarmKvsReference(slot.Ctx, ls, ref32)
 	// -------------------------------------------------------------------
 	if err != nil {
 		msg := "### error in newSwarmKvsReference: " + err.Error()
@@ -172,12 +177,8 @@ func newSwarmKvsReference(this js.Value, parameters []js.Value) (result interfac
 		return js.Global().Get("Error").New(msg)
 	}
 
-///	not doing this makes the testing fragile. It does not match real operation.
-//	slot_ref := len(Slots) + 1 // = starting on 1. /// add deletion
-//	Slots = append(Slots, Slot{ctx: context.Background(), kvs: kvs, ref: slot_ref})
-
-	/// returns new object to same slot
-	return createJSObject(slot_ref)
+	/// TODO may return new object to same slot
+	return createMapObject(slot_ref)
 }
 
 func newSwarmKvsReferencePromise(this js.Value, parameters []js.Value) (result interface{}) {
@@ -196,10 +197,9 @@ func newSwarmKvsReferencePromise(this js.Value, parameters []js.Value) (result i
 
 		go func() {
 
-			// The Go error type is not used, to make getTyped
+			// The Go error type is not used, to make newSwarmKvsReference()
 			// usable also directly from JS, where only one result
-			// is expected. Direct calls, however, may be useful
-			// for prototyping against in-memory pots only.
+			// is expected.
 			jsvalue_or_jserr := newSwarmKvsReference(this, parameters).(js.Value)
 			if jsvalue_or_jserr.InstanceOf(js.Global().Get("Error")) {
 				reject.Invoke(jsvalue_or_jserr)
@@ -215,29 +215,35 @@ func newSwarmKvsReferencePromise(this js.Value, parameters []js.Value) (result i
 	return promiseConstructor.New(handler)
 }
 
-func createJSObject(slot_ref int) js.Value {
+// createMapObject creates the JS object that newSwarmKvs() and 
+// newSwarmKvsReference() return and all put and get functions are members of.
+// Go context and persiter are stored this side in a Slot array that slot_ref
+// is an index to.
+func createMapObject(slot_ref int) js.Value {
 
 	// create Javascript handle object
-	jsO := js.ValueOf(make(map[string]interface{}))
+	jsMap := js.ValueOf(make(map[string]interface{}))
 
-	// the numeric handle bridges preserved ctx and ps to JS.
-	jsO.Set("slot_ref", slot_ref)
+	// the numeric handle bridges preserved ctx and persister to JS.
+	jsMap.Set("slot_ref", slot_ref)
 
 	// add standard methods
-	jsO.Set("put", js.FuncOf(put))
-	jsO.Set("get", js.FuncOf(get))
-	jsO.Set("save", js.FuncOf(save))
-	jsO.Set("savePromise", js.FuncOf(savePromise))
-	jsO.Set("getBoolean", js.FuncOf(getBoolean))
-	jsO.Set("getNumber", js.FuncOf(getNumber))
-	jsO.Set("getString", js.FuncOf(getString))
-	jsO.Set("putTyped", js.FuncOf(putTyped))
-	jsO.Set("getTyped", js.FuncOf(getTyped))
-	jsO.Set("putTypedPromise", js.FuncOf(putTypedPromise))
-	jsO.Set("getTypedPromise", js.FuncOf(getTypedPromise))
-	jsO.Set("getProof", js.FuncOf(getProof))
+	jsMap.Set("put", js.FuncOf(put))
+	jsMap.Set("get", js.FuncOf(get))
+	jsMap.Set("save", js.FuncOf(save))
+	jsMap.Set("savePromise", js.FuncOf(savePromise))
+	jsMap.Set("getBoolean", js.FuncOf(getBoolean))
+	jsMap.Set("getNumber", js.FuncOf(getNumber))
+	jsMap.Set("getString", js.FuncOf(getString))
+	jsMap.Set("putTyped", js.FuncOf(putTyped))
+	jsMap.Set("getTyped", js.FuncOf(getTyped))
+	jsMap.Set("putRawPromise", js.FuncOf(putRawPromise))
+	jsMap.Set("getRawPromise", js.FuncOf(getRawPromise))
+	jsMap.Set("putTypedPromise", js.FuncOf(putTypedPromise))
+	jsMap.Set("getTypedPromise", js.FuncOf(getTypedPromise))
+	jsMap.Set("getProof", js.FuncOf(getProof))
 
-	return jsO
+	return jsMap
 }
 
 // JS API:
@@ -255,7 +261,14 @@ func save(this js.Value, parameters []js.Value) (result interface{}) {
 	slot_ref := this.Get("slot_ref").Int() /// error check
 	if slot_ref < 1 { panic("invalid slot reference") }
 	slot := Slots[slot_ref-1] /// error check
-	//--api_test: if slot.Kvs.Slot_ref != slot_ref { panic("slot double link broken ‹" + strconv.Itoa(slot_ref) + "› / ‹" + strconv.Itoa(slot.Kvs.Slot_ref) + "›") }
+	///--ext_test: if slot.Kvs.Slot_ref != slot_ref { panic("slot double link broken ‹" + strconv.Itoa(slot_ref) + "› / ‹" + strconv.Itoa(slot.Kvs.Slot_ref) + "›") }
+/* ///
+	if sync && !slot.allowSync {
+		msg := "### error in getBoolean: no sync calls to swarm network"
+		log(msg)
+		return js.Global().Get("Error").New(msg)
+	}
+*/
 	// -------------------------------------------------------------------
 	ref32, err := slot.Kvs.Save(slot.Ctx)
 	// -------------------------------------------------------------------
@@ -291,10 +304,9 @@ func savePromise(js_call_context js.Value, parameters []js.Value) (result interf
 
 		go func() {
 
-			// The Go error type is not used, to make getTyped
+			// The Go error type is not used, to make save()
 			// usable also directly from JS, where only one result
-			// is expected. Direct calls, however, may be useful
-			// for prototyping against in-memory pots only.
+			// is expected.
 			jsvalue_or_jserr := save(js_call_context, parameters).(js.Value)
 			if jsvalue_or_jserr.InstanceOf(js.Global().Get("Error")) {
 				reject.Invoke(jsvalue_or_jserr)
@@ -312,6 +324,13 @@ func savePromise(js_call_context js.Value, parameters []js.Value) (result interf
 
 // JS API: stores a raw byte value to a raw 32 byte key
 func put(this js.Value, parameters []js.Value) (result interface{}) {
+
+	return _put(this, parameters, true)
+}
+
+
+// internal: stores a raw byte value to a raw 32 byte key
+func _put(this js.Value, parameters []js.Value, sync bool) (result interface{}) {
 
 	// on panic, log, and return js Error object
 	defer func() { if err := recover(); err != nil {
@@ -337,6 +356,12 @@ func put(this js.Value, parameters []js.Value) (result interface{}) {
 	slot_ref := this.Get("slot_ref").Int() /// error check
 	slot := Slots[slot_ref-1] /// error check
 
+	if sync && !slot.allowSync {
+		msg := "### error in put: no sync calls to swarm network"
+		log(msg)
+		return js.Global().Get("Error").New(msg)
+	}
+
 	// -------------------------------------------------------------------
 	err := slot.Kvs.Put(slot.Ctx, pkey, value)
 	// -------------------------------------------------------------------
@@ -349,6 +374,60 @@ func put(this js.Value, parameters []js.Value) (result interface{}) {
 	log("» put " + bhex(pkey) + ": " + bhex(value) + "")
 	return nil
 }
+
+// Async storing of a key-value pair, raw.
+// Returns a Javascript promise that returns a JS Error to reject() on failure.
+func putRawPromise(js_call_context js.Value, parameters []js.Value) (result interface{}) {
+
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in putRawPromise: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
+
+	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
+
+		// on panic, log, and return js Error object
+		defer func() { if err := recover(); err != nil {
+			msg := "### panic in putRawPromise executor: " + err.(string)
+			log(msg)
+			result = js.Global().Get("Error").New(msg)
+		}}()
+
+		resolve := handler_parameters[0]
+		reject := handler_parameters[1]
+
+		// parameter count check
+		if(len(parameters) < 2) { // sic. parameters, not handler_paramaters
+			msg := "### parameter count error: putRawPromise() requires 2, got " + strconv.Itoa(len(parameters))
+			log(msg)
+			reject.Invoke(js.Global().Get("Error").New(msg))
+		}
+
+		go func() {
+			// The Go error type is not used, to make put() 
+			// usable also directly from JS, where only one result
+			// is expected.
+			jsvalue_or_jserr := _put(js_call_context, parameters, false)
+			if jsvalue_or_jserr == nil {
+				resolve.Invoke(js.Null())
+			} else if jsvalue_or_jserr.(js.Value).InstanceOf(js.Global().Get("Error")) {
+				reject.Invoke(jsvalue_or_jserr.(js.Value))
+			} else {
+				resolve.Invoke(jsvalue_or_jserr.(js.Value))
+			}
+		}()
+
+		return nil
+	})
+
+	promise := js.Global().Get("Promise").New(handler)
+	promise.Set("cancel", js.FuncOf(func(js.Value, []js.Value) interface{} { log("cancelled!") ; return nil }) )
+
+	return promise
+}
+
 
 func pad(key []byte) ([]byte, interface{}) {
 
@@ -365,8 +444,15 @@ func pad(key []byte) ([]byte, interface{}) {
 	return key, nil
 }
 
-// JS API get retrieves a raw byte value for a raw 32 byte key
+
+// JS API: retrieves a raw byte value for a raw 32 byte key
 func get(this js.Value, parameters []js.Value) (result interface{}) {
+
+	return _get(this, parameters, true)
+}
+
+// retrieves a raw byte value for a raw 32 byte key
+func _get(this js.Value, parameters []js.Value, sync bool) (result interface{}) {
 
 	// on panic, log, and return js Error object
 	defer func() { if err := recover(); err != nil {
@@ -383,6 +469,12 @@ func get(this js.Value, parameters []js.Value) (result interface{}) {
 	slot_ref := this.Get("slot_ref").Int() /// error check
 	slot := Slots[slot_ref-1] /// error check, pre, post (?)
 
+	if sync && !slot.allowSync {
+		msg := "### error in _get: no sync calls to swarm network"
+		log(msg)
+		return js.Global().Get("Error").New(msg)
+	}
+
 	// -------------------------------------------------------------------
 	value, err := slot.Kvs.Get(slot.Ctx, pkey)
 	// -------------------------------------------------------------------
@@ -395,10 +487,50 @@ func get(this js.Value, parameters []js.Value) (result interface{}) {
 	return jsarray_from_bytes(value)
 }
 
+func getRawPromise(js_call_context js.Value, parameters []js.Value) (result interface{}) {
+
+	// on panic, log, and return js Error object
+	defer func() { if err := recover(); err != nil {
+		msg := "### panic in getRawPromise: " + err.(string)
+		log(msg)
+		result = js.Global().Get("Error").New(msg)
+	}}()
+
+	handler := js.FuncOf(func(handler_this js.Value, handler_parameters[]js.Value) interface{} {
+
+		resolve := handler_parameters[0]
+		reject := handler_parameters[1]
+
+		go func() {
+
+			// The Go error type is not used, to make getTyped()
+			// usable also directly from JS, where only one result
+			// is expected.
+			jsvalue_or_jserr := _get(js_call_context, parameters, false).(js.Value)
+			if jsvalue_or_jserr.InstanceOf(js.Global().Get("Error")) {
+				reject.Invoke(jsvalue_or_jserr)
+			} else {
+				resolve.Invoke(jsvalue_or_jserr)
+			}
+		}()
+
+		return nil
+	})
+
+	promiseConstructor := js.Global().Get("Promise")
+	return promiseConstructor.New(handler)
+}
+
 
 // Store a key-value pair, encoding the value type in the first value byte.
 // Usable directly from JS, and via putTypedPromise, its promise wrapper.
 func putTyped(this js.Value, parameters []js.Value) (result interface{}) {
+
+	return _putTyped(this, parameters, true)
+}
+
+// internal store of a key-value pair, encoding the value type in the first value byte.
+func _putTyped(this js.Value, parameters []js.Value, sync bool) (result interface{}) {
 
 	// on panic, log, and return js Error object
 	defer func() { if err := recover(); err != nil {
@@ -437,6 +569,12 @@ func putTyped(this js.Value, parameters []js.Value) (result interface{}) {
 	slot_ref := this.Get("slot_ref").Int() /// error check
 	slot := Slots[slot_ref-1] /// error check
 
+	if sync && !slot.allowSync {
+		msg := "### error in _putTyped: no sync calls to swarm network"
+		log(msg)
+		return js.Global().Get("Error").New(msg)
+	}
+
 	// -------------------------------------------------------------------
 	err = slot.Kvs.Put(slot.Ctx, pkey, cvalue)
 	// -------------------------------------------------------------------
@@ -447,7 +585,7 @@ func putTyped(this js.Value, parameters []js.Value) (result interface{}) {
 	}
 
 	log("» put " + key.String() + ": " + value.String() + "")
-	log("» ⟶ " + bhex(pkey) + ": " + bhex(cvalue) + "")
+	log("» ⟶  " + bhex(pkey) + ": " + bhex(cvalue) + "")
 	return js.Null()
 }
 
@@ -482,11 +620,10 @@ func putTypedPromise(js_call_context js.Value, parameters []js.Value) (result in
 		}
 
 		go func() {
-			// The Go error type is not used, to make getTyped
+			// The Go error type is not used, to make putTyped
 			// usable also directly from JS, where only one result
-			// is expected. Direct calls, however, may be useful
-			// for prototyping against in-memory pots only.
-			jsvalue_or_jserr := putTyped(js_call_context, parameters).(js.Value)
+			// is expected.
+			jsvalue_or_jserr := _putTyped(js_call_context, parameters, false).(js.Value)
 			if jsvalue_or_jserr.InstanceOf(js.Global().Get("Error")) {
 				reject.Invoke(jsvalue_or_jserr)
 			} else {
@@ -503,7 +640,13 @@ func putTypedPromise(js_call_context js.Value, parameters []js.Value) (result in
 	return promise
 }
 
+
 func getTyped(this js.Value, parameters []js.Value) (result interface{}) {
+
+	return _getTyped(this, parameters, true)
+}
+
+func _getTyped(this js.Value, parameters []js.Value, sync bool) (result interface{}) {
 
 	// on panic, log, and return js Error object
 	defer func() { if err := recover(); err != nil {
@@ -520,6 +663,13 @@ func getTyped(this js.Value, parameters []js.Value) (result interface{}) {
 	}
 	slot_ref := this.Get("slot_ref").Int() /// error check
 	slot := Slots[slot_ref-1] /// error check
+
+	if sync && !slot.allowSync {
+		msg := "### error in getTyped: no sync calls to swarm network"
+		log(msg)
+		return js.Global().Get("Error").New(msg)
+	}
+
 	// -------------------------------------------------------------------
 	bvalue, err := slot.Kvs.Get(slot.Ctx, pkey)
 	// -------------------------------------------------------------------
@@ -541,7 +691,7 @@ func getTyped(this js.Value, parameters []js.Value) (result interface{}) {
 	}
 
 	log("» get " + key.String() + ": " + value.String() + "")
-	log("» ⟵ " + bhex(pkey) + ": " + bhex(bvalue) + "")
+	log("» ⟵  " + bhex(pkey) + ": " + bhex(bvalue) + "")
 	return value
 }
 
@@ -563,11 +713,10 @@ func getTypedPromise(js_call_context js.Value, parameters []js.Value) (result in
 
 		go func() {
 
-			// The Go error type is not used, to make getTyped
+			// The Go error type is not used, to make getTyped()
 			// usable also directly from JS, where only one result
-			// is expected. Direct calls, however, may be useful
-			// for prototyping against in-memory pots only.
-			jsvalue_or_jserr := getTyped(js_call_context, parameters).(js.Value)
+			// is expected.
+			jsvalue_or_jserr := _getTyped(js_call_context, parameters, false).(js.Value)
 			if jsvalue_or_jserr.InstanceOf(js.Global().Get("Error")) {
 				reject.Invoke(jsvalue_or_jserr)
 			} else {
@@ -598,6 +747,12 @@ func getBoolean(this js.Value, parameters []js.Value) (result interface{}) {
 	}
 	slot_ref := this.Get("slot_ref").Int() /// error check
 	slot := Slots[slot_ref-1] /// error check, pre, post (?)
+
+	if !slot.allowSync {
+		msg := "### error in getBoolean: no sync calls to swarm network"
+		log(msg)
+		return js.Global().Get("Error").New(msg)
+	}
 
 	// -------------------------------------------------------------------
 	value, err := slot.Kvs.Get(slot.Ctx, pkey)
@@ -632,6 +787,12 @@ func getNumber(this js.Value, parameters []js.Value) (result interface{}) {
 	slot_ref := this.Get("slot_ref").Int() /// error check
 	slot := Slots[slot_ref-1] /// error check, pre, post (?)
 
+	if !slot.allowSync {
+		msg := "### error in getNumber: no sync calls to swarm network"
+		log(msg)
+		return js.Global().Get("Error").New(msg)
+	}
+
 	// -------------------------------------------------------------------
 	value, err := slot.Kvs.Get(slot.Ctx, pkey)
 	// -------------------------------------------------------------------
@@ -665,6 +826,12 @@ func getString(this js.Value, parameters []js.Value) (result interface{}) {
 	}
 	slot_ref := this.Get("slot_ref").Int() /// error check
 	slot := Slots[slot_ref-1] /// error check, pre, post (?)
+
+	if !slot.allowSync {
+		msg := "### error in getString: no sync calls to swarm network"
+		log(msg)
+		return js.Global().Get("Error").New(msg)
+	}
 
 	// -------------------------------------------------------------------
 	value, err := slot.Kvs.Get(slot.Ctx, pkey)
@@ -727,6 +894,15 @@ func main() {
 	// storage mode
 	js.Global().Set("pot_inmem", 1)
 
+	log("» init done")
+
+	// signal to js that go wasm initialization is done
+	if !js.Global().Get("wasm_loaded").IsUndefined() {
+		js.Global().Call("wasm_loaded") 
+	}
+
+	log("» ready")
+
 	// make program pause for its above-listed functions to stay available
 	<-make(chan int)
 }
@@ -752,7 +928,7 @@ func extlog(js_call_context js.Value, parameters []js.Value) interface{} {
 	return nil
 }
 
-// Cast from JS value to go byte array for keys.
+// Cast from JS value to go byte array for keys. Not adding type code byte.
 // Numbers are converted to their string representation rather than bytes,
 // effectively making no difference between 1.23 and "1.23" but 0x01 and 1
 // will not be equal keys (nor values). Else integers and floats would be

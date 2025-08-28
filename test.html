@@ -1,3 +1,11 @@
+<!-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+
+  Pot JS Tests Page
+
+  This page can display progress and results of four different test modi.
+
+ !-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -->
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,19 +14,85 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
 
-    <title>POT JS API Test</title>
+    <title><img src=favicon.ico>SWARM POT JS API Test</title>
 
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="test.css">
-    <!-- -- -- -- -- -- -- -- -- -- -- -->
+  </head>
+
+  <!-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -->
+
+  <body onload="modecolor()">
+
+
+    <h1> <img src=favicon.ico> SWARM POT JS API Test Suite <div class=modetag id=modetag>---</div></h1>
+
+
+    <p id=date></p>
+
+    <p>  This is the test suite for the Javascript API to the Go implementation of the Proximity-Order-Trie (POT). </p>
+
+
+    <p>  Also see:
+      <a href=example1.html class=see> example 1 </a> &nbsp;
+      <a href=example2.html class=see> example 2 </a> &nbsp;
+      <a href=example3.html class=see> example 3 </a> &nbsp;
+      <a href=example4.html class=see> example 4 </a> &nbsp;
+      <a href=README.MD class=see>     read me   </a>
+    </p>
+
+
+    <h2> Notes </h2>
+
+    <p id=modenote></p>
+
+    <p>  Tests are using different random byte sequences for keys and values every run.</p>
+
+
+    <h2> Network </h2>
+
+    <table>
+    <tr><td><p> Bee node URL </p></td><td><p>:</p></td><td><p> <span id=bee></span> </p></td></tr>
+    <tr><td><p> Batch ID     </p></td><td><p>:</p></td><td><p> <span id=batch></span> </p></td></tr>
+    </table>
+
+
+    <h2> KVS Tests </h2>
+
+    <h4 id=status style="border-left: 3px solid black"> Assertions: <span id=counter></span></h4>
+
+    <h4 id=errorlinks></h4>
+
+    <!-- -- -- -- -- -- -- -- -- -- -- -- ---- -- -- -- -- -- -- -- -- -- -- -->
+
     <script src="wasm_exec.js"></script>
     <script src="test.js"></script>
-    <script src="testmode.js"></script>
     <script src="kvs_test.js"></script>
 
     <script>
 
-	async function main() {
+	(async () => {
+
+		/* date */
+
+		document.getElementById("date").innerHTML = (new Date()).toString()
+
+		/* optional mode parameter */
+
+		var bee = null // --> in-memory testing
+		var batch = null
+		const queryString = window.location.search;
+		const urlParams = new URLSearchParams(queryString);
+		if(urlParams.has('bee')) bee = urlParams.get('bee');
+		if(urlParams.has('batch')) batch = fromHex(urlParams.get('batch'));
+		if(batch && batch.length != 32) throw new Error(`wrong batch id length ${batch.length}`)
+
+		/* network info */
+
+		document.getElementById("bee").innerHTML = bee ? bee : "(in-memory)"
+		document.getElementById("batch").innerHTML = batch ? hexa(batch) : "(none)"
+
+		/* initialize Go POT */
 
 		const go = new Go()
 
@@ -27,71 +101,115 @@
 
 		go.run(result.instance)
 
-		/* Test 1 */
+		/* Test Test */
 
 		T.head("Example Test")
 		T.log("Test setup test outside of main test files.")
+
 		T.start("html-inline")
-
-		map = pot.newSwarmKvs()
-
 		T.log("• put and get K: V")
-		map.put("K", "V")
-		r = map.getString("K")
-		assertEqual(null, T, r, "V")
+		try {
+			map = pot.newSwarmKvs(bee, batch)
+			await map.putTypedPromise("K", "V")
+			r = await map.getTypedPromise("K")
+			assertEqual(null, T, r, "V")
+		} catch(err) {
+			T.log(err)
+		}
 
-		/* More Tests */
+		/* Tests */
 
-		TestPotKvs(T)
-	 	TestPotKvs_EdgeValues(T)
-		TestPotKvs_TypeEncoding(T)
-		TestPotKvs_TypedAccess(T)
-		await TestPotKvs_Promise(T)
-		await TestPotKvs_Cancellation(T)
-		await TestPotKvs_Mass(T)
-		await TestPotKvs_Save(T)
-		await TestPotKvs_Complex_Save(T)
-		await TestPotKvs_Complex_Concurrent(T)
-		await TestPotKvs_Proof(T) 
-		await TestPotKvs_Failures(T)
+		try {
 
-		T.balance()
+			if(!bee) TestPotKvsSync(T, bee, batch)
+			await TestPotKvsAsync(T, bee, batch)
+
+			TestPotKvs_TypeEncoding(T, bee, batch)
+
+			if(!bee) TestPotKvs_EdgeValuesSync(T, bee, batch)
+			await TestPotKvs_EdgeValuesAsync(T, bee, batch)
+
+			if (!bee) TestPotKvs_TypedAccessSync(T, bee, batch)
+			await TestPotKvs_TypedAccessAsync(T, bee, batch)
+
+			await TestPotKvs_MassSequential(T, bee, batch)
+			await TestPotKvs_ComplexConcurrent(T, bee, batch)
+
+			await TestPotKvs_Save(T, bee, batch)
+			await TestPotKvs_ComplexSave(T, bee, batch)
+
+			await TestPotKvs_Cancellation(T, bee, batch)
+			await TestPotKvs_Failures(T, bee, batch)
+
+			await TestPotKvs_Proof(T, bee, batch) 
+
+			T.balance()
+
+		} catch(err) {
+			T.log(err)
+			alert(err)
+		}
+
+		clearInterval(deadman)
+	})()
+
+	var last_count = null
+	var deadman = setInterval(() => {
+		let counter = document.getElementById("counter")
+		if (counter.innerHTML == last_count)
+			if(T.connection_issue)
+				counter.innerHTML = "<b style=color:red>CONNECTION ISSUE.</b>"
+			else
+				counter.innerHTML = "<b style=color:red>CHECK CONSOLE.</b>"
+		else
+			last_count = counter.innerHTML
+	}, 5000)
+
+	function modecolor() {
+
+		const queryString = window.location.search;
+		const urlParams = new URLSearchParams(queryString);
+
+		if(urlParams.has('tag')) {
+			tag = urlParams.get('tag');
+			document.getElementById("modetag").innerHTML = tag
+			T.tag = tag
+		}
+
+		switch(tag) {
+		case "ext-api":
+			color = "darkmagenta"
+			note = "The extended test suite runs on an <b>in-memory mock storage</b> that emulates exceptions."
+			break;
+		case "in-mem":
+			color = "dodgerblue"
+			note = "The test suite runs <b>in-memory of the Go POT implementation</b>."
+			break;
+		case "loc-net":
+			color = "darkslateblue"
+			note = "The test suite runs on <b>a local Swarm test network</b>."
+			break;
+		case "testnet":
+			color = "silver"
+			note = "The test suite runs on <b>Swarm testnet</b>."
+			break;
+		case "mainnet":
+			color = "chocolate"
+			note = "The test suite runs on <b>Swarm mainnet</b>."
+			break;
+		}
+
+		if(note) document.getElementById("modenote").innerHTML = note
+
+		if(color) {
+			document.getElementById("modetag").style.background = color
+			const stylesheet = document.styleSheets[0];
+			const rule = [...stylesheet.cssRules].find((r) => r.selectorText === "h3",);
+			rule.style.setProperty("background", color)
+		}
 	}
 
-	main()
     </script>
-
-    <!-- -- -- -- -- -- -- -- -- -- -- -->
-
-</head>
-<body onload="modecolor()">
-
-
-<h1> POT JS API Test Suite <div class=modetag id=modetag>Go POT</div></h1>
-
-<p>  This is the test suite for the Javascript API to the Go implementation of the Proximity-Order-Trie (POT). </p>
-
-
-<p>  Also see: 
-     <a href=example1.html> example 1 </a> &nbsp;
-     <a href=example2.html> example 2 </a> &nbsp;
-     <a href=example3.html> example 3 </a> &nbsp;
-     <a href=example4.html> example 4 </a> &nbsp;
-     <a href=README.MD>     read me   </a> </p>
-
-
-<h2> Notes </h2>
-
-<p>  Tests using go pot are not touching the Swarm network at this point.
-     They are an in-memory implementation of the proximity order tree logic. </p>
-
-<p>  Tests are using different random byte sequences for keys and values every run.</p>
-
-<p id=modenote></p>
-
-<h2> KVS Tests </h2>
-
-<h4 id=status> Tests not complete ... <span id=counter></span></h4>
 
 </body>
 </html>

@@ -1,4 +1,4 @@
-//go:build api_test
+//go:build ext_test
 
 // ---------------------------------------------------------------------------
 //
@@ -110,7 +110,7 @@ func NewSwarmKvs(_ persister.LoadSaver) (*SwarmKvs, error) {
 }
 
 // Load a mock key-value store from the given root hash.
-func NewSwarmKvsReference(_ persister.LoadSaver, ref32 []byte) (*SwarmKvs, error) {
+func NewSwarmKvsReference(_ context.Context, _ persister.LoadSaver, ref32 []byte) (*SwarmKvs, error) {
 
 	log("» using mock in-memory test storage")
 

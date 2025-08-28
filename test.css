@@ -2,7 +2,8 @@ body		{ margin: 3em; font-family: sans-serif; font-size: 0.7em;
 		  overflow-wrap: break-word; }
 
 h1		{ font-size: 2em; font-weight: 900; letter-spacing: 0.2em;
-		  text-transform: uppercase; margin-bottom: 5em; }
+		  text-transform: uppercase; margin-bottom: 5em;
+		  vertical-align: center; }
 
 div.modetag	{ font-size: 0.9em; background: blue; color: white;
 		  padding: 0.1em 1em;
@@ -12,22 +13,25 @@ h2		{ font-size: 1.2em; font-weight: 600; letter-spacing: 0.3em;
 		  text-transform: uppercase; margin: 3em 0 1.4em 0; }
 
 h3		{ font-size: 1em; font-weight: 700; letter-spacing: 0.2em;
-		  margin: 3em 0 0.2em 0; border-radius: 0.4em;
+		  margin: 3em 0 0.8em 0; border-radius: 0.4em;
 		  padding: 0.6em 1.2em; color: white; background: black; }
 
 h3.gray		{ background: gray }
 
 .sub		{ font-size: 1em; font-weight: 700; letter-spacing: 0.2em;
-		  margin: 2em 0 1em 0; border-radius: 0.6em;
-		  padding: 0.5em 1em; background: lightgray; }
+		  margin: 2em 0 0.65em 0; border-radius: 0.6em;
+		  padding: 0.5em 1em 0.5em 1.45em; background: lightgray; }
+
+div.righttag	{ padding-right: 1em; float: right; margin: 0;
+		  font-weight: 900; color: white; }
 
 div.box,div.err	{ border: 1px solid gray; border-radius: 0.7em;
-		  padding: 0.5em; margin-bottom: 1em;
+		  padding: 0.5em; margin-top: 0.35em; margin-bottom: 1em;
 		  font-weight: 900; overflow-wrap: break-word; }
 
 div.err		{ background: #ffe8e8; }
 
-div.casehead	{ border-radius: 0.5em 0.5em 0 0; padding: 0.5em;
+div.casehead	{ border-radius: 0.5em 0.5em 0 0; padding: 0.5em 1em 0.5em 0.82em;
 		  margin-bottom: 0.47em; font-weight: 900;
 		  overflow-wrap: break-word; 
 		  background: var(--casehead-background, goldenrod);
@@ -58,7 +62,7 @@ div.detail	{ margin-left: 1em; }
 
 div.text	{ display: inline-block; width: 80%; }
 
-div.note	{ display: inline-block; width: 80%; margin-bottom: 0.1em; }
+div.note	{ display: inline-block; width: 80%; margin: 0.2em 1em 0.1em 0.65em; }
 
 div.check 	{ margin-left: 1em; color: darkgreen; }
 
@@ -82,4 +86,14 @@ div.color4	{ background: violet; }
 
 div.color5	{ background: goldenrod; }
 
-div.loc		{ float: right; color: lightgray; margin-right: 0.5em }
+div.loc		{ float: right; color: lightgray; margin-right: 1em }
+
+.errlink	{ border: 1px solid brown; border-radius: 0.7em; color: brown;
+		  padding: 0.35em 3em; margin: 0 2em 0 0; text-decoration: none; }
+
+div.time	{ float: right; color: black; font-weight: 100; 
+		  margin: 0 1.2em 0 0; font-size: 0.9em; }
+
+a.see		{ border: 1px solid lightgray; border-radius: 0.7em; color: black;
+		  padding: 0.25em 1.5em; margin: 0 0.5em 0 0; text-decoration: none; }
+

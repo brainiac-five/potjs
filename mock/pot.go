@@ -1,4 +1,4 @@
-//go:build api_test
+//go:build ext_test
 
 package pot
 

@@ -8,11 +8,21 @@ This version pulls Go POT from https://github.com/ethersphere/proximity-order-tr
 ### Run the Tests
 
 Clone this repo, serve its root directory by starting `npx http-server .` or
-similar and open `test.html` via `https://127.0.0.1/index.html`. You don't
-have to build anything.
+similar and open `test.html` via `https://127.0.0.1/test.html`. You don't
+have to build anything. This test checks inter-operation between JS and Go.
 
-There is more to say about tests, which is not immediately relevant. See the
-chapter 'Tests' towards the end of this readme.
+To test with a local Swarm network, do `make locnet_test`. Provided docker
+is running and dependencies installed, it will run the suite against the
+5 swarm nodes that FreeOS configures.
+
+The dependencies are:
+
+* ethersphere/swarm-cli
+* fairdatasociety/fdp-play
+
+Use `make help` for a list of the test options.
+
+See the chapter 'Tests' towards the end of this readme.
 
 
 ### Run Examples
@@ -21,6 +31,8 @@ Same as for tests: clone this repo, serve its root directory by starting
 `npx http-server .` or similar and open `example1.html` via
 `https://127.0.0.1/example1.html`. There are two other examples,
 `example2.html` etc.
+
+For the node test, run `node example5.js`.
 
 **Example 1**
 
@@ -33,6 +45,14 @@ Including input and output from and to the web page, and integrity hashes.
 **Example 3**
 
 More unpacked initialization, not using potjs.js, for potentially more control.
+
+**Example 4**
+
+Using promises / async.
+
+**Example 5**
+
+Node / offline example.
 
 
 ### Build
@@ -101,7 +121,7 @@ Upon new inspection, there are more functions that should be async.
 
 • Error Conditions
 
-And other fringe cases are not cought everywhere yet, marked as missing
+And other fringe cases are not caught everywhere yet, marked as missing
 across the code base.
 
 • Complex Tests for Resource Leaks
@@ -120,7 +140,7 @@ Currently in ad-hoc state.
 
 ---
 
-**What follows is the stub for the production-ready readme.**</center>
+**What follows is a dated stub for the production-ready readme.**</center>
 
 ---
 
@@ -260,7 +280,7 @@ or
 	make
 
 
-To build from scratch, regeneriting `go.mod` and the integrity hashes:
+To build from scratch, regenerating `go.mod` and the integrity hashes:
 
 
 	make clean build
@@ -283,14 +303,14 @@ To build from scratch, regeneriting `go.mod` and the integrity hashes:
         example1.html         example as listed above
         example2.html         interactive example, input fields, integrity
         example3.html         dropping potjs.js for more control
+        example3.html         working with promises
 
         wasm_exec.js          Go's generic WASM wrapper
 
         test.html             main test page
-        kvs_test.js           tests
-        testmode.js           is altered to switch to extended tests
         test.js               generic test harness
         test.css              generic test optics
+        kvs_test.js           test suites
 
         mock.go               monkey patch mock of Go POT for extended testing
         mock/pot.go
@@ -310,16 +330,15 @@ To build from scratch, regeneriting `go.mod` and the integrity hashes:
 
 * go 1.24.0
 
-### GO POT
+### GO POT (indirect, a separate repository being imported)
 
 * go 1.24.0
-
 * testify 1.8.4
 * swarm bee 2.5.0
 * crypto 0.23.0
 * sync 0.14.0
 
-Which will require
+Which will require, in turn
 
 * perks 1.0.1
 * xxhash 2.2.0
@@ -333,7 +352,15 @@ Which will require
 * protobuf 1.33.0
 * yaml 3.0.1
 
-See `go.mod`.
+See `go.mod` and
+`${go env GOPATH}/pkg/mod/github.com/ethersphere/proximity-order-trie@v0.0.0-*/go.mod`
+
+### Network Test
+
+* ethersphere/swarm-cli
+* fairdatasociety/fdp-play
+
+Cf. `network_install` rule in `Makefile`.
 
 
 ## Function Reference
@@ -358,14 +385,14 @@ Create a new Swarm KVS from a reference.
 
 #### SAVE
 
-	save()
+	saveSync()
 
 Store a Swarm KVS.
 
         ref = pot.newSwarmKvs()
         assertNoError(T, !ref)
 
-        ref = pot.save()
+        ref = pot.saveSync()
         assertEqual(T, ref, 0)
 
 #### DYNAMIC TYPE-CASTING, ASYNCHRONOUS
@@ -430,31 +457,31 @@ Get the value decoded for its type using the 1st byte of the raw value.
 
 #### PUT
 
-	put(key : any, value : Uint8Array) error : Error
+	putRawSynckey : any, value : Uint8Array) error : Error
 
 Put a raw Uint8Bytes array.
 
 #### GET
 
-	get(key : any) value : Uint8Array
+	getRawSync(key : any) value : Uint8Array
 
 Get a raw Uint8Bytes array.
 
 #### GET BOOLEAN
 
-	getBoolean(key : any) boolean
+	getBooleanSync(key : any) boolean
 
 Get the raw value as Boolean. First byte 0 being false, all else true.
 
 #### GET NUMBER
 
-	getNumber(key : any) number
+	getNumberSync(key : any) number
 
 Get the raw value as floating point number (JS default).
 
 #### GET STRING
 
-	getString(key : any) string
+	getStringSync(key : any) string
 
 Get the raw value as string.
 
@@ -522,8 +549,20 @@ Blocking promise (in Go) with 1s time out for exception testing.
 ## Note on Go POT WASM
 
 Being wrapped in WASM for the interfacing with JS, the Go executable is opaque,
-it cannot be debugged as there are no debuggers for wasm, and it becomes
-unavailable once it has an unrecovered panic once.
+it cannot in that form be debugged as there are no debuggers for WASM, and it
+becomes unavailable once it has an unrecovered panic or deadlock.
+
+It is therefore possible that the JS `pot` object that is created when
+initializing the API can go out of service with the solution being to
+initialize the API again.
+
+As the JS `pot` object is created in JS by the WASM executable when it is
+starting, the new object will replace the old one. After re-initialization the
+same code with no modifications will just run again.
+
+The chance of the WASM executable to go down has been minimized and extensively
+tested.
+
 
 
 ## Note on syscall/js
@@ -542,25 +581,30 @@ build this API.
 
 ## Tests
 
-To test the JS API, serve the main directory, e.g., with with `npx http-server
-.`, and open `http://127.0.0.1:8080/test.html`. Alternatively, use `make test`.
-This uses `test.js` and `test.css` to display the results from a suite of 250+
-tests in `kvs_test.js` across the available put and get functions. The tests
-are modeled on and extend the tests in go pot /kvs_test.go.
+	$ make test	# standard API tests vs Go POT in-memory storage
+	$ make nt	# standard API tests vs local Swarm test network
+	$ make xt	# extended API tests vs mock storage
+
+Alternatively, to test the JS API, serve the main directory, e.g., with with `npx http-server
+.`, and open `http://127.0.0.1:8080/test.html`.
+
+The custom test harness in `test.js` and `test.css` is used to run and display
+the results from a suite of 123 tests in `kvs_test.js` across the available put
+and get functions.
 
 The standard tests run against the Go implementation of POT, like the use would
-be in production. The **extended tests**, however, focus on the JS API to Go,
-add cancellation and time out cases. They do not interface with the Go POT
-code.  Latency emulation, promisses, and connectivity as well as retention
-error conditions will be added to emulate the reality of an unreliable network
-as ultimate storage layer.  Run the tests with `make test` and `make xt`
-respectively.
+be in production. The **extended tests**, however, focus on the JS API itself,
+adding cancellation and time out cases. They do not interface with the Go POT
+code but a mock drop-in replacement that simulates error conditions.  Latency
+emulation, promisses, and connectivity as well as retention error conditions
+are used to test the reality of an unreliable network as ultimate storage
+layer.
 
-Note that `make xt` (specifically, `make mock`) change the project
+Note that `make xt` (and also specifically, `make mock`) change the project
 configuration and build executables (especially a `pot.wasm`) that will not
 work for production.  (They will appear to work but they sidestep Go POT.) Use
-`make unmock`, `make test` or `make build` to restore to the production target,
-i.e., build the real `pot.wasm`.
+`make unmock`, `make test`, `make nt`, or `make build` to restore to the
+production target, i.e., build the real `pot.wasm`.
 
 The **extended tests** use a separate, dedicated, in-memory mock storage to
 separate them from the Go POT implementation (not Go POT's in-memory
@@ -568,8 +612,8 @@ persister.)
 
 The tests are made for the browser as the final destination of the combined
 architecture, in either case (standard and extended tests) they are invoked by
-opening the file `test.html`.  The small file that is altered between the test
-modes is `testmode.js`, and `go.mod` to replace package `pot/` with `mock/`
+opening the file `test.html`.  `go.mod` is altered between the tests to replace
+package `https://github.com/ethersphere/proximity-order-trie` with `mock/`.
 
 This test page and test framework is designed to bridge the language divide and
 allow for the emulation of exceptions in one degree of separation (caused in
@@ -586,7 +630,7 @@ Files governing the testing are:
 	test.html
 	test.css
 	test.js
-	testmode.js
+	kvs_test.js
 	Makefile (optional)
 
 For extended API tests:
@@ -599,11 +643,10 @@ For extended API tests:
 Files modified for extended API testing are:
 
 	go.mod
-	testmode.js
 
 The ONLY relevant (non-optical) modification is that the Go POT package
-`github.com/ethersphere/proximity-order-trie` is replaced by (redirected to
-folder) `mock/`.
+`github.com/ethersphere/proximity-order-trie` is replaced by `redirecting` it to
+folder `mock/`:
 
         go mod edit -replace github.com/ethersphere/proximity-order-trie=./mock
 

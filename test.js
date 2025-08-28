@@ -1,17 +1,19 @@
 /* POT JS Test Frame */
 
 var T = {
-	tests:   0,
-	errors:  0,
-	suites:  0,
-	cases:   0,
-
-	head:    suitehead,
-	start:   teststart,
-	log:     log_and_display,
-	box_display: box_display,
-	balance: balance,
-	inside:  false
+	tests:            0,
+	errors:           0,
+	suites:           0,
+	cases:            0,
+	head:             suitehead,
+	start:            teststart,
+	log:              log_and_display,
+	box_display:      box_display,
+	balance:          balance,
+	tag:              null,
+	inside:           false,
+	connection_issue: null,
+	time:             null
 }
 
 function balance() {
@@ -30,7 +32,7 @@ function balance() {
 }
 
 // Write both to browser consol and, briefer and more formatted, to web page.
-function log_and_display(one, two, three) {
+function log_and_display(one, two, three, four) {
 
 	if(two) {
 		thread = one
@@ -40,6 +42,7 @@ function log_and_display(one, two, three) {
 		msg = one
 	}
 	gray = three
+	let box = four
 
 	if(!msg) msg = ""
 	if(typeof msg == 'number')
@@ -62,23 +65,25 @@ function log_and_display(one, two, three) {
 	else threadno = ""
 
 	stack = new Error().stack
-	loc = stack.match(/[a-zA-Z0-9:._]+$/)
-	if(!loc) { loc = stack.match(/([a-zA-Z0-9:._]+)\)\s+at (async )*main/); if(loc) loc = loc[1] }
+	loc = stack.match(/[a-zA-Z0-9:._]+_test\.js:[0-9]+/)
+	if(!loc) loc = stack.match(/[a-zA-Z_-]+\.html/) + stack.match(/(:[0-9]+):[0-9]+\s*$/)[1]
 	if(!loc) loc = stack
 
 	// console log
+	if(box && box != T.box) console.log("◊◊◊ out-of-sync message from earlier case follows: " + box.id)
 	logmsg = msg.replace(/\<[^>]*\>/, "▶︎").replace(/\<[^>]*\>/g, "◀︎")
 	if(trail == "•••" || trail == "---") pot.log()
 	if(pot.log) pot.log(threadno + logmsg)
 	else {
-		console.log(">>> direct to console log (top.log unavailable):")
+		console.log(">>> direct to console log (pot.log unavailable):")
 		console.log(threadno + logmsg)
 	}
 
 	// web page display
 	if(thread) {
 		threadtag = "<div class='threadtag color" + thread + "'>" + thread + "</div>"
-		threadtag += new String(" &nbsp; ").repeat((thread-1) * 8)
+		reps = thread <= 3 ? thread -1 : 2
+		threadtag += new String(" &nbsp; ").repeat((reps) * 8)
 	} else
 		threadtag = ""
 
@@ -91,10 +96,11 @@ function log_and_display(one, two, three) {
 		// else loc = stack
 		insert = "<div style='float:right'>" + loc + "</div>"
 		pot.log(loc)
-		display("<div class=box id=box" + T.cases + "> <div class=casehead> " + msg + insert + " </div> </div>"), this.inside = true
+		display("<a name=acase_" + T.cases + "></a> <div class=box id=case_" + T.cases + "> <div class=casehead> " + msg + insert + " </div> </div>")
+		this.inside = true
 	}
 	else if(first == "#") {
-		T.box_display("<div class=error> " + threadtag + msg.substring(4) + " at " + loc + "</div>", true)
+		T.box_display("<div class=error> " + threadtag + msg.substring(4) + " at " + loc + profile() + "</div>", true, box)
 		pot.log(loc)
 	}
 	else if(trail == "•••")
@@ -107,13 +113,13 @@ function log_and_display(one, two, three) {
 	///else if(msg == "√ no error raised.")
 	///	;
 	else if(first == "√")
-		T.box_display("<div class=check> " + threadtag + " <div class=text> " + msg + " </div> </div>")
+		T.box_display("<div class=check> " + threadtag + " <div class=text> " + msg + " </div> " + profile() + " </div>", false, box)
 	else if(first == "›")
-		T.box_display("<div class=detail> <div class='threadtag color0'>0</div> " + " <div class=text> " + msg + " </div> </div>")
+		T.box_display("<div class=detail> <div class='threadtag color0'>0</div> " + " <div class=text> " + msg + " </div> </div>", false, box)
 	else if(msg && T.inside)
-		T.box_display("<div class=detail> " + threadtag + " <div class=text> " + msg + " </div> <div class=loc>" + loc + "</div> </div>")
+		T.box_display("<div class=detail> " + threadtag + " <div class=text> " + msg + " </div> <div class=loc>" + loc + "</div> </div>", false, box)
 	else if(msg)
-		T.box_display("<div class=detail> " + threadtag + " <div class=note> " + msg + " </div> </div>")
+		T.box_display("<div class=detail> " + threadtag + " <div class=note> " + msg + " </div> </div>", false, box)
 
 }
 
@@ -121,11 +127,21 @@ function display(msg) {
 	document.body.innerHTML += msg
 }
 
-function box_display(msg, teint) {
-	let o = document.getElementById("box" + this.cases)
-	if(o && teint) o.className = "err"
-	if(!this.inside || !o) o = document.body
-	o.innerHTML += msg
+var linked_cases = {}
+function box_display(msg, teint, box) {
+	let loc = box ? box : (this.box && this.inside ? this.box : null)
+	if(loc && teint) loc.className = "err"
+	let o = loc ? loc : document.body
+	o.insertAdjacentHTML("beforeend", msg)  /// TODO: make append to higher up box from async processes
+						/// To test, make the timeout in massmax parallel tests too small
+						/// and make the individual processes error
+	try {
+		errlinks = document.getElementById("errorlinks")
+		if(teint && errlinks && loc && !linked_cases[loc.id]) {
+			errlinks.innerHTML += (" <a class=errlink href=#a" + loc.id + ">" + loc.id.replace(/_/," ") + "</a> ")
+			linked_cases[loc.id] = true
+		}
+	} catch(e) {}
 }
 
 function set_counter(count) {
@@ -133,25 +149,41 @@ function set_counter(count) {
 	if(o) o.innerHTML = count
 }
 
+function profile() {
+	if(T.time) {
+		let t = Date.now() - T.time
+		T.time = Date.now()
+		if(t < 60000) return "<div class=time>" + t + "ms</div>"
+	}
+	T.time = Date.now()
+	return ""
+}
+
 function suitehead(msg, gray) {
-	T.log(null, "••• Test Suite #" + ++(this.suites) + " ••• " + msg.toUpperCase() + " •••", gray)
+	T.log(null,
+	      "••• Test Suite #" + ++(this.suites) + " ••• " + msg.toUpperCase() + " •••"
+	        + (T.tag ? "<div class=righttag>" + T.tag.toUpperCase() + "</div>" : ""), 
+	      gray)
+	T.time = Date.now()
 }
 
 function teststart(msg) {
 	T.log()
 	T.log("✦ case #" + ++(this.cases) + " » " + msg)
+	this.box = document.getElementById("case_" + this.cases)
+	if(!this.box) throw("harness fail for box" + this.cases)
 }
 
 // -----------------------------------------------------------------------------
 
-function assertNoError(t, T, err, suppress_ok) {
+function assertNoError(t, T, err, suppress_ok, box) {
 	T.tests++
 	set_counter(T.tests)
 	if(err) {
-		T.log(t, "### Test Error: ‹" + err + "› ###")
+		T.log(t, "### Test Error: ‹" + err + "› ###", false, box)
 		T.errors++
 	}
-	else if(!suppress_ok) T.log(t, "√ no error raised.")
+	else if(!suppress_ok) T.log(t, "√ no error raised.", false, box)
 }
 
 function assertIsError(t, T, err) {
@@ -215,10 +247,11 @@ function attestExpectedError(t, T, err, exp) {
 }
 
 // for catch block when it should not be entered
-function attestUnexpectedError(t, T, err) {
+function attestUnexpectedError(t, T, err, box) {
 	T.tests++
 	set_counter(T.tests)
-	T.log(t, "### Test Error (Exception): ‹" + err + "›")
+	T.log(t, "### Test Error (Exception): ‹" + err + "›", false, box)
+	if(err.message.match(/fetch.. failed/)) T.connection_issue = true
 	T.errors++
 }
 
@@ -229,11 +262,11 @@ function attestMissingError(t, T, err) {
 	T.errors++
 }
 
-function attestNoError(t, T, suppress_ok) {
+function attestNoError(t, T, suppress_ok, box) {
 	T.tests++
 	set_counter(T.tests)
 	if(!suppress_ok)
-		T.log(t, "√ no error raised.")
+		T.log(t, "√ no error raised.", false, box)
 }
 
 function attestCompletion(t, T, suppress_ok) {
@@ -263,7 +296,7 @@ function assertNil(t, T, val) {
 	else T.log(t, "√ as expected, nil.")
 }
 
-function assertEqual(t, T, res, exp, suppress_ok) {
+function assertEqual(t, T, res, exp, suppress_ok, box) {
 	T.tests++
 	set_counter(T.tests)
 	equal = false
@@ -271,12 +304,16 @@ function assertEqual(t, T, res, exp, suppress_ok) {
 		equal = isEqualArray(res, exp)
 	else
 		equal = (res == exp)
+
+	lres = (res && (typeof res == 'object')) ? hex(res) : res
+	lexp = (exp && (typeof exp == 'object')) ? hex(exp) : exp
+
 	if(!equal) {
-		T.log(t, "### Test Error: result ‹" + ((res && (typeof res == 'object')) ? hex(res) : res) + "› was expected to be ‹" + exp + "› ###")
+		T.log(t, "### Test Error: result ‹" + lres + "› was expected to be ‹" + lexp + "› ###", false, box)
 		T.errors++
 	}
 	else if(!suppress_ok)
-		T.log(t, "√ as expected, ‹" + ((res && (typeof res == 'object')) ? hex(res) : res) + "›.")
+		T.log(t, "√ as expected, ‹" + lres + "›.", false, box)
 }
 
 function assertNotEqual(t, T, res, exp) {
@@ -324,4 +361,9 @@ function hex(buf) {
 
 function hexa(buf) {
 	return Array.from(buf).map((n)=>{return (n>15?"":"0") + n.toString(16)}).join('')
+}
+
+function fromHex(hexString) {
+	if(!hexString) return "[empty]"
+	return Uint8Array.from(hexString.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)));
 }
