@@ -1,9 +1,18 @@
 <pre>
 
 
-	POT JS Example 4: Promises
+	POT JS Example 4: Synchronous
 
 	Check source and console.
+
+
+	This page uses synchronous calls that can be helpful for prototyping
+	but don't work for network connections (only in-memory = new() without
+	parameters) and not for use with node.
+
+
+	<img src=favicon.ico>
+
 
 </pre>
 
@@ -12,19 +21,16 @@
 
 <script>
 
-(async () => {
+function onWasmLoaded() {
 
-	await pot.ready()
+	map = pot.newSync()
 
-	map = await pot.newSwarmKvsPromise()
+	map.putSync("hello", "POT!")
 
-	await map.putTypedPromise("hello", "POT!")
-
-	value = await map.getTypedPromise("hello")
+	value = map.getSync("hello")
 
 	console.log("key ‹hello› has:", value)
-
-})()
+}
 
 </script>
 

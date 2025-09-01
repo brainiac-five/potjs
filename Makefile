@@ -12,7 +12,7 @@
 
 SHELL = /bin/zsh
 MOCKED = $(shell grep mock go.mod)
-SERVING = $(shell ps ax | grep "npm exec http-server" | grep -v grep | head -n 1 | cut -d ' ' -f 1,2)
+SERVING = $(shell ps ax | grep 'npm exec http-server' | grep -v grep | head -n 1 | sed 's/^ *//' | cut -d ' ' -f 1)
 
 .NOTPARALLEL:
 
@@ -29,17 +29,19 @@ help:
 	# run with `make <rule>`
 	#
 	# build           build executables
-	# example<n>      start server and run example <n>. n = 1-5
-	# local_test      test with a locally installed Swarm network
-	# inmem_test      test api interaction with go pot in-memory persisting
+	# example<n>      start server and run example <n>. n = 1-6
+	# test            test api interaction with go pot in-memory persisting
 	# ext_test        extended exceptions tests without go pot connection
-	# mock            prepare for extended exception tests
-	# unmock          reset for production and non-extended tests
+	# local_test      test with a locally installed Swarm network
 	# clean           prepare for building from scratch
-	# distclean       prepare for commit to repository
+	# distclean       prepare for commit to repository, including build
 	#
 	# support & debugging
 	#
+	# serve           start local http server serving current directory
+	# stop            stop local http server. Ctrl-c does not.
+	# mock            prepare for extended exception tests
+	# unmock          reset for production or non-extended tests
 	# locnet_install  install the local test network
 	# locnet_start    start the local test network on docker 
 	# locnet_batch    buy stamp batch (free)
@@ -54,10 +56,19 @@ build: go.mod wasm_exec.js potjs.go Makefile unmock integrity
 example1 example2 example3 example4: build serve
 	open http://127.0.0.1:8080/$@.html
 
-example5:
-	node example5.js
+example5: build serve
+	$(MAKE) locnet_start
+	open http://127.0.0.1:8080/$@.html
 
-integrity: example*.html
+example6: build serve
+	$(MAKE) locnet_start
+	$(MAKE) .batch_id
+	open "http://127.0.0.1:8080/$@.html?batch=$$(cat .batch_id)"
+
+example7:
+	node example7.js
+
+integrity: example1.html
 
 # update the integrity hashes in all example files that use them
 example*.html: potjs.js.sha384 wasm_exec.js.sha384
@@ -89,12 +100,12 @@ ext_test: wasm_exec.js go.mod mock serve
 	open "http://127.0.0.1:8080/test.html?tag=ext-api"
 
 locnet_test: unmock build
-	@echo "⬢ Local Swarm Network Test"
 	@echo " -----------------------------------------------------------------------------------"
 	@echo "|                                                                                   |"
 	@echo "|   This test takes some minutes to set up, its results will show in the browser.   |"
 	@echo "|                                                                                   |"
 	@echo " -----------------------------------------------------------------------------------"
+	@echo "⬢ Local Swarm Network Test"
 	@echo "⬡ starting five local swarm nodes"
 	fdp-play start --detach	
 	@echo "⬡ buy stamps (free in this test setup)"
@@ -113,16 +124,16 @@ locnet_test: unmock build
 	fdp-play stop
 
 locnet_quick: unmock build
-	@echo "⬢ Local Swarm Network Test"
 	@echo " -----------------------------------------------------------------------------------"
 	@echo "|                                                                                   |"
 	@echo "|   Quick start reusing batch id, no logs, no shutdown, results shown in browser.   |"
 	@echo "|                                                                                   |"
 	@echo " -----------------------------------------------------------------------------------"
+	@echo "⬢ Local Swarm Network Test"
 	$(MAKE) unmock
 	$(MAKE) build
 	$(MAKE) locnet_start
-	$(MAKE) locnet_batch
+	$(MAKE) .batch_id
 	$(MAKE) locnet_tests
 
 locnet_start:
@@ -148,9 +159,13 @@ locnet_tests: .batch_id unmock build
 locnet_log:
 	docker container logs fdp-play-queen
 
+locnet_clean:
+	rm -f .batch_creation .batch_id
+
 serve:
 ifeq ($(SERVING),)
-	(npx http-server -c-1 . &)
+	@echo "⬡ start http server (stop with 'make stop')"
+	(npx http-server -c1 . &)
 else
 	@echo server still running
 endif

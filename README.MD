@@ -104,20 +104,13 @@ See **What You Should See** at the end of this readme to verify whether
 the `make` commands work as expected.
 
 
-## Main Changes to Come
+## Extensions and Changes to Come
 
 The main architecture is stable, include the promise-to-go-routine
 transition, and the bridging of error-handling philosophies. It is also
 straight forward as would intuitively be inspected.
 
-
-• Renaming of Functions
-
-They are now in keeping with Go POT but that is unorganic for JS use.
-
-• Consistent Use of Promises
-
-Upon new inspection, there are more functions that should be async.
+• Tree Walk Functions
 
 • Error Conditions
 
@@ -129,6 +122,10 @@ across the code base.
 The Go POT implementation has to be slightly extended for optimal interaction
 with JS, and completed where it does not fully handle context propagation
 and resource recapturing (ending go routines upon interruptions).
+
+• Save Tests
+
+Of large trees.
 
 • Repository File Structure
 
@@ -193,11 +190,11 @@ After `pot.ready()` resolves, the go wasm `pot` object can be used to create a
 new map. Use `put` and `get` functions on it.
 
 ```js
-	map = pot.newSwarmKvs()
+	map = pot.newSync()
 
-	await pot.putTypedPromise("hello", "Hello, P.O.T.!")
+	await pot.put("hello", "Hello, P.O.T.!")
 
-	value = await pot.getTypedPromise("hello")
+	value = await pot.get("hello")
 ```
 
 See example1.html (that simple example does not use promises).
@@ -232,11 +229,11 @@ This is a complete example (using synchronous put and get):
 
 		await pot.ready()
 
-		map = pot.newSwarmKvs()
+		map = pot.newSync()
 
-		map.putTyped("hello", "POT!")
+		map.putSync("hello", "POT!")
 
-		value = map.getTyped("hello")
+		value = map.getSync("hello")
 
 		console.log("key ‹hello› has:", value)
 	})()
@@ -249,7 +246,7 @@ To run the example, serve the main directory with `npx http-server .` and open
 `make example1`.
 
 The method `pot.putTypePromise()` stores a value to the POT,
-`pot.getTypedPromise()` retrieves it. The result is shown in the console.
+`pot.get()` retrieves it. The result is shown in the console.
 
 A second example, `example2.html` shows a simple flow of setting and reading
 values controlled by html input.
@@ -369,19 +366,19 @@ Cf. `network_install` rule in `Makefile`.
 
 #### NEW SWARM KVS
 
-	newSwarmKvs() reference : int
+	newSync() reference : int
 
 Create a new Swarm KVS.
 
-	ref = pot.newSwarmKvs()
+	ref = pot.newSync()
 
 #### NEW SWARM KVS REFERENCE
 
-	newSwarmKvsReference(reference : int) reference : int
+	newByReferenceSync(reference : int) reference : int
 
 Create a new Swarm KVS from a reference.
 
-	ref = pot.newSwarmKvsReference(ref)
+	ref = pot.newByReferenceSync(ref)
 
 #### SAVE
 
@@ -389,7 +386,7 @@ Create a new Swarm KVS from a reference.
 
 Store a Swarm KVS.
 
-        ref = pot.newSwarmKvs()
+        ref = pot.newSync()
         assertNoError(T, !ref)
 
         ref = pot.saveSync()
@@ -401,18 +398,18 @@ Preferred functions for real-world use.
 
 #### PUT TYPED PROMISE
 
-	putTypedPromise(key : any, value : any) : promise
+	put(key : any, value : any) : promise
 
 Return a promise for the typed put.
 
         v = " The quick brown fox jumps over the lazy dog."
-        ref = pot.newSwarmKvs()
+        ref = pot.newSync()
         assertNoError(T, !ref)
         try {
-                await pot.putTypedPromise(k, v)
+                await pot.put(k, v)
                 attestNoError(T)
                 T.log("• get " + k + " by promise")
-                r = await pot.getTypedPromise(k)
+                r = await pot.get(k)
                 attestNoError(T)
                 assertEqual(T, r, v)
         } catch(e) {
@@ -421,12 +418,12 @@ Return a promise for the typed put.
 
 #### GET TYPED PROMISE
 
-	getTypedPromise(key : any) promise of any
+	get(key : any) promise of any
 
 Return a promise for the typed get.
 
         try {
-                 r = await pot.getTypedPromise(k)
+                 r = await pot.get(k)
         } catch(e) {
 		     ...
         }
@@ -443,13 +440,13 @@ Prototyping functions accessing blocking mock POT implementation.
 
 #### PUT TYPED
 
-	putTyped(key : any, value : any) error : Error
+	putSync(key : any, value : any) error : Error
 
 Put the value encoded for its type in the 1st byte of the raw value.
 
 #### GET TYPED
 
-	getTyped(key : any) value : any
+	getSync(key : any) value : any
 
 Get the value decoded for its type using the 1st byte of the raw value.
 

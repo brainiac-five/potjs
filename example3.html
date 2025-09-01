@@ -21,6 +21,14 @@
 	value  <input id=result>
 
 
+	<img src=favicon.ico>
+
+
+<hr />
+
+
+	This page does not use pot.js but initializes pot.wasm directly.
+
 </pre>
 
 <script src="wasm_exec.js"></script>
@@ -34,22 +42,22 @@
 	WebAssembly.instantiateStreaming(fetch("pot.wasm"), go.importObject)
 		.then((r)=>{
 			go.run(r.instance)
-			map = pot.newSwarmKvs()
+			map = pot.newSync()
 		})
 
 	const field = (id) => { return document.getElementById(id) }
 
-	function put() {
+	async function put() {
 
 		key = field('key').value
 		value = field('value').value
-		map.putTyped(key, value)
+		await map.putSync(key, value)
 	}
 
-	function get() {
+	async function get() {
 
 		key = field('search').value
-		value = map.getTyped(key)
+		value = await map.getSync(key)
 		field('result').value = value
 	}
 

@@ -1,0 +1,51 @@
+<pre>
+
+
+	POT JS Example 5: Network
+
+	Check source.
+
+
+	This page connects to a local Swarm network.
+
+	It is for illustration but can be made to run.
+
+	As is, it will error because the batch id hardcoded below
+	will not work and the swarm network might not be running.
+
+	To test it, start the local network with `make locnet_start`,
+	create a batch with `make locnet_batch`, copy the batch id
+	from file `.batch_id` into this page. Or, checkout example 6.
+
+
+	<img src=favicon.ico>
+
+
+</pre>
+
+<script src="wasm_exec.js"></script>
+<script src="potjs.js"></script>
+
+<script>
+
+(async () => {
+
+	await pot.ready()
+
+	map = await pot.new("http://localhost:1633",
+	"6792a183adafdac3a0a1a1e65b435406aff8f4343f980b16cabafd4a8525c0aa")
+
+	await map.put("hello", "POT!")
+
+	value = await map.get("hello")
+
+	console.log("key ‹hello› has:", value)
+
+	ref = await map.save()
+
+	console.log("tree root is:", ref)
+
+})()
+
+</script>
+

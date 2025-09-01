@@ -49,7 +49,7 @@ function log_and_display(one, two, three, four) {
 		msg = msg.toString()
 	if(!(typeof msg == 'string')) {
 		console.log("xxx msg type error", msg)
-		msg = "xxx msg type error"
+		msg = "xxx msg type error" ///
 	}
 
 	msg = msg.replace("\n","\\n")
@@ -153,7 +153,10 @@ function profile() {
 	if(T.time) {
 		let t = Date.now() - T.time
 		T.time = Date.now()
-		if(t < 60000) return "<div class=time>" + t + "ms</div>"
+		if(t < 60000) {
+			if(t < 1) t = "<1"
+			return "<div class=time>" + t + "ms</div>"
+		}
 	}
 	T.time = Date.now()
 	return ""
@@ -172,6 +175,7 @@ function teststart(msg) {
 	T.log("✦ case #" + ++(this.cases) + " » " + msg)
 	this.box = document.getElementById("case_" + this.cases)
 	if(!this.box) throw("harness fail for box" + this.cases)
+	T.time = Date.now()
 }
 
 // -----------------------------------------------------------------------------

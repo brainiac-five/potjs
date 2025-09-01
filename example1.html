@@ -5,6 +5,10 @@
 
 	Check source and console.
 
+
+	<img src=favicon.ico>
+
+
 </pre>
 
 <script src="wasm_exec.js"></script>
@@ -16,11 +20,11 @@
 
 	await pot.ready()
 
-	map = pot.newSwarmKvs()
+	map = await pot.new()
 
-	map.putTyped("hello", "POT!")
+	await map.put("hello", "POT!")
 
-	value = map.getTyped("hello")
+	value = await map.get("hello")
 
 	console.log("key ‹hello› has:", value)
 })()

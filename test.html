@@ -14,7 +14,7 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
 
-    <title><img src=favicon.ico>SWARM POT JS API Test</title>
+    <title>SWARM POT JS API Test</title>
 
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="test.css">
@@ -84,8 +84,8 @@
 		const queryString = window.location.search;
 		const urlParams = new URLSearchParams(queryString);
 		if(urlParams.has('bee')) bee = urlParams.get('bee');
-		if(urlParams.has('batch')) batch = fromHex(urlParams.get('batch'));
-		if(batch && batch.length != 32) throw new Error(`wrong batch id length ${batch.length}`)
+		if(urlParams.has('batch')) batch = urlParams.get('batch');
+		if(batch && batch.length != 64) throw new Error(`wrong batch id hex string length ${batch.length} (should be 64)`)
 
 		/* network info */
 
@@ -109,9 +109,9 @@
 		T.start("html-inline")
 		T.log("• put and get K: V")
 		try {
-			map = pot.newSwarmKvs(bee, batch)
-			await map.putTypedPromise("K", "V")
-			r = await map.getTypedPromise("K")
+			map = pot.newSync(bee, batch)
+			await map.put("K", "V")
+			r = await map.get("K")
 			assertEqual(null, T, r, "V")
 		} catch(err) {
 			T.log(err)
