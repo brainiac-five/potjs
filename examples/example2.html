@@ -1,7 +1,7 @@
 <pre>
 
 
-	POT JS Example 3: Explicit Initialization 
+	POT JS Example 2: Interactive & Integrity
 
 
 	key    <input id=key>
@@ -24,26 +24,21 @@
 	<img src=favicon.ico>
 
 
-<hr />
-
-
-	This page does not use pot.js but initializes pot.wasm directly.
-
 </pre>
 
-<script src="wasm_exec.js"></script>
+<script src="lib/wasm_exec.js" integrity="sha384-PWCs+V4BDf9yY1yjkD/p+9xNEs4iEbuvq+HezAOJiY3XL5GI6VyJXMsvnjiwNbce"></script>
+<script src="lib/potjs.js" wasm="lib/pot.wasm" integrity="sha384-woy0Fou09EcyFemKbNcnl+HI7XRxaENJQgJPdgPuBMqaqXwTWzUgF+zlViGzeQQF"></script>
 
 <script>
 
-	const go = new Go()
+	var map
 
-	var map;
+	(async () => {
 
-	WebAssembly.instantiateStreaming(fetch("pot.wasm"), go.importObject)
-		.then((r)=>{
-			go.run(r.instance)
-			map = pot.newSync()
-		})
+		await pot.ready()
+		map = await pot.new()
+
+	})()
 
 	const field = (id) => { return document.getElementById(id) }
 
@@ -51,13 +46,13 @@
 
 		key = field('key').value
 		value = field('value').value
-		await map.putSync(key, value)
+		await map.put(key, value)
 	}
 
 	async function get() {
 
 		key = field('search').value
-		value = await map.getSync(key)
+		value = await map.get(key)
 		field('result').value = value
 	}
 

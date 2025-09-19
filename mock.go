@@ -14,13 +14,14 @@
 // ---------------------------------------------------------------------------
 package main
 
-import(
-	"time"
-	"errors"
+import (
 	"context"
-	"strconv"
+	"errors"
+	"maps"
 	"math/rand"
+	"strconv"
 	"syscall/js"
+	"time"
 
 	"github.com/ethersphere/proximity-order-trie/pkg/persister"
 )
@@ -28,8 +29,10 @@ import(
 // mock SwarmKvs struct
 type SwarmKvs struct {
 	Slot_ref int
-	Store map[string][]byte 
+	Store    map[string][]byte
 }
+
+var Saved = make(map[string]int)
 
 // In general, these variables are set by setFail() etc. and set to 0/false
 // once used once. They are for testing without a production purpose.
@@ -78,9 +81,9 @@ func mockdelay(ctx context.Context) {
 	d := time.Duration(delay) * time.Millisecond
 	delay = 0
 	select {
-        case <-ctx.Done():
-        case <-time.After(d):
-        }
+	case <-ctx.Done():
+	case <-time.After(d):
+	}
 }
 
 // mockhang stops the program until cancelled - for testing
@@ -97,14 +100,16 @@ func mockhang(ctx context.Context) {
 // NewSwarmKvs creates a new mock test key-value store.
 func NewSwarmKvs(_ persister.LoadSaver) (*SwarmKvs, error) {
 
-	log("» using mock in-memory test storage")
+	log("» using simulated storage")
 
-	if mockfail() { return nil, errors.New("mock fail of NewSwarmKvs()") }
+	if mockfail() {
+		return nil, errors.New("mock fail of NewSwarmKvs()")
+	}
 	mockpanic("NewSwarmKvs()")
 	// likely needed: mockdelay(ctx)
 	// likely needed: mockhang(ctx)
 
-	kvs := &SwarmKvs{ Store: make(map[string][]byte), Slot_ref: len(Slots) + 1 }
+	kvs := &SwarmKvs{Store: make(map[string][]byte), Slot_ref: len(Slots) + 1}
 
 	return kvs, nil
 }
@@ -112,16 +117,18 @@ func NewSwarmKvs(_ persister.LoadSaver) (*SwarmKvs, error) {
 // Load a mock key-value store from the given root hash.
 func NewSwarmKvsReference(_ context.Context, _ persister.LoadSaver, ref32 []byte) (*SwarmKvs, error) {
 
-	log("» using mock in-memory test storage")
+	log("» using simulated storage")
 
-	if mockfail() { return nil, errors.New("mock fail of NewSwarmKvsReference()") }
+	if mockfail() {
+		return nil, errors.New("mock fail of NewSwarmKvsReference()")
+	}
 	mockpanic("NewSwarmKvsReference()")
 	// likely needed: mockdelay(ctx)
 	// likely needed: mockhang(ctx)
 
-	slot_ref := Saved[bhex(ref32)] /// error handling
-	slot := Slots[slot_ref-1] /// error handling
-	kvs := slot.Kvs /// error handling
+	slot_ref := Saved[bHex(ref32)] /// error handling
+	slot := Slots[slot_ref-1]      /// error handling
+	kvs := slot.Kvs                /// error handling
 
 	return kvs, nil
 }
@@ -129,14 +136,16 @@ func NewSwarmKvsReference(_ context.Context, _ persister.LoadSaver, ref32 []byte
 // This Get retrieves the value of the given key from the mock storage.
 func (ps *SwarmKvs) Get(ctx context.Context, key []byte) ([]byte, error) {
 
-	log("» using mock in-memory test storage")
+	log("» using simulated storage")
 
-	if mockfail() { return nil, errors.New("mock fail of Get()") }
+	if mockfail() {
+		return nil, errors.New("mock fail of Get()")
+	}
 	mockpanic("Get()")
 	mockdelay(ctx)
 	mockhang(ctx)
 
-	value := ps.Store[bhex(key)]
+	value := ps.Store[bHex(key)]
 
 	return value, nil
 }
@@ -144,14 +153,16 @@ func (ps *SwarmKvs) Get(ctx context.Context, key []byte) ([]byte, error) {
 // This Put stores the given key-value pair in the mock store.
 func (ps *SwarmKvs) Put(ctx context.Context, key []byte, value []byte) error {
 
-	log("» using mock in-memory test storage")
+	log("» using simulated storage")
 
-	if mockfail() { return errors.New("mock fail of Put()") }
+	if mockfail() {
+		return errors.New("mock fail of Put()")
+	}
 	mockpanic("Put()")
 	mockdelay(ctx)
 	mockhang(ctx)
 
-	ps.Store[bhex(key)] = value
+	ps.Store[bHex(key)] = value
 
 	return nil
 }
@@ -159,34 +170,52 @@ func (ps *SwarmKvs) Put(ctx context.Context, key []byte, value []byte) error {
 // Save saves key-value pair to the underlying storage and returns the reference.
 func (ps *SwarmKvs) Save(ctx context.Context) (rref []byte, rerr error) {
 
-	defer func() { if err := recover(); err != nil { rref = []byte{} ; rerr = err.(error) } }()
+	defer func() {
+		if err := recover(); err != nil {
+			rref = []byte{}
+			rerr = err.(error)
+		}
+	}()
 	/// catch here? Not one up?
 
-	log("» using mock in-memory test storage")
+	log("» using simulated storage")
 
-	if mockfail() { return nil, errors.New("mock fail of Save()") }
+	if mockfail() {
+		return nil, errors.New("mock fail of Save()")
+	}
 	mockpanic("Save()")
 	mockdelay(ctx)
 	mockhang(ctx)
 
-	// check 0 length -- this is a feature of the pot.InMemLoadSaver
 	if ps.Slot_ref < 1 {
 		msg := "invalid slot"
 		log(msg)
 		return []byte{}, errors.New(msg)
 	}
-	if len(Slots[ps.Slot_ref-1].Kvs.Store) < 1 {
+
+	// slot to 'save' (clone)
+	slot := Slots[ps.Slot_ref-1]
+
+	// check 0 length -- this is a feature of the pot.InMemLoadSaver
+	if len(slot.Kvs.Store) < 1 {
 		msg := "nothing to store"
 		log(msg)
 		return []byte{}, errors.New(msg)
 	}
 
-	ref32 := make([]byte, 32)
-        rand.Read(ref32)
-        log("» created random reference " + bhex(ref32))
+	// new, cloned slot#
+	slot_ref := len(Slots) + 1 // = starting on 1.
 
-	Saved[bhex(ref32)] = ps.Slot_ref
-        log("» mock-saving store #" + strconv.Itoa(ps.Slot_ref) + " to key " + bhex(ref32))
+	// clone map to be 'saved'
+	kvs := &SwarmKvs{Store: maps.Clone(slot.Kvs.Store), Slot_ref: slot_ref}
+	Slots = append(Slots, Slot{Ctx: context.Background(), Kvs: kvs, Ref: slot_ref, Ls: slot.Ls, allowSync: slot.allowSync})
+
+	ref32 := make([]byte, 32)
+	rand.Read(ref32)
+	log("» simulated save reference " + bHex(ref32))
+
+	Saved[bHex(ref32)] = slot_ref
+	log("» simulated save of map in slot #" + strconv.Itoa(ps.Slot_ref) + " cloned new slot #" + strconv.Itoa(slot_ref) + " to key " + bHex(ref32))
 
 	return ref32, nil
 }

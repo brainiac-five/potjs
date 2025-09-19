@@ -1,0 +1,21 @@
+<pre>
+
+	POT JS Example 11a: sync new not crashing in browser
+
+</pre>
+
+<script src="lib/wasm_exec.js"></script>
+
+<script>
+
+const go = new Go()
+
+WebAssembly.instantiateStreaming(fetch("lib/pot.wasm"), go.importObject)
+	.then((r)=>{ go.run(r.instance) })
+
+onWasmLoaded = async () => {
+
+	map = pot.newSync()
+}
+
+</script>

@@ -1,0 +1,155 @@
+/*
+**    SWARM POT JS API Test Suite / Node
+*/
+
+require("./test")
+
+/* optional mode parameter */
+
+const tag   = process.argv[2]
+const bee   = process.argv[3]
+const batch = process.argv[4]
+
+T.tag = tag
+
+if(batch && batch.length != 64) throw new Error(`wrong batch id hex string length ${batch.length} (should be 64)`)
+
+/* date */
+
+const date = (new Date()).toString()
+
+/* mode */
+
+const note = modenote(tag)
+
+/* network info */
+
+const screen_bee_url  = bee   ? bee : "(in-memory)"
+const screen_batch_id = batch ? batch : "(none)"
+
+console.log(`
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+
+    SWARM POT JS API Test Suite / Node
+
+    ${tag}
+
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+
+${date}
+
+This is the test suite for the Javascript API to the Go implementation of the Proximity-Order-Trie (POT).
+
+Also see examples/ folder and README.MD.
+
+
+Notes
+
+${note}
+
+Tests are using different random byte sequences for keys and values every run.
+
+
+Network
+
+Bee node URL ${screen_bee_url}
+Batch ID     ${screen_batch_id}
+
+
+KVS Tests
+
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+`)
+
+const fs = require("fs")
+require("../lib/wasm_exec")
+const tests = require("./kvs_test")
+
+
+; (async () => {
+
+	const go = new Go()
+
+	WebAssembly.instantiate(fs.readFileSync("./lib/pot.wasm"), go.importObject)
+		.then((r) => { go.run(r.instance) })
+})()
+
+global.onWasmLoaded = async () => {
+
+	/* Test Test */
+
+	T.head("Example Test")
+	T.log("Test setup test outside of main test files.")
+
+	T.start("script inline")
+	T.log("• put and get K: V")
+	try {
+		map = await pot.new(bee, batch)
+		await map.put("K", "V")
+		r = await map.get("K")
+		T.assertEqual(null, T, r, "V")
+	} catch(err) {
+		T.log(err)
+	}
+
+	/* Tests */
+
+	try {
+
+		if(!bee) tests.TestPotKvsSync(T, bee, batch)
+		await tests.TestPotKvsAsync(T, bee, batch)
+
+		tests.TestPotKvs_TypeEncoding(T, bee, batch)
+
+		if(!bee) tests.TestPotKvs_EdgeValuesSync(T, bee, batch)
+		await tests.TestPotKvs_EdgeValuesAsync(T, bee, batch)
+
+		if (!bee) tests.TestPotKvs_TypedAccessSync(T, bee, batch)
+		await tests.TestPotKvs_TypedAccessAsync(T, bee, batch)
+
+		await tests.TestPotKvs_MassSequential(T, bee, batch)
+		await tests.TestPotKvs_ComplexConcurrent(T, bee, batch)
+
+		await tests.TestPotKvs_Save(T, bee, batch)
+		await tests.TestPotKvs_ComplexSave(T, bee, batch)
+
+		await tests.TestPotKvs_Cancellation(T, bee, batch)
+		await tests.TestPotKvs_Failures(T, bee, batch)
+
+		// await tests.TestPotKvs_Proof(T, bee, batch)
+
+		T.balance()
+
+	} catch(err) {
+		T.log(err)
+	}
+
+}
+
+function modenote(tag) {
+
+	var note = ""
+
+	b = "*"
+	unb = "*"
+
+	switch(tag) {
+	case "ext-api":
+		note = `The extended test suite runs on ${b}mock storage${unb} that leaves out the Go POT implementation to emulate exceptions.`
+		break
+	case "in-mem":
+		note = `The test suite runs ${b}in-memory of the Go POT implementation${unb}.`
+		break
+	case "loc-net":
+		note = `The test suite runs on ${b}a local Swarm test network${unb}.`
+		break
+	case "testnet":
+		note = `The test suite runs on ${b}Swarm testnet${unb}.`
+		break
+	case "mainnet":
+		note = `The test suite runs on ${b}Swarm mainnet${unb}.`
+		break
+	}
+
+	return note
+}

@@ -1,4 +1,4 @@
-module potwasm
+module potjs
 
 go 1.24.5
 

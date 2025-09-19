@@ -1,0 +1,56 @@
+<pre>
+
+
+	POT JS Example 6: Network II
+
+	Check source and console.
+
+
+	This page connects to a local Swarm network.
+
+	It is very similar to example 5 and can be tried by running `make
+	example6`, which takes care of the local network and the batch id.
+
+	What those make rules do is essentially:
+
+	# fdp-play start --detach
+	# swarm-cli stamp buy --yes --verbose --depth 20 --amount 1b > .batch_creation
+	# grep "Stamp ID:" .batch_creation | cut -c11-74 > .batch_id
+	# npx http-server -c1 . &
+	# open "http://127.0.0.1:8080/example6.html?batch=$(cat .batch_id)"
+
+	Use `make stop` and `make locnet_stop` to stop servers.
+
+
+	<img src=favicon.ico>
+
+
+</pre>
+
+<script src="lib/wasm_exec.js"></script>
+<script src="lib/potjs.js" wasm="lib/pot.wasm"></script>
+
+<script>
+
+(async () => {
+
+	await pot.ready()
+
+	batch = new URLSearchParams(window.location.search).get('batch');
+
+	map = await pot.new("http://localhost:1633", batch)
+
+	await map.put("hello", "POT!")
+
+	value = await map.get("hello")
+
+	console.log("key ‹hello› has:", value)
+
+	ref = await map.save()
+
+	console.log("tree root is:", ref)
+
+})()
+
+</script>
+

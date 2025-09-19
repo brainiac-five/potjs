@@ -23,5 +23,3 @@ func setDelay(v int) {
 
 func setHang(v bool) {
 }
-
-

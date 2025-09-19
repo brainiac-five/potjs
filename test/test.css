@@ -5,9 +5,13 @@ h1		{ font-size: 2em; font-weight: 900; letter-spacing: 0.2em;
 		  text-transform: uppercase; margin-bottom: 5em;
 		  vertical-align: center; }
 
-div.modetag	{ font-size: 0.9em; background: blue; color: white;
+div.modetag, div.grouptag
+		{ font-size: 0.9em; background: blue; color: white;
 		  padding: 0.1em 1em;
 		  border-radius: 1em; float: right; }
+
+div.grouptag
+		{ background: darkgoldenrod; color: gold; }
 
 h2		{ font-size: 1.2em; font-weight: 600; letter-spacing: 0.3em;
 		  text-transform: uppercase; margin: 3em 0 1.4em 0; }
@@ -87,9 +91,9 @@ div.color4	{ background: violet; }
 div.color5	{ background: goldenrod; }
 
 div.loc		{ float: right; color: lightgray; margin-right: 1em }
-
-.errlink	{ border: 1px solid brown; border-radius: 0.7em; color: brown;
-		  padding: 0.35em 3em; margin: 0 2em 0 0; text-decoration: none; }
+errlink	{ border: 1px solid brown; border-radius: 0.7em; color: brown;
+		  padding: 0.35em 3em; margin: 0 2em 1em 0; text-decoration: none;
+		  line-height: 3em; white-space: nowrap; overflow: hidden; }
 
 div.time	{ float: right; color: black; font-weight: 100; 
 		  margin: 0 1.2em 0 0; font-size: 0.9em; }

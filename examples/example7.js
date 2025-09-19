@@ -8,11 +8,11 @@ console.log(`
 `)
 
 fs = require("fs");
-require("./wasm_exec"); // note the ./
+require("./lib/wasm_exec"); // note the ./
 
 var go = new Go();
 
-WebAssembly.instantiate(fs.readFileSync("pot.wasm"), go.importObject)
+WebAssembly.instantiate(fs.readFileSync("lib/pot.wasm"), go.importObject)
 	.then((r) => { go.run(r.instance) })
 
 onWasmLoaded = async () => {

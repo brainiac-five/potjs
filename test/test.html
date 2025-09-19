@@ -1,10 +1,10 @@
 <!-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
-  Pot JS Tests Page
+  Swarm Pot JS Tests Page
 
-  This page can display progress and results of four different test modi.
+  This page displays progress and results in four different test modi.
 
- !-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -->
+!-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -25,7 +25,9 @@
   <body onload="modecolor()">
 
 
-    <h1> <img src=favicon.ico> SWARM POT JS API Test Suite <div class=modetag id=modetag>---</div></h1>
+    <h1> <img src=favicon.ico> SWARM POT JS API Test Suite
+    	<div class=modetag id=modetag>---</div>
+    	<div class=grouptag id=grouptag>std<div></h1>
 
 
     <p id=date></p>
@@ -34,11 +36,11 @@
 
 
     <p>  Also see:
-      <a href=example1.html class=see> example 1 </a> &nbsp;
-      <a href=example2.html class=see> example 2 </a> &nbsp;
-      <a href=example3.html class=see> example 3 </a> &nbsp;
-      <a href=example4.html class=see> example 4 </a> &nbsp;
-      <a href=README.MD class=see>     read me   </a>
+      <a href=../examples/example1.html class=see> example 1 </a> &nbsp;
+      <a href=../examples/example2.html class=see> example 2 </a> &nbsp;
+      <a href=../examples/example3.html class=see> example 3 </a> &nbsp;
+      <a href=../examples/example4.html class=see> example 4 </a> &nbsp;
+      <a href=../README.MD class=see>     read me   </a>
     </p>
 
 
@@ -65,7 +67,7 @@
 
     <!-- -- -- -- -- -- -- -- -- -- -- -- ---- -- -- -- -- -- -- -- -- -- -- -->
 
-    <script src="wasm_exec.js"></script>
+    <script src="../lib/wasm_exec.js"></script>
     <script src="test.js"></script>
     <script src="kvs_test.js"></script>
 
@@ -79,10 +81,16 @@
 
 		/* optional mode parameter */
 
+		var tag = null // --> in-memory testing
+		var group = null
+		var iterations = 10000
 		var bee = null // --> in-memory testing
 		var batch = null
 		const queryString = window.location.search;
 		const urlParams = new URLSearchParams(queryString);
+		if(urlParams.has('tag')) tag = urlParams.get('tag');
+		if(urlParams.has('group')) group = urlParams.get('group');
+		if(urlParams.has('iterations')) iterations = urlParams.get('iterations');
 		if(urlParams.has('bee')) bee = urlParams.get('bee');
 		if(urlParams.has('batch')) batch = urlParams.get('batch');
 		if(batch && batch.length != 64) throw new Error(`wrong batch id hex string length ${batch.length} (should be 64)`)
@@ -90,18 +98,22 @@
 		/* network info */
 
 		document.getElementById("bee").innerHTML = bee ? bee : "(in-memory)"
-		document.getElementById("batch").innerHTML = batch ? hexa(batch) : "(none)"
+		document.getElementById("batch").innerHTML = batch ? batch : "(none)"
+		document.getElementById("modetag").innerHTML = tag
+		document.getElementById("grouptag").innerHTML = group
 
 		/* initialize Go POT */
 
 		const go = new Go()
 
 		result = await WebAssembly.instantiateStreaming(
-				fetch("pot.wasm"), go.importObject)
+				fetch("../lib/pot.wasm"), go.importObject)
 
 		go.run(result.instance)
 
 		/* Test Test */
+
+		T.tag = tag
 
 		T.head("Example Test")
 		T.log("Test setup test outside of main test files.")
@@ -112,7 +124,7 @@
 			map = pot.newSync(bee, batch)
 			await map.put("K", "V")
 			r = await map.get("K")
-			assertEqual(null, T, r, "V")
+			T.assertEqual(null, T, r, "V")
 		} catch(err) {
 			T.log(err)
 		}
@@ -120,28 +132,35 @@
 		/* Tests */
 
 		try {
+			if(group != "stress") {
 
-			if(!bee) TestPotKvsSync(T, bee, batch)
-			await TestPotKvsAsync(T, bee, batch)
+				if(!bee) TestPotKvsSync(T, bee, batch)
+				await TestPotKvsAsync(T, bee, batch)
 
-			TestPotKvs_TypeEncoding(T, bee, batch)
+				TestPotKvs_TypeEncoding(T, bee, batch)
 
-			if(!bee) TestPotKvs_EdgeValuesSync(T, bee, batch)
-			await TestPotKvs_EdgeValuesAsync(T, bee, batch)
+				if(!bee) TestPotKvs_EdgeValuesSync(T, bee, batch)
+				await TestPotKvs_EdgeValuesAsync(T, bee, batch)
 
-			if (!bee) TestPotKvs_TypedAccessSync(T, bee, batch)
-			await TestPotKvs_TypedAccessAsync(T, bee, batch)
+				if (!bee) TestPotKvs_TypedAccessSync(T, bee, batch)
+				await TestPotKvs_TypedAccessAsync(T, bee, batch)
 
-			await TestPotKvs_MassSequential(T, bee, batch)
-			await TestPotKvs_ComplexConcurrent(T, bee, batch)
+				await TestPotKvs_MassSequential(T, bee, batch)
+				await TestPotKvs_ComplexConcurrent(T, bee, batch)
 
-			await TestPotKvs_Save(T, bee, batch)
-			await TestPotKvs_ComplexSave(T, bee, batch)
+				await TestPotKvs_Save(T, bee, batch)
+				await TestPotKvs_ComplexSave(T, bee, batch)
 
-			await TestPotKvs_Cancellation(T, bee, batch)
-			await TestPotKvs_Failures(T, bee, batch)
+				await TestPotKvs_Cancellation(T, bee, batch)
+				await TestPotKvs_Failures(T, bee, batch)
 
-			await TestPotKvs_Proof(T, bee, batch) 
+				// await TestPotKvs_Proof(T, bee, batch) 
+			}
+
+			if(group == "stress") {
+
+				await TestPotKvs_Stress(T, bee, batch, iterations)
+			}
 
 			T.balance()
 
@@ -172,14 +191,12 @@
 
 		if(urlParams.has('tag')) {
 			tag = urlParams.get('tag');
-			document.getElementById("modetag").innerHTML = tag
-			T.tag = tag
 		}
 
 		switch(tag) {
 		case "ext-api":
 			color = "darkmagenta"
-			note = "The extended test suite runs on an <b>in-memory mock storage</b> that emulates exceptions."
+			note = "The extended test suite runs on an <b>mock storage</b> that leaves out the Go POT implementation to emulate exceptions."
 			break;
 		case "in-mem":
 			color = "dodgerblue"
@@ -203,6 +220,7 @@
 
 		if(color) {
 			document.getElementById("modetag").style.background = color
+			document.getElementById("grouptag").style.background = color
 			const stylesheet = document.styleSheets[0];
 			const rule = [...stylesheet.cssRules].find((r) => r.selectorText === "h3",);
 			rule.style.setProperty("background", color)

@@ -8,23 +8,17 @@
 
 	This page connects to a local Swarm network.
 
-	It is for illustration but can be made to run.
-
-	As is, it will error because the batch id hardcoded below
-	will not work and the swarm network might not be running.
-
-	To test it, start the local network with `make locnet_start`,
-	create a batch with `make locnet_batch`, copy the batch id
-	from file `.batch_id` into this page. Or, checkout example 6.
-
+	To test it, use `make example5`, which will start a local Swarm network
+	and update the batch id literal in the pot.new() call below after
+	creating a new batch or re-using one that has been created before.
 
 	<img src=favicon.ico>
 
 
 </pre>
 
-<script src="wasm_exec.js"></script>
-<script src="potjs.js"></script>
+<script src="lib/wasm_exec.js"></script>
+<script src="lib/potjs.js" wasm="lib/pot.wasm"></script>
 
 <script>
 
