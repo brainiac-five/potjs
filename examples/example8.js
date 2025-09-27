@@ -54,6 +54,8 @@ global.onWasmLoaded = () => {
 	batch = process.argv[3]
 	console.log(bee, batch)
 
+	pot.setVerbosity(pot.INFO)
+
 	kvs = pot.newSync(bee, batch)
 	console.log('srv: KVS initialized')
 

@@ -6,9 +6,17 @@ require("./test")
 
 /* optional mode parameter */
 
-const tag   = process.argv[2]
-const bee   = process.argv[3]
-const batch = process.argv[4]
+const tag    = process.argv[2]
+const bee    = process.argv[3] != "-" ? process.argv[3] : null
+const batch  = process.argv[4] != "-" ? process.argv[4] : null
+const stress = process.argv[5]
+const iter   = process.argv[6]
+
+console.log("tag", tag)
+console.log("bee", bee)
+console.log("batch", batch)
+console.log("stress", stress)
+console.log("iter", iter)
 
 T.tag = tag
 
@@ -96,27 +104,32 @@ global.onWasmLoaded = async () => {
 
 	try {
 
-		if(!bee) tests.TestPotKvsSync(T, bee, batch)
-		await tests.TestPotKvsAsync(T, bee, batch)
+		if(!stress) {
 
-		tests.TestPotKvs_TypeEncoding(T, bee, batch)
+			if(!bee) tests.TestPotKvsSync(T, bee, batch)
+			await tests.TestPotKvsAsync(T, bee, batch)
 
-		if(!bee) tests.TestPotKvs_EdgeValuesSync(T, bee, batch)
-		await tests.TestPotKvs_EdgeValuesAsync(T, bee, batch)
+			tests.TestPotKvs_TypeEncoding(T, bee, batch)
 
-		if (!bee) tests.TestPotKvs_TypedAccessSync(T, bee, batch)
-		await tests.TestPotKvs_TypedAccessAsync(T, bee, batch)
+			if(!bee) tests.TestPotKvs_EdgeValuesSync(T, bee, batch)
+			await tests.TestPotKvs_EdgeValuesAsync(T, bee, batch)
 
-		await tests.TestPotKvs_MassSequential(T, bee, batch)
-		await tests.TestPotKvs_ComplexConcurrent(T, bee, batch)
+			if (!bee) tests.TestPotKvs_TypedAccessSync(T, bee, batch)
+			await tests.TestPotKvs_TypedAccessAsync(T, bee, batch)
 
-		await tests.TestPotKvs_Save(T, bee, batch)
-		await tests.TestPotKvs_ComplexSave(T, bee, batch)
+			await tests.TestPotKvs_MassSequential(T, bee, batch)
+			await tests.TestPotKvs_ComplexConcurrent(T, bee, batch)
 
-		await tests.TestPotKvs_Cancellation(T, bee, batch)
-		await tests.TestPotKvs_Failures(T, bee, batch)
+			await tests.TestPotKvs_Save(T, bee, batch)
+			await tests.TestPotKvs_ComplexSave(T, bee, batch)
 
-		// await tests.TestPotKvs_Proof(T, bee, batch)
+			await tests.TestPotKvs_Cancellation(T, bee, batch)
+			await tests.TestPotKvs_Failures(T, bee, batch)
+
+		} else {
+
+			await tests.TestPotKvs_Stress(T, bee, batch, iter)
+		}
 
 		T.balance()
 

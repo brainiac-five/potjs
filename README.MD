@@ -1,7 +1,9 @@
 # POT JS
 
 This is a POT implementation for JS, for use with the Swarm decentralized
-storage network. It can be used as is, building is not required.
+storage network, based on the
+[Go implementation](https://github.com/ethersphere/proximity-order-trie) of POT.
+It can be used as is, building is not required.
 
 POT JS allows for calls from Javascript to the Go implementation of the POT
 storage trie structure that can be used to save key-value maps to an immutable,
@@ -35,7 +37,7 @@ POT JS embeds POT functionality into a browser environment and node.js.
 To initialize, include the generic `wasm_exec.js` and `potjs.js`, then wait
 for the initialization to finish. In the browser, this can look like this:
 
-```js
+```html
 
 	<script src="wasm_exec.js"></script>
 	<script src="potjs.js"></script>
@@ -54,14 +56,15 @@ for the initialization to finish. In the browser, this can look like this:
 ```
 
 After `pot.ready()` resolves, the go wasm `pot` object can be used to create a
-new key-value-store, called `map`. Use `put` and `get` functions on it.
+new key-value-store, in the example called `kvs`. Use `put` and `get` functions
+on it.
 
-```js
-	map = pot.newSync()
+```html
+	kvs = pot.newSync()
 
-	await pot.put("hello", "Hello, P.O.T.!")
+	await kvs.put("hello", "Hello, P.O.T.!")
 
-	value = await pot.get("hello")
+	value = await kvs.get("hello")
 ```
 
 See [example 1](examples/example1.html) for a full example.
@@ -71,7 +74,7 @@ control: include only the generic Go WASM wrapper `wasm_exec.js`, create a `Go`
 object, and instantiate the POT WASM object `pot.wasm`, then run it once it is
 loaded.
 
-```js
+```html
 	<script src="wasm_exec.js"></script>
 
 	<script>
@@ -97,7 +100,7 @@ There are 9 [examples](examples/) in this repository.
 
 This is a complete example for the browser:
 
-```js
+```html
 	<script src="wasm_exec.js"></script>
 	<script src="potjs.js"></script>
 
@@ -107,11 +110,11 @@ This is a complete example for the browser:
 
 		await pot.ready()
 
-		map = await pot.new()
+		kvs = await pot.new()
 
-		await map.put("hello", "POT!")
+		await kvs.put("hello", "POT!")
 
-		value = await map.get("hello")
+		value = await kvs.get("hello")
 
 		console.log("key ‹hello› has:", value)
 	})()
@@ -119,8 +122,8 @@ This is a complete example for the browser:
 	</script>
 ```
 
-`pot.new()` creates a new POT key-value store. The method `map.put()` stores a
-value to the POT, `map.get()` retrieves it. The result is shown in the console.
+`pot.new()` creates a new POT key-value store. The method `kvs.put()` stores a
+value to the POT, `kvs.get()` retrieves it. The result is shown in the console.
 
 To run the example, serve the main directory with `npx http-server .` and open
 `http://127.0.0.1:8080/examples/example1.html`, which contains above code.
@@ -208,12 +211,12 @@ integrity.
 
 	<script>
 
-		var map
+		var kvs
 
 		(async () => {
 
 			await pot.ready()
-			map = await pot.new()
+			kvs = await pot.new()
 
 		})()
 
@@ -223,77 +226,93 @@ integrity.
 
 			key = field('key').value
 			value = field('value').value
-			await map.put(key, value)
+			await kvs.put(key, value)
 		}
 
 		async function get() {
 
 			key = field('search').value
-			value = await map.get(key)
+			value = await kvs.get(key)
 			field('result').value = value
 		}
 
 	</script>
 ```
 
-For more examples, see the [examples/ folder](examples/) and the
-[manual](doc/POT_JS_manual.pdf). its tutorial guides through the creation of a
+The top half consists of two forms, one for setting a value, one for
+retrieving.  The buttons call the functions `get()` and `put()` respectively
+that are defined in the second half.
+
+The inclusion of POT, in the middle, is the same as before except this time the
+`integrity` attribute is used to provide finger print hashes of `wasm_exec.js`
+and `potjs.js` to verify that they are the expected files when they are loaded.
+
+Next, the anonymous function waits until initialization is complete to create
+the key-value store `kvs` that `put()` and `get()` will use. These two
+functions are self-explaining.
+
+For more examples, see the [examples/]() folder and the
+[manual](doc/POT_JS_manual.pdf). Its tutorial guides through the creation of a
 single-page node web app using POT JS.
 
 
 ## Function Reference
 
-The following lists the more relevant functions.
+The following lists the most relevant functions.
 
 For a complete list see the overview in the [manual](doc/POT_JS_manual.pdf) and
 the [function reference](doc/POT_JS_function_reference.pdf).
 
+
 ### INITIALIZATION
 
 
-#### NEW SWARM KVS
+#### NEW KVS
 
-	**pot.new([bee node url : string], [batch id : string]) --> map**
+	pot.new([bee node url : string, batch id : string]) ⟶   kvs
 
-Create a new Swarm KVS.
+Create a new Swarm key-value store.
 
 The parameters are optional. Leaving them out creates a key-value store
-in-memory.
+in-memory. Giving both conects to a Swarm Bee node.
 
 ```js
-	ref = await pot.new()
+	kvs = await pot.new()
 ```
 
-#### NEW SWARM KVS BY REFERENCE
+#### LOAD KVS
 
-**	pot.newByReference(reference : int) --> map	**
+	pot.newByReference(reference : int) ⟶   map
 
-Create a new Swarm KVS from a reference.
+Create a new Swarm KVS from a reference that was returned from a previous
+'save()'.
 
 ```js
-	ref = await pot.newByReference(ref)
+	kvs = await pot.newByReference(ref)
 ```
 
 #### SAVE
 
-	map.save() --> reference : int
+	kvs.save() ⟶   reference : int
 
-Store a Swarm KVS.
+Store a Swarm KVS, writing it from cache to the network.
 
 ```js
-        map = await pot.new()
-
-        ref = map.save()
+        ref = kvs.save()
 ```
 
 #### PUT
 
-	map.put(key : any, value : any) --> promise of null
+	kvs.put(key, value) ⟶   promise of null
 
-Return a promise for the put.
+	key : string, number, boolean
+	value : string, number, boolean, Uint8Array
+
+Write or update a value. Returns a promise that resolves when the put has
+happened.
 
 ```js
-	k = "entry1"
+        k = "entry1"
         v = "The quick brown fox jumps over the lazy dog."
 
         map = pot.new()
@@ -307,14 +326,17 @@ Return a promise for the put.
         }
 ```
 
-#### GET TYPED PROMISE
+#### GET
 
-	map.get(key : any) --> promise of any
+	map.get(key) ⟶   promise of value
 
-Return a promise for the typed get.
+	key : string, number, boolean
+	value : string, number, boolean, Uint8Array
+
+Retrieve a value. Returns a promise for the value to get.
 
 ```js
-	k = "entry1"
+        k = "entry1"
         try {
                  r = await map.get(k)
         } catch(e) {
@@ -323,11 +345,11 @@ Return a promise for the typed get.
 ```
 
 
-When using `.catch`, don’t chain it before taking the reference.
+When using `.catch`, don’t chain it before recording the promise.
 
 ```js
-        result = map.get("123")
-        result.catch((err)=>attestExpectedError(T, err, "Error: canceled"))
+        promise = map.get("123")
+        promise.catch((err)=>attestExpectedError(T, err, "Error: canceled"))
 ```
 
 
@@ -341,7 +363,7 @@ using 'raw' functions.
 
 #### PUT
 
-	map.putRaw(key : any, value : any) --> promise of null
+	map.putRaw(key : any, value : any) ⟶   promise of null
 
 Put a raw Uint8Bytes array. You can put a boolean, number, or string 'raw'
 directly. The bytes as stored are not distinguished by type information and
@@ -350,21 +372,21 @@ have to be retrieved using one of the functions below.
 
 #### GET
 
-	map.getRaw(key : any) --> promise of Uint8Array
+	map.getRaw(key : any) ⟶   promise of Uint8Array
 
 Get a raw Uint8Bytes array.
 
 
 #### GET BOOLEAN
 
-	map.getBoolean(key : any) --> promise of boolean
+	map.getBoolean(key : any) ⟶   promise of boolean
 
 Get a raw value as Boolean. First byte 0 means false, all else true.
 
 
 #### GET NUMBER
 
-	map.getNumber(key : any) --> promise of number
+	map.getNumber(key : any) ⟶   promise of number
 
 Get a raw value as floating point number. Note that Javascript does not have
 integers.
@@ -372,7 +394,7 @@ integers.
 
 #### GET STRING
 
-	map.getString(key : any) --> promise of string
+	map.getString(key : any) ⟶   promise of string
 
 Get a raw value as string.
 

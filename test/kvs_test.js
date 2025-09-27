@@ -493,6 +493,34 @@ function TestPotKvs_EdgeValuesSync(T, bee_url, batch_id) {
 
 	T.log("--- r a w")
 
+	key2 = new Uint8Array([0])
+	val2 = new Uint8Array([])
+
+	T.start("• put one-zero key " + T.hex(key2) + ": " + T.hex(val2))
+
+	T.log("• put " + T.hex(key2) + ": " + T.hex(val2))
+	err = map.putRawSync(key2, val2)
+	T.assertNoError(t0, T, err)
+
+	T.log("• get " + T.hex(key2))
+	val = map.getRawSync(key2)
+	T.assertEqual(t0, T, T.hex(val), T.hex(val2)) // no direct equality check for uint8arrays
+
+
+	key2 = new Uint8Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+	val2 = new Uint8Array([])
+
+	T.start("• put all-zero key " + T.hex(key2) + ": " + T.hex(val2))
+
+	T.log("• put " + T.hex(key2) + ": " + T.hex(val2))
+	err = map.putRawSync(key2, val2)
+	T.assertNoError(t0, T, err)
+
+	T.log("• get " + T.hex(key2))
+	val = map.getRawSync(key2)
+	T.assertEqual(t0, T, T.hex(val), T.hex(val2)) // no direct equality check for uint8arrays
+
+
 	key2 = pot.randKey() 
 	val2 = new Uint8Array([])
 
@@ -504,7 +532,7 @@ function TestPotKvs_EdgeValuesSync(T, bee_url, batch_id) {
 
 	T.log("• get " + T.hex(key2))
 	val = map.getRawSync(key2)
-	T.assertEqual(t0, T, T.hex(val), T.hex(val2)) // No direct equality check for Uint8Arrays
+	T.assertEqual(t0, T, T.hex(val), T.hex(val2)) // no direct equality check for uint8arrays
 
 	key2 = pot.randKey() 
 	val2 = new Uint8Array([0])
@@ -2690,7 +2718,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.attestUnexpectedError(t0, T, err)
 		}
 
-		await T.delay(500)
+		await T.delay(100)
 	}{
 
 		T.start("store and retrieve "+massmax+" values concurrently, awaiting promises")
@@ -2739,7 +2767,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.attestUnexpectedError(t0, T, err)
 		}
 
-		await T.delay(500)
+		await T.delay(100)
 
 	}{
 
@@ -3147,7 +3175,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 			/// GETTING FROM FIRST MAP
 
-			await T.delay(200)
+			await T.delay(100)
 
 			T.log(t, "• get " + key1 + " from FIRST map")
 			T.log(t, "Note, this get can fail if the the 1st thread is much delayed. It means no real error.") ///
@@ -3687,7 +3715,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	T.log("create hanging test promise and cancel it (by timer, try-catch)")
 	try {
 		ref = pot.hangingPromise()
-		setTimeout(ref.cancel, 500)
+		setTimeout(ref.cancel, 100)
 		await ref
 		T.attestMissingError(t, T)
 	} catch(err) {
@@ -3700,7 +3728,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	T.log("create hanging test promise and cancel it (by timer, chain .catch)")
 	try {
 		ref = pot.hangingPromise()
-		setTimeout(ref.cancel, 500)
+		setTimeout(ref.cancel, 100)
 		// note, chaining the .catch immediatelly above gives the wrong ref for cancel().
 		await ref.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
 	} catch(err) {
@@ -3715,13 +3743,13 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 		ref = pot.hangingPromise()
 		// note, chaining the .catch immediatelly above gives the wrong ref for cancel().
 		ref.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
-		await T.delay(500)
+		await T.delay(100)
 		ref.cancel()
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
-	await T.delay(700)
+	await T.delay(300)
 
 /* Does not work, although X1 does. Throughs Uncaught (in promise) Error: canceled
 
@@ -3789,7 +3817,7 @@ async function TestPotKvs_MassSequential(T, bee_url, batch_id) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
-	await T.delay(500)
+	await T.delay(100)
 
 
 	T.log("• retrieve "+massmax+" random values under random keys")
@@ -3945,19 +3973,23 @@ async function TestPotKvs_Failures(T, bee_url, batch_id) {
 
 	// panic raw synchronously
 	pot.setPanic(true)
-	T.log("• put raw - panic")
+	T.log("• put raw sync - panic")
 	err = map.putRawSync(key1, val1)
 	T.assertError(t0, T, err, /mock panic/)
 
 	// panic typed synchronously
 	pot.setPanic(true)
-	T.log("• put typed -  synchronous call panic")
-	err = map.putSync(key1, val1)
-	T.assertError(t0, T, err, /mock panic/)
+	T.log("• put - synchronous call panic")
+	try {
+		err = map.putSync(key1, val1)
+		T.assertError(t0, T, err, /mock panic/)
+	} catch(err) {
+		T.assertError(t0, T, err, /mock panic/)
+	}
 
 	// panic asynchronously
 	pot.setPanic(true)
-	T.log("• put typed - asynchronous call panic")
+	T.log("• put - asynchronous call panic")
 	try {
 		err = await map.put(key1, val1)
 		T.attestMissingError(t0, T)
@@ -4039,9 +4071,9 @@ async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 					group++
 					let key = pot.randKey()
 					let val = pot.randValue()
-					let e = map.putSync(key, val)
+					let e = map.putSync(key, val, 0, t)
 					T.assertNoError(t, T, e, true) // suppress ok
-					let res = map.getSync(key)
+					let res = map.getSync(key, 0, t)
 					T.attestNoError(t, T, true) // suppress ok
 					T.assertEqual(t, T, res, val, true) // suppress ok
 					group--
@@ -4064,7 +4096,7 @@ async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 			T.attestUnexpectedError(t0, T, err)
 		}
 
-		await T.delay(500)
+		await T.delay(100)
 	}{
 
 		T.start("store and retrieve "+iterations+" values concurrently, blocking promise calls in async blocks")
@@ -4085,9 +4117,9 @@ async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 					group++
 					let key = pot.randKey()
 					let val = pot.randValue()
-					let e = await map.put(key, val)
+					let e = await map.put(key, val, 0, t)
 					T.assertNoError(t, T, e, true, box) // suppress ok
-					let res = await map.get(key)
+					let res = await map.get(key, 0, t)
 					T.attestNoError(t, T, true, box) // suppress ok
 					T.assertEqual(t, T, res, val, true, box) // suppress ok
 					group--
@@ -4120,11 +4152,11 @@ async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 					group++
 					let key = pot.randKey()
 					let val = pot.randValue()
-					let e = await map.put(key, val)
+					let e = await map.put(key, val, 0, t)
 					T.assertNoError(t, T, e, true, box) // suppress ok
 					ref = await map.save()
 					T.assertNotAnError(t0, T, ref)
-					let res = await map.get(key)
+					let res = await map.get(key, 0, t)
 					T.attestNoError(t, T, true, box) // suppress ok
 					T.assertEqual(t, T, res, val, true, box) // suppress ok
 					group--
@@ -4137,6 +4169,41 @@ async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 
 		await T.completion(null, T, ()=>{return group}, 1000, timeout)
 
+	}{
+
+		T.start("store and retrieve "+iterations+" of adjacent keys concurrently, blocking promise calls in async blocks")
+
+		timeout = iterations * 100
+
+		T.log("• new map")
+		map = pot.newSync(bee_url, batch_id)
+		T.assertNoError(t0, T, !map)
+
+		T.log("• store and retrieve "+iterations+" of adjacent keys with random values")
+		let group = 0
+		for(let i=0; i<iterations; i++) {
+			; (async() => {
+				let t = i+1
+				let box = T.box 
+				try {
+					group++
+					let key = new Uint8Array([i % 256, Math.floor(i / 256) % 256, Math.floor(i / 256 / 256) % 256, Math.floor(i / 256 / 256 / 256)])
+					T.log("key: ", T.hex(key))
+					let val = pot.randValue()
+					let e = await map.put(key, val, 0, t)
+					T.assertNoError(t, T, e, true, box) // suppress ok
+					let res = await map.get(key, 0, t)
+					T.attestNoError(t, T, true, box) // suppress ok
+					T.assertEqual(t, T, res, val, true, box) // suppress ok
+					group--
+				} catch(err) {
+					T.attestUnexpectedError(t, T, err, box)
+					group--
+				}
+			})()
+		}
+
+		await T.completion(null, T, ()=>{return group}, 1000, timeout)
 	}
 }
 
@@ -4147,5 +4214,5 @@ if(T.NODE)
 		TestPotKvs_TypedAccessSync, TestPotKvs_TypedAccessAsync,
 		TestPotKvs_MassSequential, TestPotKvs_ComplexConcurrent,
 		TestPotKvs_Save, TestPotKvs_ComplexSave, TestPotKvs_Cancellation,
-		TestPotKvs_Failures, TestPotKvs_Proof }
+		TestPotKvs_Failures, TestPotKvs_Proof, TestPotKvs_Stress }
 

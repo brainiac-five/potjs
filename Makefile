@@ -177,9 +177,14 @@ go.mod:
 	go mod edit -replace github.com/ethersphere/proximity-order-trie=github.com/ethersphere/proximity-order-trie@v1.0.0
 	go get
 
+
 # the test picked as standard test: in-memory (not network), using the real
-# Go pot implementation (not the exception simulation).
-test: explain_tests web_inmem_test
+# Go pot implementation (not the exception simulation), with node.js.
+test: explain_tests node_inmem_test
+
+# the test picked as 2nd standard test: in-memory (not network), using the real
+# Go pot implementation (not the exception simulation), in the browser.
+webtest: explain_tests web_inmem_test
 
 # print available test rules.
 explain_tests:
@@ -210,7 +215,7 @@ web_inmem_stress: build serve
 	open "http://127.0.0.1:8080/test/test.html?tag=in-mem&group=stress&iterations=100000"
 
 # browser-based standard tests using a local swarm network of five nodes
-web_locnet_test: unmock build
+web_locnet_test: unmock build serve
 	@echo " -----------------------------------------------------------------------------------"
 	@echo "|                                                                                   |"
 	@echo "|   This test takes some minutes to set up, its results will show in the browser.   |"
@@ -235,7 +240,7 @@ web_locnet_test: unmock build
 	fdp-play stop
 
 # browser-based stress test using a local swarm network of five nodes
-web_locnet_stress: unmock build
+web_locnet_stress: unmock build serve
 	@echo " -----------------------------------------------------------------------------------"
 	@echo "|                                                                                   |"
 	@echo "|   This test takes some minutes to set up, its results will show in the browser.   |"
@@ -260,7 +265,7 @@ web_locnet_stress: unmock build
 	fdp-play stop
 
 # browser-based test using a local swarm network, reusing the previous batch
-web_locnet_quick: unmock build
+web_locnet_quick: unmock build serve
 	@echo " -----------------------------------------------------------------------------------"
 	@echo "|                                                                                   |"
 	@echo "|   Quick start reusing batch id, no logs, no shutdown, results shown in browser.   |"
@@ -274,17 +279,21 @@ web_locnet_quick: unmock build
 	$(MAKE) locnet_tests
 
 # node.js-based test using in-memory persister of Go POT implementation
-node_inmem_test: build serve
+node_inmem_test: build
 	node test/test_node.js in-mem
 
 # node.js-based test using pure simulation to test exception cases
-node_sim_test: lib/wasm_exec.js go.mod mockbuild serve
+node_sim_test: lib/wasm_exec.js go.mod mockbuild
 	node test/test_node.js ext-api
+
+# browser-based test using in-memory persister of Go POT implementation
+node_inmem_stress: build
+	node test/test_node.js in-mem - - stress 100
 
 # node.js-based test using a local swarm network of five nodes
 node_locnet_test: unmock build
 	@echo " -----------------------------------------------------------------------------------"
-	@echo " c u r r e n t l y   b r o k e n 
+	@echo " c u r r e n t l y   b r o k e n "
 	@echo " -----------------------------------------------------------------------------------"
 	@echo
 	@echo " -----------------------------------------------------------------------------------"

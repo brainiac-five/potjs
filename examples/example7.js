@@ -7,10 +7,12 @@ console.log(`
 
 `)
 
-fs = require("fs");
-require("./lib/wasm_exec"); // note the ./
+fs = require("fs")
+require("./lib/wasm_exec") // note the ./
 
-var go = new Go();
+var go = new Go()
+
+global.potjs_verbosity = 3
 
 WebAssembly.instantiate(fs.readFileSync("lib/pot.wasm"), go.importObject)
 	.then((r) => { go.run(r.instance) })

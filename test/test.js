@@ -247,7 +247,6 @@ T.assertIsError = function(t, T, err) {
 T.assertNotAnError = function(t, T, err, suppress_ok) {
 	T.tests++
 	set_counter(T.tests)
-	console.log(t, err)
 	if(err instanceof Error) {
 		T.log(t, "### Unexpected, Returned Error: ‹" + err + "› ###")
 		T.errors++
