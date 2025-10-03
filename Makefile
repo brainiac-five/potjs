@@ -117,7 +117,7 @@ examples/lib:
 example5: examples/lib build serve
 	$(MAKE) locnet_start
 	$(MAKE) .batch_id
-	sed -i.bak -e "s/\(\pot\.new.*\)\"[0-9]+\")/\1\"$$(cat .batch_id)\"/" examples/$@.html ; rm -f examples/$@.html.bak 
+	sed -i.bak -e "s/\(pot\.new.*\)\"[0-9a-fA-F]*\")/\1\"$$(cat .batch_id)\")/" examples/$@.html ; rm -f examples/$@.html.bak 
 	open http://127.0.0.1:8080/examples/$@.html
 
 # same as example 5 but taking the batch id as parameter
@@ -258,7 +258,7 @@ web_locnet_stress: unmock build serve
 	@echo "⬡ start tests (check browser)"
 	open "http://127.0.0.1:8080/test/test.html?tag=loc-net&group=stress&iterations=10000&bee=http://localhost:1633&batch=$$(cat .batch_id)"
 	@echo "⬡ wait before shutdown"
-	sleep 120
+	sleep 3000
 	@echo "⬡ bee node logs"
 	docker container logs --tail 1000 fdp-play-queen
 	@echo "⬡ stopping nodes"

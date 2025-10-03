@@ -1,17 +1,17 @@
 # POT JS
 
-This is a POT implementation for JS, for use with the Swarm decentralized
+This is a POT library for JS, for use with the Swarm decentralized
 storage network, based on the
-[Go implementation](https://github.com/ethersphere/proximity-order-trie) of POT.
-It can be used as is, building is not required.
+[Go implementation](https://github.com/ethersphere/proximity-order-trie) of 
+proximity order tries.
 
-POT JS allows for calls from Javascript to the Go implementation of the POT
-storage trie structure that can be used to save key-value maps to an immutable,
-decentralized storage network like Swarm. The Go part is built in via WASM.
+POT JS allows to effortlessly save key-value maps to an immutable,
+decentralized storage network like Swarm. 
 
-The trie structure is called Proximity Order Tree (POT), after a storage
-technique that is described in a forthcoming paper. It translates a key-value
-layout to a tree of nodes saved to a content-addressed storage.
+The underlying technology is called Proximity Order Tree (POT) after a storage
+technique that is described in a forthcoming paper. It can store a key-value
+layout, including updates and deletions, to a tree of nodes saved to an
+immutable, content-addressed storage.
 
 For more on POT see the [manual](doc/POT_JS_manual.pdf).
 
@@ -256,7 +256,7 @@ For more examples, see the [examples/]() folder and the
 single-page node web app using POT JS.
 
 
-## Function Reference
+# Function Reference
 
 The following lists the most relevant functions.
 
@@ -282,13 +282,13 @@ in-memory. Giving both conects to a Swarm Bee node.
 
 #### LOAD KVS
 
-	pot.newByReference(reference : int) ⟶   map
+	pot.load(reference : int) ⟶   map
 
 Create a new Swarm KVS from a reference that was returned from a previous
 'save()'.
 
 ```js
-	kvs = await pot.newByReference(ref)
+	kvs = await pot.load(ref)
 ```
 
 #### SAVE
@@ -355,19 +355,23 @@ When using `.catch`, don’t chain it before recording the promise.
 
 ### RAW BYTES
 
-By default, values written to storage are coded with one byte of type
+By default, values written to storage are prepended with one byte of type
 information.  This allows POT JS to interpret and return the raw bytes in
 storage as the type that was originally stored. This encoding can be left out
-using 'raw' functions.
+using 'raw' functions. The normal `get()` function will not return correct
+results, or fail, for values stored raw.
 
 
 #### PUT
 
 	map.putRaw(key : any, value : any) ⟶   promise of null
 
-Put a raw Uint8Bytes array. You can put a boolean, number, or string 'raw'
-directly. The bytes as stored are not distinguished by type information and
-have to be retrieved using one of the functions below.
+	key : string, number, boolean
+	value : string, number, boolean, Uint8Array
+
+Put a raw Uint8Array, a boolean, number, or string. The bytes as stored are not
+distinguished by type information and have to be retrieved using one of the
+functions below.
 
 
 #### GET

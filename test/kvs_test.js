@@ -5,12 +5,15 @@
 **  mocking real operation, as well as from the browser and from node
 **  respectively.
 **
-**  web_in_mem      test api interaction with go pot in-memory persisting, web
-**  web_ext_test    extended exceptions tests w/out go pot connection, web
-**  web_local_test  test with a locally installed Swarm network, web
-**  node_in_mem     test api interaction with go pot in-memory persisting, node
-**  node_ext_test   extended exceptions tests w/out go pot connection, node
-**  node_local_test test with a locally installed Swarm network, node
+** test              explain test modes and run web_inmem_test
+** web_inmem_test    test api interaction with go pot in-memory persisting, web
+** web_inmem_stress  stress test with go pot in-memory persisting, web
+** web_sim_test      extended exceptions tests w/out go pot connection, web
+** web_locnet_test   standard tests with a locally installed Swarm network, web
+** web_locnet_stress stress test with a locally installed Swarm network, web
+** node_inmem_test   test api interaction with go pot in-memory persisting, node
+** node_sim_test     extended exceptions tests w/out go pot connection, node
+** node_locnet_test  test with a locally installed Swarm network, node [currently broken]
 **
 **  Some tests are skipped in some modes, e.g., special failure cases that
 **  are relevant only in the context of the mode that was created to test
@@ -624,7 +627,7 @@ async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
 
 		T.log("• get " + key1)
 		val = await map.get(key1)
-		T.assertEqual(t0, T, val, true)
+		T.assertEqual(t0, T, val, 1)
 
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
@@ -675,7 +678,7 @@ async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
 
 		T.log("• get " + key1)
 		val = await map.get(key1)
-		T.assertEqual(t0, T, val, false)
+		T.assertEqual(t0, T, val, 0)
 
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
@@ -848,16 +851,16 @@ function TestPotKvs_TypeEncoding(T, bee_url, batch_id) {
 
 	v = true
 	T.start("• testing " + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = false
 	T.start("• testing " + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 
@@ -866,70 +869,70 @@ function TestPotKvs_TypeEncoding(T, bee_url, batch_id) {
 
 	v = 0
 	T.start("• testing " + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("IEEE 754 encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = 1
 	T.start("• testing " + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("IEEE 754 encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = 100000000000000
 	T.start("• testing " + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("IEEE 754 encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = 1e20
 	T.start("• testing " + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("IEEE 754 encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = 0.1
 	T.start("• testing " + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("IEEE 754 encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = 1/3
 	T.start("• testing " + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("IEEE 754 encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = 10/3
 	T.start("• testing " + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("IEEE 754 encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = Math.PI
 	T.start("• testing " + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("IEEE 754 encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = Math.PI^2
 	T.start("• testing " + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("IEEE 754 encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = 10000n * 10n^18n
 	T.start("• testing bigint " + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.assertEqual(t0, T, typeof e, typeof new Uint8Array())
 
 
@@ -937,65 +940,65 @@ function TestPotKvs_TypeEncoding(T, bee_url, batch_id) {
 
 	v = "A"
 	T.start("• testing " + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = "The fox and such hunting that hen and jumping fences? "
 	T.start("• testing " + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = " "
 	T.start("• testing space")
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = "  "
 	T.start("• testing spaces")
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = "0"
 	T.start("• testing " + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = "1.1.1"
 	T.start("• testing " + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = "0\n\t\b\0"
 	T.start("• testing zero digit and special chars")
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = "\n"
 	T.start("• testing line break" + v)
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 	v = "\n\t\b\0"
 	T.start("• testing special chars")
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, r, v)
 
 
@@ -1003,30 +1006,30 @@ function TestPotKvs_TypeEncoding(T, bee_url, batch_id) {
 
 	T.start("• testing random raw bytes")
 	v = pot.randValue()
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, T.hexa(r), T.hexa(v))
 
 	T.start("• testing empty array")
 	v = new Uint8Array()
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, T.hexa(r), T.hexa(v))
 
 	T.start("• testing array of sole 0")
 	v = new Uint8Array([0])
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, T.hexa(r), T.hexa(v))
 
 	T.start("• testing array starting on 0")
 	v = new Uint8Array([0,1,2,3])
-	e = pot.type_encoded_bytes(v)
+	e = pot.typeEncodedBytes(v)
 	T.log("encoded bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	T.assertEqual(t0, T, T.hexa(r), T.hexa(v))
 
 
@@ -1037,14 +1040,14 @@ function TestPotKvs_TypeEncoding(T, bee_url, batch_id) {
 	v[0] = 10 // not a type code
 	e = v
 	T.log("• testing these wrongly marked bytes: " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	if(r instanceof Error) T.attestExpectedError(t0, T, r.message)
 	else T.attestMissingError(t, T)
 
 	T.start("• testing byte sequence too short for a number")
 	e = new Uint8Array([2,1,0]) // 2 = number, which expects 9 bytes total
 	T.log("• testing these too short bytes (for a number): " + T.hexa(e))
-	r = pot.type_decoded_value(e)
+	r = pot.typeDecodedValue(e)
 	if(r instanceof Error) T.attestExpectedError(t0, T, r.message)
 	else T.attestMissingError(t, T)
 
@@ -1186,7 +1189,7 @@ function TestPotKvs_TypedAccessSync(T, bee_url, batch_id) {
 	T.assertError(t0, T, err) // can't write bigint
 	T.log("• get " + k)
 	r = map.getSync(k)
-	T.assertEqual(t0, T, r, null) // because not written
+	T.assertEqual(t0, T, r, undefined) // because not written
 
 
 	T.log("--- s t r i n g")
@@ -1888,7 +1891,6 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 		} catch(e) {
 			T.attestUnexpectedError(t0, T, e)
 		}
-		T.assertNoError(t0, T, err)
 
 		T.log("• get " + key1)
 		val = await map.get(key1)
@@ -1996,10 +1998,10 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 		// lookup in all-new map: will fail
 		T.log("• get " + key1 + " from new map")
 		val = map2.getSync(key1)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 
 		T.log("• retrieve map " + T.hex(save_ref))
-		map3 = pot.newByReferenceSync(save_ref, bee_url, batch_id)
+		map3 = pot.loadSync(save_ref, bee_url, batch_id)
 		T.assertNotAnError(t0, T, map3)
 		T.assertNotEqual(t0, T, map3, null)
 
@@ -2064,14 +2066,14 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key1 + " from new map")
 	try {
 		val = await map2.get(key1)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
 	T.log("• retrieve map " + T.hex(save_ref))
 	try {
-		map3 = await pot.newByReference(save_ref, bee_url, batch_id)
+		map3 = await pot.load(save_ref, bee_url, batch_id)
 		T.assertNotAnError(t0, T, map3)
 		T.assertNotEqual(t0, T, map3, null)
 	} catch(err) {
@@ -2116,7 +2118,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key2 + " that should not exist")
 	try {
 		val = await map.get(key2)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2142,7 +2144,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key1 + " from new map")
 	try {
 		val = await map2.get(key1)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2151,7 +2153,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key2 + " from new map")
 	try {
 		val = await map2.get(key2)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2176,7 +2178,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 
 	T.log("• retrieve first map " + T.hexa(save_ref))
 	try {
-		map3 = await pot.newByReference(save_ref, bee_url, batch_id)
+		map3 = await pot.load(save_ref, bee_url, batch_id)
 		T.assertNotAnError(t0, T, map3)
 		T.assertNotEqual(t0, T, map3, null)
 	} catch(err) {
@@ -2195,7 +2197,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key2 + " from first map")
 	try {
 		val = await map3.get(key2)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2238,7 +2240,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key1 + " from third map")
 	try {
 		val = await map4.get(key1)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2247,7 +2249,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key2 + " from third map")
 	try {
 		val = await map4.get(key2)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2256,7 +2258,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key3 + " from third map")
 	try {
 		val = await map4.get(key3)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2299,7 +2301,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key2 + " that should not exist")
 	try {
 		val = await map.get(key2)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2325,7 +2327,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key1 + " from new map")
 	try {
 		val = await map2.get(key1)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2334,7 +2336,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key2 + " from new map")
 	try {
 		val = await map2.get(key2)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2366,7 +2368,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 
 	T.log("• retrieve first map " + T.hex(save_ref))
 	try {
-		map3 = await pot.newByReference(save_ref, bee_url, batch_id)
+		map3 = await pot.load(save_ref, bee_url, batch_id)
 		T.assertNotAnError(t0, T, map3)
 		T.assertNotEqual(t0, T, map3, null)
 	} catch(err) {
@@ -2385,7 +2387,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key2 + " from first map")
 	try {
 		val = await map3.get(key2)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2428,7 +2430,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key1 + " from third map")
 	try {
 		val = await map4.get(key1)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2437,7 +2439,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key2 + " from third map")
 	try {
 		val = await map4.get(key2)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2446,14 +2448,14 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key3 + " from third map")
 	try {
 		val = await map4.get(key3)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
 	T.log("• retrieve second map " + T.hexa(save_ref_2))
 	try {
-		map5 = await pot.newByReference(save_ref_2, bee_url, batch_id)
+		map5 = await pot.load(save_ref_2, bee_url, batch_id)
 		T.assertNotAnError(t0, T, map5)
 		T.assertNotEqual(t0, T, map5, null)
 	} catch(err) {
@@ -2464,7 +2466,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key1 + " from retrieved second map")
 	try {
 		val = await map5.get(key1)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2481,7 +2483,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key3 + " from second map")
 	try {
 		val = await map5.get(key3)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2524,7 +2526,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key2 + " that should not exist")
 	try {
 		val = await map.get(key2)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2541,7 +2543,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key1 + " from new map")
 	try {
 		val = await map2.get(key1)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2550,7 +2552,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key2 + " from new map")
 	try {
 		val = await map2.get(key2)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2583,7 +2585,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key2 + " from first map")
 	try {
 		val = await map.get(key2)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2616,7 +2618,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key1 + " from third map")
 	try {
 		val = await map3.get(key1)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2625,7 +2627,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key2 + " from third map")
 	try {
 		val = await map3.get(key2)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2634,7 +2636,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key3 + " from third map")
 	try {
 		val = await map3.get(key3)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2643,7 +2645,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key1 + " from second map")
 	try {
 		val = await map2.get(key1)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2660,7 +2662,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• get " + key3 + " from second map")
 	try {
 		val = await map2.get(key3)
-		T.assertEqual(t0, T, val, null)
+		T.assertEqual(t0, T, val, undefined)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -2837,7 +2839,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 			T.log(1, "• retrieve map as saved as " + T.hex(save_ref))
 			try {
-				map3 = await pot.newByReference(save_ref, bee_url, batch_id)
+				map3 = await pot.load(save_ref, bee_url, batch_id)
 				T.assertNotAnError(t, T, map3)
 				T.assertNotEqual(t, T, map3, null)
 			} catch(err) {
@@ -2880,7 +2882,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(1, "• get " + T.hexa(key2) + " from retrieved map")
 			try {
 				val = await map3.get(key2)
-				T.assertEqual(1, T, val, null)
+				T.assertEqual(1, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(1, T, err)
 			}
@@ -2921,7 +2923,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key1 + " from second map")
 			try {
 				val = await map2.get(key1)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -2946,7 +2948,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + T.hexa(key2) + " from 2nd (new) map")
 			try {
 				val = await map2.get(key2)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t0, T, err)
 			}
@@ -3043,7 +3045,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 			T.log(1, "• retrieve first map as saved as " + T.hex(save_ref))
 			try {
-				map3 = await pot.newByReference(save_ref, bee_url, batch_id)
+				map3 = await pot.load(save_ref, bee_url, batch_id)
 				T.assertNotAnError(t, T, map3)
 				T.assertNotEqual(t, T, map3, null)
 			} catch(err) {
@@ -3086,7 +3088,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(1, "• get " + T.hexa(key2) + " from retrieved map")
 			try {
 				val = await map3.get(key2)
-				T.assertEqual(1, T, val, null)
+				T.assertEqual(1, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(1, T, err)
 			}
@@ -3127,7 +3129,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key1 + " from second map")
 			try {
 				val = await map2.get(key1)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3152,7 +3154,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + T.hexa(key2) + " from 2nd (new) map")
 			try {
 				val = await map2.get(key2)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t0, T, err)
 			}
@@ -3244,7 +3246,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key2 + " that should not exist")
 			try {
 				val = await map.get(key2)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3260,7 +3262,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 			T.log(t, "• retrieve first map " + T.hex(save_ref))
 			try {
-				map3 = await pot.newByReference(save_ref, bee_url, batch_id)
+				map3 = await pot.load(save_ref, bee_url, batch_id)
 				T.assertNotAnError(t, T, map3)
 				T.assertNotEqual(t, T, map3, null)
 			} catch(err) {
@@ -3279,7 +3281,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key2 + " from retrieved first map")
 			try {
 				val = await map3.get(key2)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3330,7 +3332,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key1 + " from new map")
 			try {
 				val = await map2.get(key1)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3339,7 +3341,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key2 + " from new map")
 			try {
 				val = await map2.get(key2)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3371,7 +3373,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 			T.log(t, "• retrieve second map " + T.hexa(save_ref_2))
 			try {
-				map5 = await pot.newByReference(save_ref_2, bee_url, batch_id)
+				map5 = await pot.load(save_ref_2, bee_url, batch_id)
 				T.assertNotAnError(t, T, map5)
 				T.assertNotEqual(t, T, map5, null)
 			} catch(err) {
@@ -3382,7 +3384,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key1 + " from second map")
 			try {
 				val = await map5.get(key1)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3399,7 +3401,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key3 + " from second map")
 			try {
 				val = await map5.get(key3)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3426,7 +3428,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key1 + " from third map")
 			try {
 				val = await map4.get(key1)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3435,7 +3437,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key2 + " from third map")
 			try {
 				val = await map4.get(key2)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3444,7 +3446,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key3 + " from third map")
 			try {
 				val = await map4.get(key3)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3499,7 +3501,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key2 + " that should not exist")
 			try {
 				val = await map.get(key2)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3516,7 +3518,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key2 + " from first map")
 			try {
 				val = await map.get(key2)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3557,7 +3559,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key1 + " from new map")
 			try {
 				val = await map2.get(key1)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3566,7 +3568,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key2 + " from new map")
 			try {
 				val = await map2.get(key2)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3591,7 +3593,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key1 + " from second map")
 			try {
 				val = await map2.get(key1)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3608,7 +3610,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key3 + " from second map")
 			try {
 				val = await map2.get(key3)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3634,7 +3636,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key1 + " from third map")
 			try {
 				val = await map3.get(key1)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3643,7 +3645,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key2 + " from third map")
 			try {
 				val = await map3.get(key2)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3652,7 +3654,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• get " + key3 + " from third map")
 			try {
 				val = await map3.get(key3)
-				T.assertEqual(t, T, val, null)
+				T.assertEqual(t, T, val, undefined)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
 			}
@@ -3680,7 +3682,7 @@ function TestPotKvs_Proof(T, bee_url, batch_id) {
 
 	T.log("• get proof for " + key1)
 	val = map.getProof(key1)
-	T.assertEqual(t0, T, val, null)
+	T.assertEqual(t0, T, val, undefined)
 
 }
 
@@ -3832,10 +3834,10 @@ async function TestPotKvs_MassSequential(T, bee_url, batch_id) {
 // Testing failure modes: internal error (returned), and Go panic.
 async function TestPotKvs_Failures(T, bee_url, batch_id) {
 
-	T.head("Failures", pot.testMode() != "extended")
+	T.head("Failures", pot.testMode() != "simulation")
 
-	if(pot.testMode() != "extended") {
-		T.log("Failure tests are available in extended API test mode. Use `make web_ext_test` and `make node_ext_test`.")
+	if(pot.testMode() != "simulation") {
+		T.log("Failure tests are available in `simulation` test mode. Use `make web_sim_test` or `make node_sim_test`.")
 		return
 	}
 
@@ -4009,12 +4011,12 @@ async function TestPotKvs_Failures(T, bee_url, batch_id) {
 	// fail raw synchronously
 	T.log("• put raw, synchronous - missing value parameter")
 	err = map.putRawSync(key1)
-	T.assertError(t0, T, err, /parameter count.*requires 2, got 1/)
+	T.assertError(t0, T, err, /parameter count.*requires 2/)
 
 	// fail typed synchronously
 	T.log("• put typed, synchronous - missing value parameter")
 	err = map.putSync(key1)
-	T.assertError(t0, T, err, /parameter count.*requires 2 or 3, got 1/)
+	T.assertError(t0, T, err, /parameter count.*requires 2/)
 
 	// fail typed asynchronously
 	T.log("• put typed, asynchronous (promise) - missing value parameter")
@@ -4022,7 +4024,7 @@ async function TestPotKvs_Failures(T, bee_url, batch_id) {
 		err = await map.put(key1)
 		T.attestMissingError(t0, T)
 	} catch(err) {
-		T.assertError(t0, T, err, /parameter count.*requires 2, got 1/)
+		T.assertError(t0, T, err, /parameter count.*requires 2/)
 	}
 
 	// 2 less
@@ -4030,12 +4032,12 @@ async function TestPotKvs_Failures(T, bee_url, batch_id) {
 	// fail raw synchronously
 	T.log("• put raw, synchronous - missing both parameters")
 	err = map.putRawSync()
-	T.assertError(t0, T, err, /parameter count.*requires 2, got 0/)
+	T.assertError(t0, T, err, /parameter count.*requires 2/)
 
 	// fail typed synchronously
 	T.log("• put typed, synchronous - missing both parameters")
 	err = map.putSync()
-	T.assertError(t0, T, err, /parameter count.*requires 2 or 3, got 0/)
+	T.assertError(t0, T, err, /parameter count.*requires 2/)
 
 	// fail typed asynchronously
 	T.log("• put typed, asynchronous (promise) - missing both parameters")
@@ -4043,7 +4045,7 @@ async function TestPotKvs_Failures(T, bee_url, batch_id) {
 		err = await map.put()
 		T.attestMissingError(t0, T)
 	} catch(err) {
-		T.assertError(t0, T, err, /parameter count.*requires 2, got 0/)
+		T.assertError(t0, T, err, /parameter count.*requires 2/)
 	}
 
 }

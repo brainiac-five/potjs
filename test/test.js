@@ -80,6 +80,8 @@ function log_and_display(one, two, three, four) {
 	if(NODE && trail == "•••") logmsg = hi + logmsg + off
 	else if(NODE && first == "✦") logmsg = mid + logmsg + off + " | " + loc
 	else if(NODE && first == "•") logmsg = mid + logmsg + off
+	else if(NODE && first == "√") logmsg = ok + "√" + off + logmsg.substr(1)
+	else if(NODE && trail == "###") logmsg = erm + logmsg + off
 	if(pot.log)
 		pot.log(threadno + logmsg)
 	else {
@@ -206,9 +208,9 @@ function balance() {
 
 	if(NODE) {
 		if(T.errors)
-			T.log("errors: " + T.errors + "")
+			T.log(erm + "errors: " + T.errors  + off)
 		else
-			T.log("no errors")
+			T.log(ok + "no errors" + off)
 	} else {
 		if(T.errors) {
 			T.log("<h4 class=err> errors: " + T.errors + " </h4>")
@@ -350,7 +352,7 @@ T.assertEqual = function(t, T, res, exp, suppress_ok, box) {
 	if(res != null && exp != null && typeof res == 'object' && typeof exp == 'object') // Uint8Array
 		equal = isEqualArray(res, exp)
 	else
-		equal = (res == exp)
+		equal = (res === exp)
 
 	lres = (res && (typeof res == 'object')) ? T.hex(res) : res
 	lexp = (exp && (typeof exp == 'object')) ? T.hex(exp) : exp
