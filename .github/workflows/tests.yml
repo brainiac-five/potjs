@@ -47,12 +47,6 @@ jobs:
       run: |
         fdp-play start --detach
 
-    - name: Buy postage batch
-      run: |
-        BATCH_ID=$(swarm-cli stamp buy --depth 20 --amount 1b --quiet)
-        echo "BEE_BATCH_ID=$BATCH_ID" >> $GITHUB_ENV
-        echo "Postage Batch ID: $BATCH_ID"
-
     - name: Run swarm integration tests
       run: |
         make node_locnet_test
