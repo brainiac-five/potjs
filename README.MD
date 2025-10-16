@@ -1,5 +1,7 @@
 # POT JS
 
+[![Tests](https://github.com/brainiac-five/potjs/actions/workflows/tests.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/tests.yml)
+
 This is a POT library for JS, for use with the Swarm decentralized
 storage network, based on the
 [Go implementation](https://github.com/ethersphere/proximity-order-trie) of 
