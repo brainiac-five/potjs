@@ -27,7 +27,7 @@ jobs:
     - name: Set up zsh
       run: |
         sudo apt-get remove --purge man-db
-	sudo apt-get -y install zsh
+        sudo apt-get -y install zsh
 
     - name: Run simulation tests
       run: |
