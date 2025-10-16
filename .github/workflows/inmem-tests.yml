@@ -1,0 +1,35 @@
+name: In-Memory Tests Ubuntu
+
+on:
+  push:
+    branches: [ devtest ]
+  pull_request:
+    branches: [ devtest ]
+
+jobs:
+  in-memory-tests-ubuntu:
+    name: In-Memory Tests Ubuntu
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Set up zsh
+      run: |
+        sudo apt-get remove --purge man-db
+        sudo apt-get -y install zsh
+
+    - name: Run simulation tests
+      run: |
+        make node_inmem_test
+

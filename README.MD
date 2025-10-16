@@ -1,6 +1,8 @@
 # POT JS
 
-[![Tests](https://github.com/brainiac-five/potjs/actions/workflows/tests.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/tests.yml)
+[![Simulation Tests](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests.yml)
+[![In-Memory Tests](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests.yml)
+[![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests.yml)
 
 This is a POT library for JS, for use with the Swarm decentralized
 storage network, based on the

@@ -1,4 +1,4 @@
-name: Tests
+name: Swarm Local Network Integration Tests Ubuntu
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ devtest ]
 
 jobs:
-  in-memory-and-swarm-integration-tests:
+  swarm-integration-tests-ubuntu:
     name: In-Memory and Swarm Integration Tests Ubuntu
     runs-on: ubuntu-latest
     steps:
@@ -24,14 +24,10 @@ jobs:
       with:
         node-version: '22'
 
-    - name: Set zsh
+    - name: Set up zsh
       run: |
+        sudo apt-get remove --purge man-db
         sudo apt-get -y install zsh
-
-    - name: Run simulation and in-memory tests
-      run: |
-        make node_sim_test
-        make node_inmem_test
 
     - name: Install fdp-play
       run: |
