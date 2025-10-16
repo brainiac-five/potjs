@@ -7,9 +7,9 @@ on:
     branches: [ devtest ]
 
 jobs:
-  swarm-integration-tests:
-    name: Swarm Integration Tests
-    runs-on: macos-13
+  in-memory-and-swarm-integration-tests:
+    name: In-Memory and Swarm Integration Tests Ubuntu
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -24,11 +24,10 @@ jobs:
       with:
         node-version: '22'
 
-    - name: Setup docker for MacOS
-      if: runner.os == 'macos'
+    - name: Run simulation and in-memory tests
       run: |
-        brew install docker
-        colima start
+        make node_sim_test
+        make node_inmem_test
 
     - name: Install fdp-play
       run: |
