@@ -80,10 +80,10 @@ function log_and_display(one, two, three, four) {
 	if(NODE && trail == "•••") logmsg = hi + logmsg + off
 	else if(NODE && first == "✦") logmsg = mid + logmsg + off + " | " + loc
 	else if(NODE && first == "•") logmsg = mid + logmsg + off
-	else if(NODE && first == "√") logmsg = ok + "√" + off + logmsg.substr(1)
-	else if(NODE && trail == "###") logmsg = erm + logmsg + off
+	else if(NODE && first == "√") logmsg = ok + "√" + off + logmsg.substr(1) + profile()
+	else if(NODE && trail == "###") logmsg = erm + logmsg + off + profile()
 	if(pot.log)
-		pot.log(threadno + logmsg)
+		pot.log(threadno + numcut(logmsg))
 	else {
 		console.log(">>> direct to console log (pot.log unavailable):")
 		console.log(threadno + logmsg)
@@ -94,6 +94,8 @@ function log_and_display(one, two, three, four) {
 	if(NODE) return
 
 	// web page display
+	// ----------------
+
 	if(thread) {
 		threadtag = "<div class='threadtag color" + thread + "'>" + thread + "</div>"
 		reps = thread <= 3 ? thread -1 : 2
@@ -124,17 +126,18 @@ function log_and_display(one, two, three, four) {
 			display("<h3 class=gray> " + threadtag + msg.substring(4).slice(0,-4) + " </h3>"), this.inside = false
 	else if(trail == "---")
 		display("<div class=sub> " + threadtag + msg.substring(4) + " </div>"), this.inside = false
-	///else if(msg == "√ no error raised.")
-	///	;
 	else if(first == "√")
 		T.box_display("<div class=check> " + threadtag + " <div class=text> " + msg + " </div> " + profile() + " </div>", false, box)
 	else if(first == "›")
-		T.box_display("<div class=detail> <div class='threadtag color0'>0</div> " + " <div class=text> " + msg + " </div> </div>", false, box)
+		T.box_display("<div class=detail> <div class='threadtag color0'>0</div> " + " <div class=text> " + numcut(msg) + " </div> </div>", false, box)
 	else if(msg && T.inside)
-		T.box_display("<div class=detail> " + threadtag + " <div class=text> " + msg + " </div> <div class=loc>" + loc + "</div> </div>", false, box)
+		T.box_display("<div class=detail> " + threadtag + " <div class=text> " + numcut(msg) + " </div> <div class=loc>" + loc + "</div> </div>", false, box)
 	else if(msg)
-		T.box_display("<div class=detail> " + threadtag + " <div class=note> " + msg + " </div> </div>", false, box)
+		T.box_display("<div class=detail> " + threadtag + " <div class=note> " + numcut(msg) + " </div> </div>", false, box)
+}
 
+function numcut(msg) {
+	return msg.replace(/([0-9a-fA-F]{16})([0-9a-fA-F]{49,})/g,"$1..")
 }
 
 // browser only
@@ -174,7 +177,7 @@ function profile() {
 		T.time = Date.now()
 		if(t < 60000) {
 			if(t < 1) t = "<1"
-			return (NODE ? " | " + t : "<div class=time>" + t + "ms</div>")
+			return (NODE ? " | " + t + "ms" : "<div class=time>" + t + "ms</div>")
 		}
 	}
 	T.time = Date.now()
