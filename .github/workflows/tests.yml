@@ -24,6 +24,10 @@ jobs:
       with:
         node-version: '22'
 
+    - name: Set zsh
+      run: |
+        apt-get -y install zsh
+
     - name: Run simulation and in-memory tests
       run: |
         make node_sim_test
