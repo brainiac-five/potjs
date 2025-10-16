@@ -334,7 +334,7 @@ node_sim_test: lib/wasm_exec.js go.mod mockbuild
 
 # browser-based test using in-memory persister of Go POT implementation
 node_inmem_stress: build
-	node test/test_node.js in-mem - - stress 100
+	node test/test_node.js in-mem - - stress 10000
 
 # node.js-based test using a local swarm network of five nodes
 node_locnet_test: unmock build
