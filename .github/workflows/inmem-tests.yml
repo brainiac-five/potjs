@@ -1,4 +1,4 @@
-name: In-Memory Tests Ubuntu
+name: In-Memory Ubuntu
 
 on:
   push:

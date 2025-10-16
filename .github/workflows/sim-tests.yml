@@ -1,4 +1,4 @@
-name: API Simulation Tests Ubuntu
+name: Simulation Ubuntu
 
 on:
   push:

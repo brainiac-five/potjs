@@ -1,4 +1,4 @@
-name: Swarm Local Network Integration Tests Ubuntu
+name: Swarm Ubuntu
 
 on:
   push:
