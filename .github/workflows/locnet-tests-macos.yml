@@ -24,8 +24,10 @@ jobs:
       with:
         node-version: '22'
 
-    - name: Setup Docker on MacOS
+    - name: Setup Docker
       uses: douglascamata/setup-docker-macos-action@v1.0.1
+
+    - name: Start Docker
       run: |
         colima start
         docker ps
