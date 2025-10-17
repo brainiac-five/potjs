@@ -1,14 +1,14 @@
 console.log(`
 
 
-	POT JS Example 7: Node
+	POT JS Example 7: Node, in-memory, w/o pot-node.js
 
-	Check out the source in example7.js.
+	Check out the source in examples/example7.js.
 
 `)
 
 fs = require("fs")
-require("./lib/wasm_exec") // note the ./
+require("./lib/wasm_exec")
 
 var go = new Go()
 

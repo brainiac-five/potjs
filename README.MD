@@ -513,12 +513,17 @@ or see below.
 
 ## Build Requirements
 
-You need not build to use POT JS. For using it, `pot.wasm` and `wasm_exec.js`
-suffice as they come. Optionally, `potjs.js` can be included. 
+(You don't need to build to use POT JS. For using it, `pot-web.js`, `pot-node.js`,
+and `pot.wasm` suffice as they come.)
+
+The following requirements are for building. Lower versions of go and node.js
+might work.
+
 
 ### POT JS API
 
 * go 1.24.0
+
 
 ### GO POT (indirect, a separate repository being imported)
 
@@ -548,10 +553,14 @@ See [go.mod]() and
 
 ### Network Test
 
-* ethersmockphere/swarm-cli
+* ethersphere/swarm-cli
 * fairdatasociety/fdp-play
 
-Cf. `network_install` rule in the [Makefile]().
+If node.js is used (as opposed to running browser scripts that don't need it):
+
+* node 22.17.0
+
+Cf. `locnet_install` rule in the [Makefile]().
 
 
 ## Note on Go POT WASM

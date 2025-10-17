@@ -2,7 +2,11 @@
 **    SWARM POT JS API Test Suite / Node
 */
 
+const fs = require("fs")
+potjs_verbosity = 6
+require("../lib/pot-node.js")
 require("./test")
+const tests = require("./kvs_test")
 
 /* optional mode parameter */
 
@@ -12,11 +16,12 @@ const batch  = process.argv[4] != "-" ? process.argv[4] : null
 const stress = process.argv[5]
 const iter   = process.argv[6]
 
-console.log("tag", tag)
-console.log("bee", bee)
-console.log("batch", batch)
+console.log()
+console.log("tag   ", tag)
+console.log("bee   ", bee)
+console.log("batch ", batch)
 console.log("stress", stress)
-console.log("iter", iter)
+console.log("iter  ", iter)
 
 T.tag = tag
 
@@ -32,57 +37,49 @@ const note = modenote(tag)
 
 /* network info */
 
-const screen_bee_url  = bee   ? bee : "(in-memory)"
+const screen_bee_url  = bee   ? bee   : "(in-memory)"
 const screen_batch_id = batch ? batch : "(none)"
 
 console.log(`
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
-    SWARM POT JS API Test Suite / Node
+	SWARM POT JS API Test Suite / Node
 
-    ${tag}
+	${tag}
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
-${date}
+	${date}
 
-This is the test suite for the Javascript API to the Go implementation of the Proximity-Order-Trie (POT).
+	This is the test suite for the Javascript API to the Go implementation of the Proximity-Order-Trie (POT).
 
-Also see examples/ folder and README.MD.
-
-
-Notes
-
-${note}
-
-Tests are using different random byte sequences for keys and values every run.
+	Also see examples/ folder and README.MD.
 
 
-Network
+	Notes
 
-Bee node URL ${screen_bee_url}
-Batch ID     ${screen_batch_id}
+	${note}
+
+	Tests are using different random byte sequences for keys and values every run.
 
 
-KVS Tests
+	Network
+
+	Bee node URL ${screen_bee_url}
+	Batch ID     ${screen_batch_id}
+
+
+
+	K V S   T E S T S 
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 `)
 
-const fs = require("fs")
-require("../lib/wasm_exec")
-const tests = require("./kvs_test")
-
 
 ; (async () => {
 
-	const go = new Go()
-
-	WebAssembly.instantiate(fs.readFileSync("./lib/pot.wasm"), go.importObject)
-		.then((r) => { go.run(r.instance) })
-})()
-
-global.onWasmLoaded = async () => {
+	await pot.ready()
+	pot.setVerbosity(pot.INFO)
 
 	/* Test Test */
 
@@ -137,7 +134,7 @@ global.onWasmLoaded = async () => {
 		T.log(err)
 	}
 
-}
+})()
 
 function modenote(tag) {
 

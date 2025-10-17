@@ -3,22 +3,21 @@
 
 	POT JS Example 5: Network
 
-	Check source.
+	Check source and browser console.
 
 
 	This page connects to a local Swarm network.
 
 	To test it, use `make example5`, which will start a local Swarm network
-	and update the batch id literal in the pot.new() call below after
-	creating a new batch or re-using one that has been created before.
+	and update the batch id literal in the pot.new() call in this source
+	after creating a new batch or re-using one created before.
+
 
 	<img src=favicon.ico>
 
-
 </pre>
 
-<script src="lib/wasm_exec.js"></script>
-<script src="lib/potjs.js" wasm="lib/pot.wasm"></script>
+<script src="lib/pot-web.js"></script>
 
 <script>
 
@@ -26,7 +25,7 @@
 
 	await pot.ready()
 
-	map = await pot.new("http://localhost:1633", "fdbd07748459940c2e878c0f0fd70037a076e0f8264393af18887aacf29d9e6c")
+	map = await pot.new("http://localhost:1633", "eaec980d7a7b63d6a8f37f99cd815b318402e93bf2227a48c40d4d80d608915d")
 
 	await map.put("hello", "POT!")
 
