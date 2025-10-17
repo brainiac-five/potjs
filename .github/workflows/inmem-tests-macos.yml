@@ -1,0 +1,30 @@
+name: In-Memory MacOS
+
+on:
+  push:
+    branches: [ devtest ]
+  pull_request:
+    branches: [ devtest ]
+
+jobs:
+  in-memory-tests-macos:
+    name: In-Memory Tests MacOS
+    runs-on: macos-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Run simulation tests
+      run: |
+        make node_inmem_test
+

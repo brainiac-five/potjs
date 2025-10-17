@@ -1,4 +1,4 @@
-name: Swarm MacOS
+name: Stress MacOS
 
 on:
   push:
@@ -7,8 +7,29 @@ on:
     branches: [ devtest ]
 
 jobs:
-  swarm-integration-tests-macos:
-    name: Swarm Integration Tests MacOS
+  inmem-stress-tests-macos:
+    name: In-Memory Stress Tests MacOS
+    runs-on: macos-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Run in-memory stress tests
+      run: |
+        make node_inmem_stress
+
+  swarm-integration-stress-tests-macos:
+    name: Swarm Integration Stress Tests MacOS
     runs-on: macos-13
     steps:
     - name: Checkout code
@@ -43,7 +64,7 @@ jobs:
 
     - name: Run swarm integration tests
       run: |
-        make node_locnet_test
+        make node_locnet_stress
 
     - name: Stop fdp-play environment
       if: always()
