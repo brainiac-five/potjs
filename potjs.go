@@ -25,7 +25,7 @@
 // For more implementation details and rationale, see the Developer Notes in
 // the manual in the doc/ folder.
 //
-// Notes:
+// Note especially:
 //
 // (1) It is not possible to throw directly from Go to Javascript. Because
 // the *Sync() functions are less relevant, syscall/js has not been modified
@@ -51,12 +51,17 @@ import (
 	"strconv"
 	"syscall/js"
 	"time"
+	"regexp"
 
 	. "github.com/ethersphere/proximity-order-trie" // . helps mocking
 	"github.com/ethersphere/proximity-order-trie/pkg/persister"
 )
 
 var _ KeyValueStore = (*SwarmKvs)(nil)
+
+// inBrowser is true when WASM is running in a browser. Else it must be node.js.
+// This is detected and set first thing in main().
+var inBrowser bool
 
 // The Slot structures keep the state of the Go POT implementation that cannot
 // be transferred to Javascript.  These are primarily the channels used by
@@ -135,13 +140,14 @@ var optimization = STANDARD
 
 // log levels. Don't affect the propagation of errors and exceptions.
 const (
-	CRIT = 1
-	ERR  = 2
-	INFO = 3
-	DEB  = 4
+	CRIT  = 1
+	ERR   = 2
+	INFO  = 3
+	DEB   = 4
+	TRACE = 5
 )
 
-// default log level: everything
+// default log level: second highest detail level
 var verbosity = DEB
 
 // pre-cooked, recyclable methods of all js KVS objects
@@ -216,12 +222,19 @@ func newSync(this js.Value, parameters []js.Value) (result interface{}) {
 			log(ERR, msg)
 			return jsError(msg)
 		}
+		log(DEB, "› using bee url : ‹" + beeAPIURL + "›")
+		log(DEB, "› using batch id: ‹" + bHex(postageIDBytes) + "›")
 
 		// create the Swarm loader that connects to the network
 		// --------------------------------------------------------
-		ls = persister.NewSwarmLoadSaver(beeAPIURL, postageIDBytes)
+		if inBrowser {
+			ls = persister.NewSwarmLoadSaver(beeAPIURL, postageIDBytes)
+			log(INFO, "» created new generic swarm network loader")
+		} else {
+			ls = NewSwarmNodeJsLoadSaver(beeAPIURL, postageIDBytes, verbosity)
+			log(INFO, "» created new hybrid swarm network loader")
+		}
 		// --------------------------------------------------------
-		log(INFO, "› created new network loader")
 		allowSync = false
 
 		// In-Memory Storage
@@ -232,14 +245,14 @@ func newSync(this js.Value, parameters []js.Value) (result interface{}) {
 			// ----------------------------------------------
 			inMemoryPersister = persister.NewInmemLoadSaver()
 			// ----------------------------------------------
-			log(INFO, "› created new in-memory persister")
+			log(INFO, "» created new in-memory persister")
 		}
 		ls = inMemoryPersister
-		log(INFO, "› using in-memory persister")
+		log(INFO, "» using in-memory persister")
 		allowSync = true
 	}
 
-	// -------------------------------------------------------------------
+	// go pot call -------------------------------------------------------
 	kvs, err := NewSwarmKvs(ls)
 	// -------------------------------------------------------------------
 	if err != nil {
@@ -330,9 +343,11 @@ func loadSync(this js.Value, parameters []js.Value) (result interface{}) {
 		return jsError(msg)
 	}
 
-	jsref32 := parameters[0] // no checks as jsToByte() handles any type.
+	jsref32 := parameters[0] /// TODO type check, must be string, 64 char
 
-	ref32, err := jsToBytes(jsref32)
+	log(DEB, "› reference: " + jsref32.String())
+
+	ref32, err := hex.DecodeString(jsref32.String())
 
 	// type might be untranslateable (symbol, function)
 	if err != nil {
@@ -345,18 +360,23 @@ func loadSync(this js.Value, parameters []js.Value) (result interface{}) {
 	if len(parameters) >= 3 && !parameters[1].IsNull() && !parameters[1].IsUndefined() { // catch either null
 		beeAPIURL := parameters[1].String()                           /// TODO  catch error
 		postageIDBytes, _ := hex.DecodeString(parameters[2].String()) /// TODO  catch error / missing, also wrong lenght of hexstring (must be 64)
-		log(DEB, "› postage id: "+string(postageIDBytes))
-		ls = persister.NewSwarmLoadSaver(beeAPIURL, postageIDBytes)
-		log(INFO, "› created new network loader")
+		log(DEB, "› postage id: "+bHex(postageIDBytes))
+		if inBrowser {
+			ls = persister.NewSwarmLoadSaver(beeAPIURL, postageIDBytes)
+			log(INFO, "» created new generic swarm network loader")
+		} else {
+			ls = NewSwarmNodeJsLoadSaver(beeAPIURL, postageIDBytes, verbosity)
+			log(INFO, "» created new hybrid swarm network loader")
+		}
 		allowSync = false
 		// (note: make sure mock tests use this branch to allow sync calls) /// ? revisit
 	} else { /// TODO  error check for other parameter constellations
 		if inMemoryPersister == nil {
 			inMemoryPersister = persister.NewInmemLoadSaver()
-			log(INFO, "› created new in-memory persister")
+			log(DEB, "› created new in-memory persister")
 		}
 		ls = inMemoryPersister
-		log(INFO, "› using in-memory persister")
+		log(INFO, "» (re)-using in-memory persister")
 		allowSync = true
 	}
 
@@ -498,12 +518,10 @@ func saveSync(this js.Value, parameters []js.Value) (result interface{}) {
 		return jsError(msg)
 	}
 
-	log(DEB, "› ref32: "+bHex(ref32))
+	ref32Hex := bHex(ref32)
+	log(DEB, "› ref32: "+ref32Hex)
 
-	// return a JS Uint8Array
-	jsref32 := js.Global().Get("Uint8Array").New(32)
-	js.CopyBytesToJS(jsref32, ref32)
-	return jsref32
+	return js.ValueOf(ref32Hex)
 }
 
 // JS kvs.save() writes cached updates to the storage and returns a promise to a
@@ -960,6 +978,17 @@ func main() {
 	v := js.Global().Get("potjs_verbosity")
 	if v.Type() == js.TypeNumber {
 		verbosity = v.Int()
+		log(CRIT, "verbosity set " + jsToString(v))
+	}
+	if v.Type() == js.TypeString {
+		var err error
+		intVer, err := strconv.ParseInt(v.String(), 0, 0)
+		if err != nil {
+			log(CRIT, "verbosity setting invalid: " + v.String())
+		} else {
+			verbosity = int(intVer)
+			log(DEB, "verbosity set " + v.String())
+		}
 	}
 
 	log(INFO, "» POTWASM")
@@ -968,6 +997,15 @@ func main() {
 	o := js.Global().Get("potjs_optimization")
 	if o.Type() == js.TypeNumber {
 		optimization = o.Int()
+	}
+
+	// detect node.js or browser
+	w := js.Global().Get("window")
+	inBrowser = w.Type() == js.TypeObject
+	if(inBrowser) {
+		log(INFO, "» browser detected")
+	} else {
+		log(INFO, "» node.js detected")
 	}
 
 	// create pot module object
@@ -997,6 +1035,7 @@ func main() {
 	pot_.Set("ERROR", 2)
 	pot_.Set("INFO", 3)
 	pot_.Set("DEBUG", 4)
+	pot_.Set("TRACE", 5)
 
 	// test functions
 	// -------------------------------------------------
@@ -1205,10 +1244,16 @@ func jsError(msg string) js.Value {
 
 // log() makes a standardized log message to browser console or terminal,
 // respecting the verbosity setting as set through setVerbosity(). The default
-// is that all messages are logged. Messages whose level is too law, are
+// is that almost all messages are logged. Messages whose level is too low, are
 // ignored.
+var logrex = regexp.MustCompile(`([0-9a-fA-F]{16})([0-9a-fA-F]{49,})`)
 func log(level int, msg string) {
+	// log only of set verbosity level is matched or exceeded
 	if verbosity >= level {
+		// abbreviate long (hex) numbers unless TRACE level is on
+		if verbosity < TRACE {
+			msg = logrex.ReplaceAllString(msg, "$1..")
+		}
 		fmt.Println("pot:  " + msg)
 	}
 }
@@ -1221,6 +1266,7 @@ func log(level int, msg string) {
 // 2  ERROR	programming and runtime errors are also logged.
 // 3  INFO	general runtime information is logged.
 // 4  DEBUG	specific data, like put and get keys and values are logged.
+// 5  TRACE	certain steps through the program and full numbers.
 //
 // Note that the log prints to screen when running POT JS with node.js. In the
 // browser, it logs into the browser console.
@@ -1235,8 +1281,8 @@ func setVerbosity(_ js.Value, parameters []js.Value) interface{} {
 		if p.Type() != js.TypeNumber {
 			return jsError("parameter type error. Number expected.")
 		}
-		if p.Int() < 0 || p.Int() > DEB {
-			return jsError("parameter range error. 0-4 are valid.")
+		if p.Int() < 0 || p.Int() > TRACE {
+			return jsError("parameter range error. 0-5 are valid.")
 		}
 
 		// set
@@ -1700,7 +1746,7 @@ func randKey(this js.Value, parameters []js.Value) interface{} {
 
 	key := make([]byte, 32)
 	rand.Read(key)
-	log(DEB, "› created random key "+bHex(key)+" in go")
+	log(TRACE, "∙ created random key "+bHex(key)+" in go")
 	result := js.Global().Get("Uint8Array").New(32)
 	js.CopyBytesToJS(result, key)
 	return result
@@ -1714,7 +1760,7 @@ func randValue(this js.Value, parameters []js.Value) interface{} {
 	size := rand.Intn(79) + 22 /// TODO taken from native go pot tests, why this lenght?
 	value := make([]byte, size)
 	rand.Read(value)
-	log(DEB, "› created random "+strconv.Itoa(size)+" byte value "+bHex(value)+" in go")
+	log(TRACE, "∙ created random "+strconv.Itoa(size)+" byte value "+bHex(value)+" in go")
 	result := js.Global().Get("Uint8Array").New(size)
 	js.CopyBytesToJS(result, value)
 	return result

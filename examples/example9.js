@@ -5,19 +5,19 @@ console.log(`
 	This is a self-contained web app, serving
 	a page to receive input, returning results.
 
-	Identical to example8.html
+	Identical to example 8, just started with different arguments,
+	giving a network url and a batch id, by make.
 
 `)
 
-const http = require('http')
-const qs = require('querystring')
+const http = require("http")
+const qs = require("querystring")
+const pot = require("./lib/pot-node")("./lib/pot.wasm", 2) // 2 = ERROR log level
 
 const form = `<pre>
 
 
 		POT JS Example 9: Node.js Web App / local Swarm network
-
-		Identical to example8.html
 
 		<form method=post action="http://localhost:3000">
 
@@ -41,34 +41,29 @@ const form = `<pre>
 
 	</pre>
 
-	<script> console.log('see server log') </script>`
+	<script> console.log('see server log in terminal') </script>`
 
-const fs = require("fs")
-require("./lib/wasm_exec") // note the ./
-
-var go = new Go()
 var kvs
 
-WebAssembly.instantiate(fs.readFileSync("lib/pot.wasm"), go.importObject)
-	.then((r) => { go.run(r.instance) })
+; (async () => {
 
-global.onWasmLoaded = () => {
+	await pot.ready()
 
 	bee = process.argv[2]
 	batch = process.argv[3]
-	console.log(bee, batch)
-
-	pot.setVerbosity(pot.INFO)
+	console.log("srv:  network parameters:", bee, batch)
 
 	kvs = pot.newSync(bee, batch)
-	console.log('srv: KVS initialized')
+	console.log("srv:  KVS initialized")
 
 	// Notes:
-	// * The "pot: " log entries are coming from Go pot.wasm.
+	// * onWasmLoaded has to be added to `global` to be detected
 	// * There is no catching of early calls of put() and get()
-	// * onWasmLoaded could be defined async, for await pot.new()
-	// * onWasmLoaded has to be added to global to get detected
-}
+	//   in this example, which in theory could race the loading
+	//   of pot.wasm and the creation of kvs.
+	// * onWasmLoaded could be defined async to use `await pot.new()`
+	// * The "pot: " log entries are coming from pot.wasm.
+})()
 
 async function put(key, value) {
 

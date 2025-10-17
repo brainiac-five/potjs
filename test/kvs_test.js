@@ -48,7 +48,7 @@ var map5
 
 function TestPotKvsSync(T, bee_url, batch_id) {
 
-	T.head("Simple gets and puts of KVS with one item, synchronous", bee_url)
+	T.head("Simple gets and puts of KVS, synchronous", bee_url)
 
 	if(bee_url)
 		return
@@ -144,13 +144,13 @@ function TestPotKvsSync(T, bee_url, batch_id) {
 	key2 = pot.randKey()
 	val2 = pot.randValue()
 
-	T.start("• put " + T.hex(key2) + ": " + T.hex(val2))
+	T.start("• put raw sync")
 
-	T.log("• put " + T.hex(key2) + ": " + T.hex(val2))
+	T.log("• put ")
 	err = map.putRawSync(key2, val2)
 	T.assertNoError(t0, T, err)
 
-	T.log("• get " + T.hex(key2))
+	T.log("• get ")
 	val = map.getRawSync(key2)
 	T.assertEqual(t0, T, T.hex(val), T.hex(val2)) // No direct equality check for Uint8Arrays
 
@@ -166,7 +166,7 @@ function TestPotKvsSync(T, bee_url, batch_id) {
 
 async function TestPotKvsAsync(T, bee_url, batch_id) {
 
-	T.head("Simple gets and puts with one item, typed and raw, async")
+	T.head("Simple gets and puts, typed and raw, async")
 
 	T.log("--- b o o l e a n")
 
@@ -371,14 +371,14 @@ async function TestPotKvsAsync(T, bee_url, batch_id) {
 	key2 = pot.randKey()
 	val2 = pot.randValue()
 
-	T.start("• put raw " + T.hex(key2) + ": " + T.hex(val2))
+	T.start("• put raw")
 
 	try {
-		T.log("• putRaw " + T.hex(key2) + ": " + T.hex(val2))
+		T.log("• put raw")
 		err = await map.putRaw(key2, val2)
 		T.assertNoError(t0, T, err)
 
-		T.log("• getRaw " + T.hex(key2))
+		T.log("• get raw")
 		val = await map.getRaw(key2)
 		T.assertEqual(t0, T, T.hex(val), T.hex(val2)) // No direct equality check for Uint8Arrays
 
@@ -404,7 +404,7 @@ function TestPotKvs_EdgeValuesSync(T, bee_url, batch_id) {
 	if(bee_url)
 		return
 
-	T.head("Edge cases for storing one item, untyped, synchronous calls")
+	T.head("Edge cases, untyped, synchronous calls")
 
 
 	T.log("--- b o o l e a n")
@@ -513,7 +513,7 @@ function TestPotKvs_EdgeValuesSync(T, bee_url, batch_id) {
 	key2 = new Uint8Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
 	val2 = new Uint8Array([])
 
-	T.start("• put all-zero key " + T.hex(key2) + ": " + T.hex(val2))
+	T.start("• put all-zero key")
 
 	T.log("• put " + T.hex(key2) + ": " + T.hex(val2))
 	err = map.putRawSync(key2, val2)
@@ -527,7 +527,7 @@ function TestPotKvs_EdgeValuesSync(T, bee_url, batch_id) {
 	key2 = pot.randKey() 
 	val2 = new Uint8Array([])
 
-	T.start("• put " + T.hex(key2) + ": " + T.hex(val2))
+	T.start("• put random key and empty value")
 
 	T.log("• put " + T.hex(key2) + ": " + T.hex(val2))
 	err = map.putRawSync(key2, val2)
@@ -540,7 +540,7 @@ function TestPotKvs_EdgeValuesSync(T, bee_url, batch_id) {
 	key2 = pot.randKey() 
 	val2 = new Uint8Array([0])
 
-	T.start("• put " + T.hex(key2) + ": " + T.hex(val2))
+	T.start("• put random key and binary zero")
 
 	T.log("• put " + T.hex(key2) + ": " + T.hex(val2))
 	err = map.putRawSync(key2, val2)
@@ -553,7 +553,7 @@ function TestPotKvs_EdgeValuesSync(T, bee_url, batch_id) {
 	key2 = pot.randKey() 
 	val2 = new Uint8Array([1])
 
-	T.start("• put " + T.hex(key2) + ": " + T.hex(val2))
+	T.start("• put random key and binary 1")
 
 	T.log("• put " + T.hex(key2) + ": " + T.hex(val2))
 	err = map.putRawSync(key2, val2)
@@ -566,7 +566,7 @@ function TestPotKvs_EdgeValuesSync(T, bee_url, batch_id) {
 	key2 = pot.randKey() 
 	val2 = new Uint8Array([255,0])
 
-	T.start("• put " + T.hex(key2) + ": " + T.hex(val2))
+	T.start("• put random key and binary ff00")
 
 	T.log("• put " + T.hex(key2) + ": " + T.hex(val2))
 	err = map.putRawSync(key2, val2)
@@ -759,9 +759,13 @@ async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
 		key2 = pot.randKey() 
 		val2 = new Uint8Array([])
 
-		T.start("• put " + T.hex(key2) + ": empty byte array")
+		T.start("• put random key§ and empty byte array")
 
-		T.log("• putRaw " + T.hex(key2) + ": empty byte array")
+		T.log("• new map")
+		map = pot.newSync(bee_url, batch_id)
+		T.assertNoError(t0, T, !map)
+
+		T.log("• putRaw " + T.hex(key2) + ":")
 		err = await map.putRaw(key2, val2)
 		T.assertNoError(t0, T, err)
 
@@ -777,7 +781,11 @@ async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
 		key2 = pot.randKey() 
 		val2 = new Uint8Array([0])
 
-		T.start("• put " + T.hex(key2) + ": " + T.hex(val2))
+		T.start("• put random key and " + T.hex(val2))
+
+		T.log("• new map")
+		map = pot.newSync(bee_url, batch_id)
+		T.assertNoError(t0, T, !map)
 
 		T.log("• putRaw " + T.hex(key2) + ": " + T.hex(val2))
 		err = await map.putRaw(key2, val2)
@@ -796,7 +804,11 @@ async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
 		key2 = pot.randKey() 
 		val2 = new Uint8Array([1])
 
-		T.start("• put " + T.hex(key2) + ": " + T.hex(val2))
+		T.start("• put random key and " + T.hex(val2))
+
+		T.log("• new map")
+		map = pot.newSync(bee_url, batch_id)
+		T.assertNoError(t0, T, !map)
 
 		T.log("• putRaw " + T.hex(key2) + ": " + T.hex(val2))
 		err = await map.putRaw(key2, val2)
@@ -811,10 +823,14 @@ async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
 	}
 
 	try {
-		key2 = pot.randKey() 
+		key2 = pot.randKey()
 		val2 = new Uint8Array([255,0])
 
-		T.start("• put " + T.hex(key2) + ": " + T.hex(val2))
+		T.start("• put random key and " + T.hex(val2))
+
+		T.log("• new map")
+		map = pot.newSync(bee_url, batch_id)
+		T.assertNoError(t0, T, !map)
 
 		T.log("• putRaw " + T.hex(key2) + ": " + T.hex(val2))
 		err = await map.putRaw(key2, val2)
@@ -823,6 +839,81 @@ async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
 		T.log("• getRaw " + T.hex(key2))
 		val = await map.getRaw(key2)
 		T.assertEqual(t0, T, T.hex(val), T.hex(val2)) // No direct equality check for Uint8Arrays
+
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	try {
+		key2 = pot.randKey()
+		val2 = new Uint8Array(3000)
+		val2[0] = 1
+		val2[2999] = 1
+
+		T.start("• put random key with size 3000 value")
+
+		T.log("• new map")
+		map = pot.newSync(bee_url, batch_id)
+		T.assertNoError(t0, T, !map)
+
+		T.log("• putRaw ")
+		err = await map.putRaw(key2, val2)
+		T.assertNoError(t0, T, err)
+
+		T.log("• getRaw ")
+		val = await map.getRaw(key2)
+		T.assertEqual(t0, T, T.hex(val), T.hex(val2)) // No direct equality check for Uint8Arrays
+
+		T.log("• save")
+		ref = await map.save()
+		T.assertNotAnError(t0, T, ref)
+
+		T.log("• retrieve map " + T.hex(ref))
+		map3 = await pot.load(ref, bee_url, batch_id)
+		T.assertNotAnError(t0, T, map3)
+		T.assertNotEqual(t0, T, map3, null)
+
+		T.log("• getRaw from retrieved map " + T.hex(key2))
+		val2 = await map3.getRaw(key2)
+		T.assertEqual(t0, T, T.hex(val), T.hex(val2)) // No direct equality check for Uint8Arrays
+
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+
+	try {
+		key2 = pot.randKey()
+		val2 = new Uint8Array(4096)
+		val2[0] = 1
+		val2[4095] = 1
+
+		T.start("• put random key with 4096 byte size value")
+
+		T.log("• new map")
+		map = pot.newSync(bee_url, batch_id)
+		T.assertNoError(t0, T, !map)
+
+		T.log("• putRaw ")
+		err = await map.putRaw(key2, val2)
+		T.assertNoError(t0, T, err)
+
+		T.log("• getRaw " + T.hex(key2))
+		val = await map.getRaw(key2)
+		T.assertEqual(t0, T, T.hex(val), T.hex(val2)) // No direct equality check for Uint8Arrays
+
+		T.log("• save")
+		ref = await map.save()
+		T.assertNotAnError(t0, T, ref)
+
+		T.log("• retrieve map " + T.hex(ref))
+		map3 = await pot.load(ref, bee_url, batch_id)
+		T.assertNotAnError(t0, T, map3)
+		T.assertNotEqual(t0, T, map3, null)
+
+		T.log("• getRaw from retrieved map " + T.hex(key2))
+		val3 = await map3.getRaw(key2)
+		T.assertEqual(t0, T, T.hex(val3), T.hex(val2)) // No direct equality check for Uint8Arrays
 
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
@@ -946,7 +1037,8 @@ function TestPotKvs_TypeEncoding(T, bee_url, batch_id) {
 	T.assertEqual(t0, T, r, v)
 
 	v = "The fox and such hunting that hen and jumping fences? "
-	T.start("• testing " + v)
+	T.start("• testing the fox ...")
+	T.log("• testing " + v)
 	e = pot.typeEncodedBytes(v)
 	T.log("encoded bytes: " + T.hexa(e))
 	r = pot.typeDecodedValue(e)
@@ -1039,7 +1131,8 @@ function TestPotKvs_TypeEncoding(T, bee_url, batch_id) {
 	v = pot.randValue()
 	v[0] = 10 // not a type code
 	e = v
-	T.log("• testing these wrongly marked bytes: " + T.hexa(e))
+	T.log("• testing wrongly marked bytes")
+	T.log(T.hexa(e))
 	r = pot.typeDecodedValue(e)
 	if(r instanceof Error) T.attestExpectedError(t0, T, r.message)
 	else T.attestMissingError(t, T)
@@ -1206,7 +1299,7 @@ function TestPotKvs_TypedAccessSync(T, bee_url, batch_id) {
 	T.assertEqual(t0, T, r, v)
 
 	v = "The fox and such hunting that hen and jumping fences? "
-	T.start("• put " + k + ": " + v)
+	T.start("• put " + k + ": The fox ...")
 	T.log("• new map")
 	map = pot.newSync(bee_url, batch_id)
 	T.assertNoError(t0, T, !map)
@@ -1261,7 +1354,7 @@ function TestPotKvs_TypedAccessSync(T, bee_url, batch_id) {
 	T.assertEqual(t0, T, r, v)
 
 	v = "0\n\t\b\0"
-	T.start("• put " + k + ": " + v)
+	T.start("• put " + k + ": 0\\n\\t\\b\\0")
 	T.log("• new map")
 	map = pot.newSync(bee_url, batch_id)
 	T.assertNoError(t0, T, !map)
@@ -1272,7 +1365,7 @@ function TestPotKvs_TypedAccessSync(T, bee_url, batch_id) {
 	T.assertEqual(t0, T, r, v)
 
 	v = "\n"
-	T.start("• put " + k + ": " + v)
+	T.start("• put " + k + ": \\n")
 	T.log("• new map")
 	map = pot.newSync(bee_url, batch_id)
 	T.assertNoError(t0, T, !map)
@@ -1283,7 +1376,7 @@ function TestPotKvs_TypedAccessSync(T, bee_url, batch_id) {
 	T.assertEqual(t0, T, r, v)
 
 	v = "\n\t\b\0"
-	T.start("• put " + k + ": " + v)
+	T.start("• put " + k + ": \\n\\t\\b\\0")
 	T.log("• new map")
 	map = pot.newSync(bee_url, batch_id)
 	T.assertNoError(t0, T, !map)
@@ -1346,7 +1439,8 @@ function TestPotKvs_TypedAccessSync(T, bee_url, batch_id) {
 	T.start("• testing wrong type code")
 	v = pot.randValue()
 	v[0] = 10 // not a type code
-	T.log("• testing these wrongly marked bytes: " + T.hexa(v))
+	T.log("• testing these wrongly marked bytes: ")
+	T.log(T.hexa(v))
 	T.log("• new map")
 	map = pot.newSync(bee_url, batch_id)
 	T.assertNoError(t0, T, !map)
@@ -1580,7 +1674,7 @@ async function TestPotKvs_TypedAccessAsync(T, bee_url, batch_id) {
 	}
 
 	v = "The fox and such hunting that hen and jumping fences? "
-	T.start("• put " + k + ": " + v + " by promise")
+	T.start("• put " + k + ": The fox ..., by promise")
 	T.log("• new map")
 	map = pot.newSync(bee_url, batch_id)
 	T.assertNoError(t0, T, !map)
@@ -1660,7 +1754,7 @@ async function TestPotKvs_TypedAccessAsync(T, bee_url, batch_id) {
 	}
 
 	v = "0\n\t\b\0"
-	T.start("• put " + k + ": " + v + " by promise")
+	T.start("• put " + k + ": 0\\n\\t\\b\\0 by promise")
 	T.log("• new map")
 	map = pot.newSync(bee_url, batch_id)
 	T.assertNoError(t0, T, !map)
@@ -1676,7 +1770,7 @@ async function TestPotKvs_TypedAccessAsync(T, bee_url, batch_id) {
 	}
 
 	v = "\n"
-	T.start("• put " + k + ": " + v + " by promise")
+	T.start("• put " + k + ": \\n by promise")
 	T.log("• new map")
 	map = pot.newSync(bee_url, batch_id)
 	T.assertNoError(t0, T, !map)
@@ -1692,7 +1786,7 @@ async function TestPotKvs_TypedAccessAsync(T, bee_url, batch_id) {
 	}
 
 	v = "\n\t\b\0"
-	T.start("• put " + k + ": " + v + " by promise")
+	T.start("• put " + k + ": \\n\\t\\b\\0 by promise")
 	T.log("• new map")
 	map = pot.newSync(bee_url, batch_id)
 	T.assertNoError(t0, T, !map)
@@ -1712,7 +1806,6 @@ async function TestPotKvs_TypedAccessAsync(T, bee_url, batch_id) {
 
 	T.start("• testing random raw bytes" + " by promise")
 	v = pot.randValue()
-	T.log("• put " + k + ": " + T.hex(v) + " by promise")
 	T.log("• new map")
 	map = pot.newSync(bee_url, batch_id)
 	T.assertNoError(t0, T, !map)
@@ -1794,11 +1887,12 @@ async function TestPotKvs_TypedAccessAsync(T, bee_url, batch_id) {
 		T.attestExpectedError(t0, T, e)
 	}
 
-	T.start("• testing wrong type code" + " by promise")
+	T.start("• testing wrong type code by promise")
 	v = pot.randValue()
 	v[0] = 10 // not a type code
 	T.log("This would be an internal error, or trying to access an entry put raw with the higher-level type-aware get.")
-	T.log("• testing these wrongly marked bytes: " + T.hexa(v))
+	T.log("• testing these wrongly marked bytes: ")
+	T.log(T.hexa(v))
 	T.log("• new map")
 	map = pot.newSync(bee_url, batch_id)
 	T.assertNoError(t0, T, !map)
@@ -1875,7 +1969,7 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 
 	if(!bee_url) {
 
-		T.start("Save not empty KVS return valid swarm address, synchronous")
+		T.start("Save non-empty KVS, return reference, synchronous")
 
 		T.log("• new map")
 		map = pot.newSync(bee_url, batch_id)
@@ -1901,7 +1995,7 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 		T.assertNotAnError(t0, T, ref)
 	}
 
-	T.start("Save not empty KVS return valid swarm address, with Promises")
+	T.start("Save non-empty KVS, return reference, with Promises")
 
 	key1 = "K1"
 	val1 = "V1"
@@ -1940,7 +2034,7 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 
 
 	if(!bee_url) {
-		T.start("Save KVS with one item, no error, pre-save and after-save value exist")
+		T.start("Value persistence after saving")
 		T.log("Note, this order is worth testing because of how POT internally stores values.")
 
 		T.log("• new map")
@@ -1969,7 +2063,7 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 
 
 	if(!bee_url) {
-		T.start("Save KVS and add one item, activate new, re-activate previous")
+		T.start("Adding after saving, activate new, re-activate previous")
 
 		key1 = "K1"
 		val1 = "V1"
@@ -2016,7 +2110,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 
 	T.head("Saving and Loading, Switching, with Promises")
 
-	T.start("Save KVS and add one item, activate new, re-activate previous, with Promises")
+	T.start("Saving, adding, loading, re-activation of previous, with Promises")
 
 	key1 = "K1"
 	val1 = "V1"
@@ -2081,7 +2175,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	}
 
 
-	T.start("Save KVS, re-activate previous, interact, with Promises")
+	T.start("Save, re-activate previous, interact, with Promises")
 
 	key1 = "K1"
 	val1 = "V1"
@@ -2176,7 +2270,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 
 	// no saving of 2nd map
 
-	T.log("• retrieve first map " + T.hexa(save_ref))
+	T.log("• retrieve first map " + T.hex(save_ref))
 	try {
 		map3 = await pot.load(save_ref, bee_url, batch_id)
 		T.assertNotAnError(t0, T, map3)
@@ -2264,7 +2358,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	}
 
 
-	T.start("Save KVS, re-activate previous, interact, with Promises / Variation")
+	T.start("Save, re-activate, interact, with Promises / Variation")
 
 	key1 = "K1"
 	val1 = "V1"
@@ -2453,7 +2547,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
-	T.log("• retrieve second map " + T.hexa(save_ref_2))
+	T.log("• retrieve second map " + T.hex(save_ref_2))
 	try {
 		map5 = await pot.load(save_ref_2, bee_url, batch_id)
 		T.assertNotAnError(t0, T, map5)
@@ -2489,7 +2583,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	}
 
 
-	T.start("Interact with Different Maps, without Savinng, with Promises / Variation")
+	T.start("Interacting with two Maps, w/o savinng, with Promises / Variation")
 
 	key1 = "K1"
 	val1 = "V1"
@@ -2683,7 +2777,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 		let map = pot.newSync(bee_url, batch_id)
 		T.assertNoError(t0, T, !map)
 
-		T.log("• store and retrieve "+massmax+" random values under random keys concurrently, parallel sync calls")
+		T.log("• store and retrieve "+massmax+" random values and keys concurrently, parallel sync calls")
 		let group = 0
 		for(let i=0; i<massmax; i++) {
 			; (async() => {
@@ -2731,7 +2825,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 		map = pot.newSync(bee_url, batch_id)
 		T.assertNoError(t0, T, !map)
 
-		T.log("• store and retrieve "+massmax+" random values under random keys concurrently, awaiting promises")
+		T.log("• store and retrieve "+massmax+" random values keys concurrently, awaiting promises")
 		let group = 0
 		for(let i=0; i<massmax; i++) {
 			; (async() => {
@@ -2773,7 +2867,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 	}{
 
-		T.start("Concurrent Putting, Getting, Saving and Loading, Switching Maps, with Promises")
+		T.start("Concurrent Putting, Getting, Saving, Loading, Switching Maps, with Promises")
 
 		key1 = "K1"
 		val1 = "V1"
@@ -2821,7 +2915,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 				T.attestUnexpectedError(t, T, err)
 			}
 
-			T.log(1, "• put after save " + T.hexa(key2) + ": " + T.hexa(val2))
+			T.log(1, "• put after save ")
 			try {
 				err = await map.put(key2, val2)
 				T.assertNoError(t, T, err)
@@ -2976,7 +3070,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 	}{
 
-		T.start("Crossover Concurrent Putting, Getting, Saving and Loading, Switching Maps across threads, with Promises")
+		T.start("Crossover Concurrent Putting, Getting, Saving, Loading, Switching Maps across threads, with Promises")
 
 		key1 = "K1"
 		val1 = "V1"
@@ -3001,7 +3095,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 				T.attestUnexpectedError(t, T, err)
 			}
 
-			T.log(1, "• put " + key1 + ": " + val1)
+			T.log(1, "• put" + key1 + ": " + val1)
 			try {
 				err = await map.put(key1, val1)
 				T.assertNoError(t, T, err)
@@ -3195,7 +3289,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 	}{
 
-		T.start("Concurrent save of KVS, re-activate previous, interact, with Promises / Variation")
+		T.start("Concurrent save, re-activation, with Promises / Variation")
 
 		key1 = "K1"
 		val1 = "V1"
@@ -3371,7 +3465,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 				T.attestUnexpectedError(t, T, err)
 			}
 
-			T.log(t, "• retrieve second map " + T.hexa(save_ref_2))
+			T.log(t, "• retrieve second map " + T.hex(save_ref_2))
 			try {
 				map5 = await pot.load(save_ref_2, bee_url, batch_id)
 				T.assertNotAnError(t, T, map5)
@@ -3457,7 +3551,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 	}{
 
-		T.start("Interact with Different Maps, without Savinng, with Promises / Variation")
+		T.start("Interacting with Different Maps, with Promises / Variation")
 
 		key1 = "K1"
 		val1 = "V1"

@@ -7,8 +7,9 @@
 
 
 	This page uses synchronous calls that can be helpful for prototyping
-	but don't work for network connections (only in-memory = new() without
-	parameters) and not for use with node.
+	but don't work for network connections (only in-memory, i.e using
+	newSync() without parameters) and not for use with node. Wrong use
+	will just reliably deadlock.
 
 
 	<img src=favicon.ico>
@@ -16,8 +17,7 @@
 
 </pre>
 
-<script src="lib/wasm_exec.js"></script>
-<script src="lib/potjs.js" wasm="lib/pot.wasm"></script>
+<script src="lib/pot-web.js" wasm="lib/pot.wasm"></script>
 
 <script>
 

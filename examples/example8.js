@@ -7,8 +7,10 @@ console.log(`
 
 `)
 
-const http = require('http')
-const qs = require('querystring')
+const http = require("http")
+const qs = require("querystring")
+const fs = require("fs")
+require("./lib/wasm_exec")
 
 const form = `<pre>
 
@@ -37,10 +39,7 @@ const form = `<pre>
 
 	</pre>
 
-	<script> console.log('see server log') </script>`
-
-const fs = require("fs")
-require("./lib/wasm_exec") // note the ./
+	<script> console.log('see server log in terminal') </script>`
 
 var go = new Go()
 var kvs
@@ -52,18 +51,20 @@ global.onWasmLoaded = () => {
 
 	bee = process.argv[2]
 	batch = process.argv[3]
-	console.log(bee, batch)
+	console.log("srv:  network parameters:", bee, batch)
 
 	pot.setVerbosity(pot.INFO)
 
 	kvs = pot.newSync(bee, batch)
-	console.log('srv: KVS initialized')
+	console.log("srv:  KVS initialized")
 
 	// Notes:
-	// * The "pot: " log entries are coming from Go pot.wasm.
+	// * onWasmLoaded has to be added to `global` to be detected
 	// * There is no catching of early calls of put() and get()
-	// * onWasmLoaded could be defined async, for await pot.new()
-	// * onWasmLoaded has to be added to global to get detected
+	//   in this example, which in theory could race the loading
+	//   of pot.wasm and the creation of kvs.
+	// * onWasmLoaded could be defined async to use `await pot.new()`
+	// * The "pot: " log entries are coming from pot.wasm.
 }
 
 async function put(key, value) {
