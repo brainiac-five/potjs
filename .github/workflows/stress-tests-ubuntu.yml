@@ -1,0 +1,80 @@
+name: Stress Ubuntu
+
+on:
+  push:
+    branches: [ devtest ]
+  pull_request:
+    branches: [ devtest ]
+
+jobs:
+  inmem-stress-tests-ubuntu:
+    name: In-Memory Stress Tests Ubuntu
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Set up zsh
+      run: |
+        sudo apt-get remove --purge man-db
+        sudo apt-get -y install zsh
+
+    - name: Run in-memory stress tests
+      run: |
+        make node_inmem_stress
+
+  swarm-integration-stress-tests-ubuntu:
+    name: Swarm Integration Stress Tests Ubuntu
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Set up zsh
+      run: |
+        sudo apt-get remove --purge man-db
+        sudo apt-get -y install zsh
+
+    - name: Install fdp-play
+      run: |
+        npm install -g @fairdatasociety/fdp-play
+        fdp-play --version
+
+    - name: Install swarm-cli
+      run: |
+        npm install --global @ethersphere/swarm-cli
+        swarm-cli --version
+
+    - name: Start fdp-play environment
+      run: |
+        fdp-play start --detach
+
+    - name: Run swarm integration tests
+      run: |
+        make node_locnet_stress
+
+    - name: Stop fdp-play environment
+      if: always()
+      run: |
+        fdp-play stop
+

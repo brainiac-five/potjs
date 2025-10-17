@@ -1,9 +1,9 @@
 # POT JS
 
-[![Simulation Tests](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests.yml/badge.svg?branch=devtest)](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests.yml) 
-[![In-Memory Tests](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests.yml/badge.svg?branch=devtest)](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests.yml) 
-[![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests.yml/badge.svg?branch=devtest)](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests.yml) 
-[![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests.yml/badge.svg?branch=devtest)](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests.yml)
+| Simulation | In-Memory | Integration | Stress |
+|------------|-----------|-------------|--------|
+| [![Simulation Tests](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-ubuntu.yml/badge.svg?branch=devtest)](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-ubuntu.yml) | [![In-Memory Tests](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-ubuntu.yml/badge.svg?branch=devtest)](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-ubuntu.yml) | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests-ubuntu.yml/badge.svg?branch=devtest)](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests-ubuntu.yml) | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-ubuntu.yml/badge.svg?branch=devtest)](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-ubuntu.yml) |
+| [![Simulation Tests](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-macos.yml/badge.svg?branch=devtest)](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-macos.yml) | [![In-Memory Tests](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-macos.yml/badge.svg?branch=devtest)](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-macos.yml) | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests-macos.yml/badge.svg?branch=devtest)](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests-macos.yml) | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-macos.yml/badge.svg?branch=devtest)](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-macos.yml) |
 
 This is a POT library for JS, for use with the Swarm decentralized
 storage network, based on the
