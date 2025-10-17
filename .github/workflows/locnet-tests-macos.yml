@@ -26,6 +26,9 @@ jobs:
 
     - name: Setup Docker on MacOS
       uses: douglascamata/setup-docker-macos-action@v1.0.1
+      run: |
+        colima start
+        docker ps
 
     - name: Install fdp-play
       run: |
