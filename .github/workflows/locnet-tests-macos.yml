@@ -1,0 +1,52 @@
+name: Swarm MacOS
+
+on:
+  push:
+    branches: [ devtest ]
+  pull_request:
+    branches: [ devtest ]
+
+jobs:
+  swarm-integration-tests-macos:
+    name: Swarm Integration Tests MacOS
+    runs-on: macos-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Setup Docker on MacOS
+      uses: douglascamata/setup-docker-macos-action@v1.0.1
+
+    - name: Install fdp-play
+      run: |
+        npm install -g @fairdatasociety/fdp-play
+        fdp-play --version
+
+    - name: Install swarm-cli
+      run: |
+        npm install --global @ethersphere/swarm-cli
+        swarm-cli --version
+
+    - name: Start fdp-play environment
+      run: |
+        fdp-play start --detach
+
+    - name: Run swarm integration tests
+      run: |
+        make node_locnet_test
+
+    - name: Stop fdp-play environment
+      if: always()
+      run: |
+        fdp-play stop
+
