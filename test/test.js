@@ -137,7 +137,7 @@ function log_and_display(one, two, three, four) {
 }
 
 function numcut(msg) {
-	return msg.replace(/([0-9a-fA-F]{48})([0-9a-fA-F]{17,})/g,"$1..")
+	return msg.replace(/([0-9a-fA-F]{32})([0-9a-fA-F]{33,})/g,"$1..")
 }
 
 // browser only

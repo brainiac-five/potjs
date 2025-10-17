@@ -1246,7 +1246,7 @@ func jsError(msg string) js.Value {
 // respecting the verbosity setting as set through setVerbosity(). The default
 // is that almost all messages are logged. Messages whose level is too low, are
 // ignored.
-var logrex = regexp.MustCompile(`([0-9a-fA-F]{16})([0-9a-fA-F]{49,})`)
+var logrex = regexp.MustCompile(`([0-9a-fA-F]{32})([0-9a-fA-F]{33,})`)
 func log(level int, msg string) {
 	// log only of set verbosity level is matched or exceeded
 	if verbosity >= level {

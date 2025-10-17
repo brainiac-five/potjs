@@ -8,7 +8,7 @@ on:
 
 jobs:
   swarm-integration-tests-ubuntu:
-    name: In-Memory and Swarm Integration Tests Ubuntu
+    name: Swarm Integration Tests Ubuntu
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code

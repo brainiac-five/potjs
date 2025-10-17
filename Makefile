@@ -387,7 +387,7 @@ node_locnet_stress: unmock build
 	$(MAKE) locnet_start
 	$(MAKE) .batch_id
 	@echo "⬡ start tests"
-	node test/test_node.js loc-net http://localhost:1633 $$(cat .batch_id) stress 100
+	node test/test_node.js loc-net http://localhost:1633 $$(cat .batch_id) stress 1000
 
 # start the local Swarm network of five nodes, using docker FreeOS
 locnet_start:
