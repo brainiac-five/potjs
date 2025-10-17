@@ -9,7 +9,7 @@ on:
 jobs:
   swarm-integration-tests-macos:
     name: Swarm Integration Tests MacOS
-    runs-on: macos-13
+    runs-on: macos-15-intel
     steps:
     - name: Checkout code
       uses: actions/checkout@v4

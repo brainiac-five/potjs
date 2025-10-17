@@ -30,7 +30,7 @@ jobs:
 
   swarm-integration-stress-tests-macos:
     name: Swarm Integration Stress Tests MacOS
-    runs-on: macos-13
+    runs-on: macos-15-intel
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
