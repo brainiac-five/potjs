@@ -4,12 +4,10 @@
 //
 // # JS API TESTS
 //
-// For testing the JS API accessing the go pot implementation through wasm.
+// For testing the JS API accessing the go pot implementation through WASM.
 //
-// The tests are modeled on and extend the tests in go pot's kvs_test.go.
-//
-// They are made for execution in the browser to be testing the real target
-// environment the API is made for, including its restrictions vs. node.js.
+// This code is not part of a production build. The functions are replaced
+// in production by the noop stubs in nomock.go.
 //
 // ---------------------------------------------------------------------------
 package main
@@ -80,7 +78,9 @@ func mockFail() bool {
 	return f
 }
 
-// mockPanic() triggers a panic, if setPanic() has been called beforehand
+// mockPanic() triggers a panic, if setPanic() has been called beforehand.
+// Unsets the panix flag, so the next mockPanic() call will not trigger a panic
+// unless setPanic() was called again.
 func mockPanic(where string) {
 	if panix {
 		panix = false
@@ -88,8 +88,8 @@ func mockPanic(where string) {
 	}
 }
 
-// mockDelay() delays the program until cancelled or time is up, of setDelay()
-// has been called before
+// mockDelay() delays the program until cancelled or time is up, if setDelay()
+// has been called before to set the delay time. Sets the delay time to 0.
 func mockDelay(ctx context.Context) {
 	d := time.Duration(delay) * time.Millisecond
 	delay = 0
@@ -99,7 +99,9 @@ func mockDelay(ctx context.Context) {
 	}
 }
 
-// mockHang() stops the program until cancelled, if setDelay() has been called.
+// mockHang() stops the program until cancelled, if setHang() has been called.
+// Unsets the hang flag, the next mockHang() call will hang only after setHang()
+// has been called again.
 func mockHang(ctx context.Context) {
 	h := hang
 	hang = false

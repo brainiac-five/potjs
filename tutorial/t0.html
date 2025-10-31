@@ -1,0 +1,15 @@
+<script src="potjs/lib/pot-web.js"></script>
+
+<script>
+
+(async () => {
+
+	await pot.ready()
+	map = await pot.new()
+	await map.put("hello", "POT!")
+	value = await map.get("hello")
+	console.log("key ‹hello› has:", value)
+})()
+
+</script>
+

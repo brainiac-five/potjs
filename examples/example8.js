@@ -1,9 +1,12 @@
 console.log(`
 
-	POT JS Example 8: Node.js Web App Server
+	POT JS Example 8: Node.js, in-memory, explict init, asynchronous
 
-	This is a self-contained web app, serving
-	a page to receive input, returning results.
+
+	This is a self-contained web app, serving a page to receive input,
+	returning the results.
+
+	open http://localhost:3000
 
 `)
 
@@ -15,7 +18,7 @@ require("./lib/wasm_exec")
 const form = `<pre>
 
 
-		POT JS Example 8: Node.js Web App
+		POT JS Example 8: Node.js Web App Server
 
 		<form method=post action="http://localhost:3000">
 
@@ -36,35 +39,32 @@ const form = `<pre>
 		value  <input name=result>
 
 		</form>
+	<hr />
 
 	</pre>
 
-	<script> console.log('see server log in terminal') </script>`
+	<script> console.log('see server log in terminal') </script>
+
+	<pre>
+		`
+
+var kvs
 
 var go = new Go()
-var kvs
 
 WebAssembly.instantiate(fs.readFileSync("lib/pot.wasm"), go.importObject)
 	.then((r) => { go.run(r.instance) })
 
-global.onWasmLoaded = () => {
+global.onPotInitialized = async () => {
 
 	bee = process.argv[2]
 	batch = process.argv[3]
-	console.log("srv:  network parameters:", bee, batch)
 
-	pot.setVerbosity(pot.INFO)
+	kvs = await pot.new(bee, batch)
 
-	kvs = pot.newSync(bee, batch)
-	console.log("srv:  KVS initialized")
-
-	// Notes:
-	// * onWasmLoaded has to be added to `global` to be detected
-	// * There is no catching of early calls of put() and get()
-	//   in this example, which in theory could race the loading
-	//   of pot.wasm and the creation of kvs.
-	// * onWasmLoaded could be defined async to use `await pot.new()`
-	// * The "pot: " log entries are coming from pot.wasm.
+	// There is no catching of early calls of put() and get()
+	// in this example, which in theory could race the loading
+	// of pot.wasm and the creation of kvs.
 }
 
 async function put(key, value) {
@@ -79,41 +79,28 @@ async function get(search) {
 	value = await kvs.get(search)
 
 	return `get ${search}: ${value}
+
 		<script>
 		document.getElementsByName('result')[0].value = '${value}'
 		</script>`
 }
 
-const server = http.createServer(function(request, response) {
+const server = http.createServer((request, response) => {
 
-	if (request.method == 'POST') {
+	var log  = ''
+	var body = ''
 
-		var body = ''
-		request.on('data', function(data) {
-			body += data
-		})
-
-		request.on('end', async function() {
-
-			var log
-			const post = qs.parse(body)
-
-			if(post.button == 'put')
-				log = await put(post.key, post.value)
-			else
-				log = await get(post.search)
-
-			console.log("srv: " + log.match(/.*/)[0])
-
-			response.writeHead(200, {'Content-Type': 'text/html'})
-			response.end(form + '<hr><br><pre>\t\t' + log)
-		})
-	}
-	else {
-		response.writeHead(200, {'Content-Type': 'text/html'})
-		response.end(form)
-	}
+	request.on('data', (data) => body += data)
+	       .on('end', async () => {
+			const { button, key, value, search } = qs.parse(body)
+			switch(button) {
+			case 'put': log = await put(key, value) ; break
+			case 'get': log = await get(search)
+			}
+			response.writeHead(200)
+			response.end(form + log)
+	})
 })
 .listen(3000, '127.0.0.1')
 
-console.log(`srv: listening at http://127.0.0.1:3000`)
+console.log('srv: listening at http://127.0.0.1:3000')

@@ -1,25 +1,42 @@
 //go:build !ext_test
 
+// These are the stubs of the simulation that exist in some places in the
+// main source code to enable the extended tests. The functions are all
+// noops in a compilation for production.
 package main
 
 import (
 	"syscall/js"
+	"context"
 )
 
-func testMode(_ js.Value, parameters []js.Value) interface{} {
+func testMode(_ js.Value, _ []js.Value) interface{} {
 	return "production"
 }
 
-func setFail(_ js.Value, parameters []js.Value) interface{} {
+func setFail(_ js.Value, _ []js.Value) interface{} {
 	return nil
 }
 
-func setPanic(_ js.Value, parameters []js.Value) interface{} {
+func setPanic(_ js.Value, _ []js.Value) interface{} {
 	return nil
 }
 
-func setDelay(v int) {
+func setDelay(_ int) {
 }
 
-func setHang(v bool) {
+func setHang(_ bool) {
+}
+
+func mockFail() bool {
+	return false
+}
+
+func mockPanic(_ string) {
+}
+
+func mockDelay(_ context.Context) {
+}
+
+func mockHang(_ context.Context) {
 }

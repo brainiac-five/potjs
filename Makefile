@@ -1,12 +1,12 @@
 #                        Build rules for POT JS
 #
 #
-#                     YOU DON'T NEED THIS TO US POTJS
+#                    YOU DON'T NEED THIS TO USE POTJS
 #
 #
 # POT JS can be used without building, as downloaded or cloned. The files needed
-# are lib/pot.wasm, lib/wasm_exec.js, and optionally lib/potjs.js. They can be
-# used as they come with no building required. This Makefile helps building,
+# are lib/pot.wasm, lib/pot-node.js, lib/pot-web.js, or lib/wasm_exec.js. They
+# can be used as they come with no building required. This Makefile helps building,
 # developing and testing. It also simplifies running examples.
 #
 # To run an example, have 'make' installed and execute from the command line:
@@ -15,27 +15,16 @@
 #
 # To build WITHOUT using make, and this Makefile, do:
 #
-#	cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" .
-#	GOOS=js GOARCH=wasm go build -o pot.wasm potjs.go nomock.go
+#	GOOS=js GOARCH=wasm go build -o lib/pot.wasm potjs.go swarm_nodejs.go nomock.go
 #
 # To build with make, do:
 #
 #	make
 #
-# To run examples WITHOUT make, and w/o this Makefile, copy the bash commands
-# listed under a rule (e.g. everything following 'example1:') and replace
-# $$ with $ if there is a $$ in the rule. E.g.:
-#
-#	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" .
-#
-# becomes
-#
-#	cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" .
-#
 # The rules below can help to build from scratch, run tests, and as a convenient
 # way to run examples. They support developing POT JS itself.
 
-# use a more powerfull shell
+# use a more powerfull shell to execute the rules
 SHELL = /bin/zsh
 
 # project state
@@ -69,18 +58,21 @@ help:
 	#  run with `make <rule>`
 	#
 	#  build               build executables
-	#  example<n>          start server and run example <n>. n = 1-8
+	#  example<n>          start server and run example <n>. n = 1-9
 	#  test                explain test modes and run node_inmem_test
+	#  webtest             explain test modes and run web_inmem_test
+	#  explain_tests       explain test modes
 	#  web_inmem_test      test api interaction with go pot in-memory persisting, web
 	#  web_inmem_stress    stress test with go pot in-memory persisting, web
 	#  web_sim_test        extended exceptions tests w/out go pot connection, web
 	#  web_locnet_test     standard tests with a locally installed Swarm network, web
-	#  web_locnet_quick    like web_locnet_test but re-using the last batch id
+	#  web_locnet_quick    like web_locnet_test but re-using the last batch id, web
 	#  web_locnet_stress   stress test with a locally installed Swarm network, web
 	#  node_inmem_test     test api interaction with go pot in-memory persisting, node
+	#  node_inmem_stress   stress test with go pot in-memory persisting, node
 	#  node_sim_test       extended exceptions tests w/out go pot connection, node
 	#  node_locnet_test    test with a locally installed Swarm network, node
-	#  node_locnet_quick   like node_locnet_test but re-using the last batch id
+	#  node_locnet_quick   like node_locnet_test but re-using the last batch id, node
 	#  node_locnet_stress  stress test with a locally installed Swarm network, node
 	#  clean               prepare for building from scratch
 	#  distclean           prepare for commit to repository, including build
@@ -135,12 +127,13 @@ examples/lib:
 # to make the example as clear as possible.
 example5: examples/lib build http_serve
 	$(MAKE) locnet_start
+	rm -f .batch_id
 	$(MAKE) .batch_id
 	sed -i.bak -e "s/\(pot\.new.*\)\"[0-9a-fA-F]*\")/\1\"$$(cat .batch_id)\")/" examples/$@.html ; rm -f examples/$@.html.bak 
 	open http://127.0.0.1:8080/examples/$@.html
 
-# example 6 same as example 5 but taking the batch id as parameter
-example1a example1b example2a example2b example6: examples/lib build http_serve
+# example 6 - meaning of the save reference
+example6: examples/lib build http_serve
 	$(MAKE) locnet_start
 	$(MAKE) .batch_id
 	open "http://127.0.0.1:8080/examples/$@.html?bee=http://127.0.0.1:1633&batch=$$(cat .batch_id)"
@@ -165,24 +158,8 @@ example9: examples/lib build
 	open http://127.0.0.1:3000
 	node examples/$@.js "http://127.0.0.1:1633" "$$(cat .batch_id)"
 
-example9a example9b: examples/lib build
-	$(MAKE) locnet_start
-	$(MAKE) .batch_id
-	node examples/$@.js "http://127.0.0.1:1633" "$$(cat .batch_id)"
-
-load: build
-	$(MAKE) locnet_start
-	$(MAKE) .batch_id
-	node test/load.js "http://127.0.0.1:1633" "$$(cat .batch_id)"
-
-example11b: examples/lib build
-	node examples/example11b.js
-
-example11a: examples/lib build http_serve
-	open http://127.0.0.1:8080/examples/example11a.html
-
 # update the integrity hashes in example 2 when potjs.js or wasm_exec.js change
-integrity: examples/example2.html
+integrity: examples/example2.html lib/wasm_exec.js.sha384
 
 # update integrity hashes in example files that are affected (currently, #2)
 examples/example*.html: lib/pot-web.js.sha384
@@ -198,6 +175,8 @@ examples/example*.html: lib/pot-web.js.sha384
 # root has changed in the past. This works for Go 1.24.
 lib/wasm_exec.js:
 	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" lib/
+
+lib/wasm_exec.js.sh384: lib/wasm_exec.js
 
 # create the go mod file and set pot package to the real go pot implementation
 # as opposed to the simulation (below).
@@ -218,46 +197,61 @@ webtest: explain_tests web_inmem_test
 # print available test rules.
 explain_tests:
 	#
-	#  Tests can run in 3x2x2 modes:
+	#  Tests can run in 2x3x2 modes:
 	#
-	#  in-memory/simulated/network, browser/node, standard/stress.
+	#  browser / node | in-memory / simulated / network | standard / stress.
 	#
-	#  in-memory  inmem    non-persistent, in-memory storage
-	#  simulated  sim      simulated storage for testing exceptions
-	#  network    locnet   local Swarm network storage
+	#  browser    web     |  Javascript running in the browser
+	#  node       node    |  Javascript running in the terminal using node.js
+	#  -------------------+--------------------------------------------------
+	#  in-memory  inmem   |  non-persistent, in-memory storage
+	#  simulated  sim     |  simulated storage for testing exceptions
+	#  network    locnet  |  local Swarm network storage
+	#  -------------------+--------------------------------------------------
+	#  standard   test    |  153 test suites of various flavors
+	#             quick   |  like *_locnet_test but re-using the batch id
+	#  stress     stress  |  4 longer-running suites; mass & concurrent access
 	#
-	#  browser    web      Javascript running in the browser
-	#  node       node     Javascript running in the terminal using node.js
+	#  The following are the make rules (for other rules use % make help):
 	#
-	#  standard   test     153 test suites of various flavors
-	#  stress     stress   4 longer-running suites; mass & concurrent access
+	#  test               |  explain test modes and run node_inmem_test
+	#  webtest            |  explain test modes and run web_inmem_test
+	#  web_inmem_test     |  test api interaction with go pot in-memory persisting, web
+	#  web_inmem_stress   |  stress test with go pot in-memory persisting, web
+	#  web_sim_test       |  extended exceptions tests w/out go pot connection, web
+	#  web_locnet_test    |  standard tests with a locally installed Swarm network, web
+	#  web_locnet_quick   |  like web_locnet_test but re-using the last batch id, web
+	#  web_locnet_stress  |  stress test with a locally installed Swarm network, web
+	#  node_inmem_test    |  test api interaction with go pot in-memory persisting, node
+	#  node_inmem_stress  |  stress test with go pot in-memory persisting, node
+	#  node_sim_test      |  extended exceptions tests w/out go pot connection, node
+	#  node_locnet_test   |  test with a locally installed Swarm network, node
+	#  node_locnet_quick  |  like node_locnet_test but re-using the last batch id, node
+	#  node_locnet_stress |  stress test with a locally installed Swarm network, node
 	#
-	#  These are the make rules. For other rules use % make help:
+	#  All node_* tests are run on push by github CI workloads, except *_quick.
+	#  CI runs all those tests for ubuntu-latest, and all non-locnet for MacOS.
 	#
-	#  test                explain test modes and run node_inmem_test
-	#  web_inmem_test      test api interaction with go pot in-memory persisting, web
-	#  web_inmem_stress    stress test with go pot in-memory persisting, web
-	#  web_sim_test        extended exceptions tests w/out go pot connection, web
-	#  web_locnet_test     standard tests with a locally installed Swarm network, web
-	#  web_locnet_quick    like web_locnet_test but re-using the last batch id
-	#  web_locnet_stress   stress test with a locally installed Swarm network, web
-	#  node_inmem_test     test api interaction with go pot in-memory persisting, node
-	#  node_sim_test       extended exceptions tests w/out go pot connection, node
-	#  node_locnet_test    test with a locally installed Swarm network, node
-	#  node_locnet_quick   like node_locnet_test but re-using the last batch id
-	#  node_locnet_stress  stress test with a locally installed Swarm network, node
-	@echo
 
 # browser-based test using in-memory persister of Go POT implementation
 web_inmem_test: build http_serve
+	@echo
+	@echo ⬢  Test in-browser, in-memory, standard suites
+	@echo
 	open "http://127.0.0.1:8080/test/test.html?tag=in-mem"
 
 # browser-based test using pure simulation to test exception cases
 web_sim_test: lib/wasm_exec.js go.mod mockbuild http_serve
+	@echo
+	@echo ⬢  Test in-browser, simulated storage, standard and extended suites
+	@echo
 	open "http://127.0.0.1:8080/test/test.html?tag=ext-api"
 
 # browser-based test using in-memory persister of Go POT implementation
 web_inmem_stress: build http_serve
+	@echo
+	@echo ⬢  Test in-browser, in-memory, stress test suite 
+	@echo
 	open "http://127.0.0.1:8080/test/test.html?tag=in-mem&group=stress&iterations=100000"
 
 # browser-based standard tests using a local swarm network of five nodes
@@ -267,7 +261,9 @@ web_locnet_test: unmock build http_serve
 	@echo "|   This test takes some minutes to set up, its results will show in the browser.   |"
 	@echo "|                                                                                   |"
 	@echo " -----------------------------------------------------------------------------------"
-	@echo "⬢ Local Swarm Network Standard Tests"
+	@echo
+	@echo ⬢ Local Swarm Network Standard Tests
+	@echo
 	@echo "⬡ starting five local swarm nodes"
 	fdp-play start --detach	
 	@echo "⬡ buy stamps (free in this test setup)"
@@ -324,17 +320,21 @@ web_locnet_stress: unmock build http_serve
 	@echo "⬡ stopping nodes"
 	fdp-play stop
 
-# node.js-based test using in-memory persister of Go POT implementation
+# node.js-based std test using in-memory persister of Go POT implementation
 node_inmem_test: build
-	node test/test_node.js in-mem
+	node test/node.js in-mem
 
-# node.js-based test using pure simulation to test exception cases
+# node.js-based std test using pure simulation to test exception cases
 node_sim_test: lib/wasm_exec.js go.mod mockbuild
-	node test/test_node.js ext-api
+	node test/node.js ext-api
 
-# browser-based test using in-memory persister of Go POT implementation
+# node.js-based stress test using in-memory persister of Go POT implementation
 node_inmem_stress: build
-	node test/test_node.js in-mem - - stress 10000
+	node test/node.js in-mem - - stress 100000
+
+# node.js-based ressource test using in-memory persister of Go POT implementation
+node_inmem_ressources: build
+	node test/node.js in-mem - - ressources
 
 # node.js-based test using a local swarm network of five nodes
 node_locnet_test: unmock build
@@ -351,7 +351,7 @@ node_locnet_test: unmock build
 	grep "Stamp ID:" .batch_creation | cut -c11-74 > .batch_id
 	@echo "⬡ postage batch ID: $$(cat .batch_id)"
 	@echo "⬡ start tests (check browser)"
-	node test/test_node.js loc-net http://localhost:1633 $$(cat .batch_id)
+	node test/node.js loc-net http://localhost:1633 $$(cat .batch_id)
 	@echo "⬡ wait before shutdown"
 	sleep 120
 	@echo "⬡ bee node logs"
@@ -372,7 +372,7 @@ node_locnet_quick: unmock build
 	$(MAKE) locnet_start
 	$(MAKE) .batch_id
 	@echo "⬡ start tests"
-	node test/test_node.js loc-net http://localhost:1633 $$(cat .batch_id)
+	node test/node.js loc-net http://localhost:1633 $$(cat .batch_id)
 
 # node.js-based stress test using a local swarm network, reusing the previous batch
 node_locnet_stress: unmock build
@@ -387,7 +387,7 @@ node_locnet_stress: unmock build
 	$(MAKE) locnet_start
 	$(MAKE) .batch_id
 	@echo "⬡ start tests"
-	node test/test_node.js loc-net http://localhost:1633 $$(cat .batch_id) stress 500
+	node test/node.js loc-net http://localhost:1633 $$(cat .batch_id) stress 500
 
 # start the local Swarm network of five nodes, using docker FreeOS
 locnet_start:
@@ -445,9 +445,10 @@ endif
 http_stop:
 ifneq ($(SERVING),)
 	for pid in `ps ax | grep 'npm exec http-server' | grep -v grep |  sed 's/^ *//' | cut -d ' ' -f 1` ; do kill $$pid ; done
+	@sleep 5
 endif
 
-# stop any started http servers and local network
+# stop any started http servers and the local docker-based Swarm network
 stop: http_stop locnet_stop
 
 # switch the meaning of package 'pot' to the test stub in mock/pot.go. The go

@@ -8,9 +8,15 @@
 
 	This page connects to a local Swarm network.
 
-	To test it, use `make example5`, which will start a local Swarm network
-	and update the batch id literal in the pot.new() call in this source
-	after creating a new batch or re-using one created before.
+	It persists a value. put() stores to cache, save() stores to the
+	network.
+
+	To test it, use `make example5`, which will start a local Swarm
+	network and update the batch id literal in the pot.new() call
+	in this example, after creating a new batch. Note that some other
+	make rules will if it exists, re-use this batch id (file .batch_id).
+
+
 
 
 	<img src=favicon.ico>
@@ -25,15 +31,11 @@
 
 	await pot.ready()
 
-	map = await pot.new("http://localhost:1633", "eaec980d7a7b63d6a8f37f99cd815b318402e93bf2227a48c40d4d80d608915d")
+	kvs = await pot.new("http://localhost:1633", "37004b73068c18e024d8221ff55b65847ba7d63b739ff44785ec233d0163dced")
 
-	await map.put("hello", "POT!")
+	await kvs.put("hello", "POT!")
 
-	value = await map.get("hello")
-
-	console.log("key ‹hello› has:", value)
-
-	ref = await map.save()
+	ref = await kvs.save()
 
 	console.log("tree root is:", ref)
 

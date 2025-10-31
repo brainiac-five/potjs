@@ -4,7 +4,7 @@
 **  This suite is called in six different test modes, different ways of
 **  mocking real operation, as well as from the browser and from node
 **  respectively.
-**
+** ///// update:
 ** test              explain test modes and run web_inmem_test
 ** web_inmem_test    test api interaction with go pot in-memory persisting, web
 ** web_inmem_stress  stress test with go pot in-memory persisting, web
@@ -19,8 +19,8 @@
 **  are relevant only in the context of the mode that was created to test
 **  them.
 **
-**  This suite is called via test.html for browsers tests, and test_node.js
-**  for node tests. It comprises standard functionality tests covering all
+**  This suite is called via test.html for browsers tests, and node.js for
+**  node tests. It comprises standard functionality tests covering all
 **  POT JS API functions. It uses some functions that were added to the API
 **  for testing.
 **
@@ -49,9 +49,6 @@ var map5
 function TestPotKvsSync(T, bee_url, batch_id) {
 
 	T.head("Simple gets and puts of KVS, synchronous", bee_url)
-
-	if(bee_url)
-		return
 
 	T.log("--- b o o l e a n")
 
@@ -401,8 +398,6 @@ async function TestPotKvsAsync(T, bee_url, batch_id) {
 
 function TestPotKvs_EdgeValuesSync(T, bee_url, batch_id) {
 
-	if(bee_url)
-		return
 
 	T.head("Edge cases, untyped, synchronous calls")
 
@@ -1147,9 +1142,6 @@ function TestPotKvs_TypeEncoding(T, bee_url, batch_id) {
 }
 
 function TestPotKvs_TypedAccessSync(T, bee_url, batch_id) {
-
-	if(bee_url)
-		return
 
 	T.head("typed access")
 
@@ -1913,7 +1905,7 @@ async function TestPotKvs_TypedAccessAsync(T, bee_url, batch_id) {
 		T.attestExpectedError(t0, T, err)
 	}
 
-	T.start("• testing byte sequence too short for a number" + " by promise")
+	T.start("• too-short byte sequence for a number" + " by promise")
 	v = new Uint8Array([2,1,0]) // 2 = number, which expects 9 bytes total
 	T.log("This would be an internal error, or trying to access an entry put raw with the higher-level type-aware get.")
 	T.log("• testing these too short bytes (for a number): " + T.hexa(v))
@@ -1966,8 +1958,7 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 	ref = map.saveSync()
 	T.assertIsError(t0, T, ref)
 
-
-	if(!bee_url) {
+	{
 
 		T.start("Save non-empty KVS, return reference, synchronous")
 
@@ -2032,8 +2023,8 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
-
-	if(!bee_url) {
+	if(!(bee_url && !T.NODE))
+	{
 		T.start("Value persistence after saving")
 		T.log("Note, this order is worth testing because of how POT internally stores values.")
 
@@ -2062,8 +2053,9 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 	}
 
 
-	if(!bee_url) {
-		T.start("Adding after saving, activate new, re-activate previous")
+	if(!(bee_url && !T.NODE))
+	{
+		T.start("Add after save, activate new, re-activate previous")
 
 		key1 = "K1"
 		val1 = "V1"
@@ -2110,7 +2102,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 
 	T.head("Saving and Loading, Switching, with Promises")
 
-	T.start("Saving, adding, loading, re-activation of previous, with Promises")
+	T.start("Save, add, load, re-activate previous, w/promises")
 
 	key1 = "K1"
 	val1 = "V1"
@@ -2175,7 +2167,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	}
 
 
-	T.start("Save, re-activate previous, interact, with Promises")
+	T.start("Save, re-activate previous, interact, with promises")
 
 	key1 = "K1"
 	val1 = "V1"
@@ -2358,7 +2350,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	}
 
 
-	T.start("Save, re-activate, interact, with Promises / Variation")
+	T.start("Save, re-activate, interact, with promises II")
 
 	key1 = "K1"
 	val1 = "V1"
@@ -2583,7 +2575,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	}
 
 
-	T.start("Interacting with two Maps, w/o savinng, with Promises / Variation")
+	T.start("Interacting with 2 maps, w/o save, w/promises II")
 
 	key1 = "K1"
 	val1 = "V1"
@@ -2768,16 +2760,16 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 	T.head("Concurrent Access")
 
-	if(!bee_url)
+	if(!(bee_url && !T.NODE))
 	{
 
-		T.start("store and retrieve "+massmax+" values concurrently, sync calls")
+		T.start("put, get "+massmax+" values concurrently, sync calls")
 
 		T.log("• new map")
 		let map = pot.newSync(bee_url, batch_id)
 		T.assertNoError(t0, T, !map)
 
-		T.log("• store and retrieve "+massmax+" random values and keys concurrently, parallel sync calls")
+		T.log("• put, get "+massmax+" random values and keys concurrently, parallel sync calls")
 		let group = 0
 		for(let i=0; i<massmax; i++) {
 			; (async() => {
@@ -3071,6 +3063,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 	}{
 
 		T.start("Crossover Concurrent Putting, Getting, Saving, Loading, Switching Maps across threads, with Promises")
+		T.log("Crossover concurrent putting, getting, saving, loading, switching maps across threads, with promises")
 
 		key1 = "K1"
 		val1 = "V1"
@@ -3289,7 +3282,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 	}{
 
-		T.start("Concurrent save, re-activation, with Promises / Variation")
+		T.start("Concurrent save, re-activate, w/romises II")
 
 		key1 = "K1"
 		val1 = "V1"
@@ -3551,7 +3544,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 	}{
 
-		T.start("Interacting with Different Maps, with Promises / Variation")
+		T.start("Interacting with different maps, w/promises II")
 
 		key1 = "K1"
 		val1 = "V1"
@@ -3761,28 +3754,9 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 	}
 }
 
-function TestPotKvs_Proof(T, bee_url, batch_id) {
-
-	return // not implemented
-
-	T.head("Proofs")
-
-
-	T.start("Return a Proof")
-
-	T.log("• new map")
-	map = pot.newSync(bee_url, batch_id)
-	T.assertNoError(t0, T, !map)
-
-	T.log("• get proof for " + key1)
-	val = map.getProof(key1)
-	T.assertEqual(t0, T, val, undefined)
-
-}
-
 async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 
-	T.head("Cancellation")
+	T.head("Time Out and Cancellations")
 
 	T.log("This tests the cancellable promises created in Go to control resource leakage.")
 	T.log("It uses mock promises that hang undtil cancelled.")
@@ -3790,10 +3764,10 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 
 	T.start("Time Out of Test Function")
 
-	T.log("create hanging test promise and let it time out (try-catch)")
+	T.log("• create hanging test promise and let it time out (try-catch)")
 	try {
 		ref = await pot.hangingPromise()
-		T.attestMissingError(t, T)
+		T.attestMissingError(t0, T)
 	} catch(err) {
 		T.attestExpectedError(t0, T, err, "Error: done sleeping, nothing happened")
 	}
@@ -3801,19 +3775,19 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 
 	T.start("Time Out of Test Function II")
 
-	T.log("create hanging test promise and let it time out (chained catch)")
+	T.log("• create hanging test promise and let it time out (chained catch)")
 	ref = await pot.hangingPromise()
 		.catch((err)=>T.attestExpectedError(t0, T, err, "Error: done sleeping, nothing happened"))
 
 
 	T.start("Cancel Timer")
 
-	T.log("create hanging test promise and cancel it (by timer, try-catch)")
+	T.log("• create hanging test promise and cancel it (by timer, try-catch)")
 	try {
 		ref = pot.hangingPromise()
 		setTimeout(ref.cancel, 100)
 		await ref
-		T.attestMissingError(t, T)
+		T.attestMissingError(t0, T)
 	} catch(err) {
 		T.attestExpectedError(t0, T, err, "Error: canceled")
 	}
@@ -3821,7 +3795,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 
 	T.start("Cancel Timer II")
 
-	T.log("create hanging test promise and cancel it (by timer, chain .catch)")
+	T.log("• create hanging test promise and cancel it (by timer, chain .catch)")
 	try {
 		ref = pot.hangingPromise()
 		setTimeout(ref.cancel, 100)
@@ -3834,20 +3808,20 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 
 	T.start("Cancel Delay")
 
-	T.log("create hanging test promise and cancel it (delay, chain .catch)")
+	T.log("• create hanging test promise and cancel it (delay, chain .catch)")
 	try {
 		ref = pot.hangingPromise()
 		// note, chaining the .catch immediatelly above gives the wrong ref for cancel().
 		ref.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
 		await T.delay(100)
 		ref.cancel()
+		T.attestNoError(t0, T)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
-	await T.delay(300)
 
-/* Does not work, although X1 does. Throughs Uncaught (in promise) Error: canceled
+/* Does not work, although X1 does. Throws Uncaught (in promise) Error: canceled
 
 	T.start("Immediate Cancel")
 
@@ -3861,26 +3835,83 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 		T.attestExpectedError(t0, T, err, "Error: canceled")
 	}
 */
-
 	T.start("Immediate Cancel II")
 
-	T.log("create hanging test promise and cancel it immediately (chain .catch)")
+	T.log("• create hanging test promise and cancel it immediately (chain .catch)")
 	try {
 		ref = pot.hangingPromise()
+		// note, chaining the .catch immediatelly above gives the wrong ref for cancel().
+		ref.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
+		ref.cancel()
+		T.attestNoError(t0, T)
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+
+
+	T.start("Cancel new()")
+
+	T.log("• start KVS creation and cancel it after 100ms (.catch)")
+	try {
+		ref = pot.new()
+		// note, chaining the .catch immediatelly above gives the wrong ref for cancel().
+		ref.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
+		await T.delay(100)
+		ref.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• start KVS creation and cancel it immediately (.catch)")
+	try {
+		ref = pot.new()
 		// note, chaining the .catch immediatelly above gives the wrong ref for cancel().
 		ref.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
 		ref.cancel()
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
+
+	await T.delay(700)
+}
+
+async function TestPotKvs_InternalErrors(T, bee_url, batch_id) {
+
+	T.head("Internal Error Conditions")
+
+	T.log("This suite tests how errors are propagated.")
+
+	T.start("Panic in promise executor (.catch)")
+
+	T.log("• create panicking test promise and catch it (.catch)")
+	try {
+		pot.panickingPromise()
+		.catch((err)=>T.attestExpectedError(t0, T, err, "### panic in panickingPromise executor: test panic of panickingPromise"))
+		await T.delay(100)
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	T.start("Panic in promise executor (try-catch)")
+
+	T.log("• create panicking test promise and catch it (try-catch)")
+	try {
+		await pot.panickingPromise()
+		T.attestMissingError(t, T)
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "### panic in panickingPromise executor: test panic of panickingPromise")
+	}
+
+
 }
 
 async function TestPotKvs_MassSequential(T, bee_url, batch_id) {
 
 	T.head("Mass Access")
 
-	if(bee_url) {
-		T.log("No sequential case in network mode.")
+	if(bee_url && !T.NODE) {
+		T.log("No sequential cases for in-browser network mode.")
 		return
 	}
 
@@ -4147,9 +4178,52 @@ async function TestPotKvs_Failures(T, bee_url, batch_id) {
 
 async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 
+
+	T.head("Oversize Value")
+
+	T.start("Oversize Value")
+
+	maxSize = pot.setValueSizeLimit()
+
+	T.log("max value size is " + maxSize)
+
+	T.log("• " + maxSize + " byte sized value should pass (async)")
+	key1 = "A"
+	val1 = pot.randBuffer(maxSize)
+
+	map = await pot.new(bee_url, batch_id)
+	T.assertNoError(t0, T, !map)
+
+	T.log("• put " + maxSize + " byte buffer raw " + key1)
+	err = await map.putRaw(key1, val1)
+	T.assertNoError(t0, T, err)
+
+	T.log("• get " + maxSize + " byte buffer raw " + key1)
+	val = await map.getRaw(key1)
+	T.assertEqual(t0, T, val, val1)
+
+
+	T.log("• " + maxSize + "+1 byte sized value should be stopped (async)")
+	let key2 = "B"
+	let val2 = pot.randBuffer(maxSize+1)
+
+	let map2 = await pot.new(bee_url, batch_id)
+	T.assertNoError(t0, T, !map2)
+
+	T.log("• put " + (maxSize+1) + " byte buffer raw " + key2)
+	T.assertNoError(t0, T, !map2)
+
+	try {
+		let err = await map2.putRaw(key2, val2)
+		T.attestMissingError(t0, T)
+	} catch(err) {
+		T.assertError(t0, T, err, /value too large/)
+	}
+
+
 	T.head("Concurrent Access, " + iterations + " iterations")
 
-	if(!bee_url)
+	if(!(bee_url && !T.NODE))
 	{
 
 		T.start("store and retrieve "+iterations+" values concurrently, sync calls in async blocks")
@@ -4161,6 +4235,7 @@ async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 		T.log("• concurrently store and retrieve "+iterations+" random values under random keys")
 		let group = 0
 		for(let i=0; i<iterations; i++) {
+			await T.delay(0)
 			; (async() => {
 				let t = i+1
 				try {
@@ -4169,6 +4244,7 @@ async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 					let val = pot.randValue()
 					let e = map.putSync(key, val, 0, t)
 					T.assertNoError(t, T, e, true) // suppress ok
+					await T.delay(3*t % 1000)
 					let res = map.getSync(key, 0, t)
 					T.attestNoError(t, T, true) // suppress ok
 					T.assertEqual(t, T, res, val, true) // suppress ok
@@ -4206,15 +4282,17 @@ async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 		T.log("• store and retrieve "+iterations+" random values under random keys")
 		let group = 0
 		for(let i=0; i<iterations; i++) {
+			await T.delay(1)
 			; (async() => {
 				let t = i+1
-				let box = T.box 
+				let box = T.box
 				try {
 					group++
 					let key = pot.randKey()
 					let val = pot.randValue()
 					let e = await map.put(key, val, 0, t)
 					T.assertNoError(t, T, e, true, box) // suppress ok
+					await T.delay(t % 1000)
 					let res = await map.get(key, 0, t)
 					T.attestNoError(t, T, true, box) // suppress ok
 					T.assertEqual(t, T, res, val, true, box) // suppress ok
@@ -4303,6 +4381,219 @@ async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 	}
 }
 
+async function TestPotKvs_Release(T, bee_url, batch_id, iterations) {
+
+	T.head("Resource Release Tests")
+
+	T.log("")
+
+	{
+		T.start("Garbage Collector Test")
+
+		let cannary = pot.newSync(bee_url, batch_id)
+		let cannary2 = pot.newSync(bee_url, batch_id)
+		let stack = new Array()
+		let beaconCollected = false;
+		let stop = false;
+		let counter = 0;
+		const registry = new FinalizationRegistry(() => {
+			T.log(`  iterations: ${counter} - beacon garbage collected`)
+			beaconCollected = true;
+		});
+		//registry.register(["garbage collection beacon"])
+		//registry.register({foo:"foo"});
+		//registry.register(pot.newSync(bee_url, batch_id));
+		registry.register(pot.newSync());
+
+		// T.start("Allocate new KVSs until one is garbage collected and released")
+
+		(function allocateMemory() {
+
+			// allocate memory
+			Array.from({ length: 1000000 }, () => () => {});
+
+			// stack.push(pot.newSync());
+
+			// T.log("allocated memory chunk #" + counter++)
+			counter++
+
+			if (stop || beaconCollected) return;
+
+			pot.gc() // Go GC, otherwise the KVS won't be collected. 
+
+			// Use setTimeout to make each allocateMemory a different job
+			setTimeout(allocateMemory);
+		})();
+
+		T.log("• main job complete")
+
+		await T.completion2(null, T, ()=>{return beaconCollected}, ()=>{return counter}, 1000, 4000)
+		stop = true
+		T.log(cannary.slot_ref)
+		T.log(cannary2.slot_ref)
+		for(const map of stack) console.log(map.slot_ref)
+	}
+
+	{
+		T.start("Garbage Collector Test")
+
+		let beaconCollected = false;
+		let stop = false;
+		let counter = 0;
+		const registry = new FinalizationRegistry(() => {
+			T.log(`  iterations: ${counter} - beacon garbage collected`);
+			beaconCollected = true;
+		});
+		registry.register(["garbage collection beacon"]);
+		// registry.register(pot.newSync(bee_url, batch_id));
+
+		// T.start("Allocate new KVSs until one is garbage collected and released")
+
+		(function allocateMemory() {
+
+			// allocate memory
+			Array.from({ length: 100000 }, () => () => {});
+
+			// T.log("allocated memory chunk #" + counter++)
+			counter++
+
+			if (stop || beaconCollected) return;
+
+			// Use setTimeout to make each allocateMemory a different job
+			setTimeout(allocateMemory);
+		})();
+
+		T.log("√ main job complete")
+
+		await T.completion2(null, T, ()=>{return beaconCollected}, ()=>{return counter}, 1000, 10000)
+		stop = true
+	}
+
+	{
+		T.start("Map Release")
+
+		let beaconCollected = false;
+		let stop = false;
+		let counter = 0;
+		const registry = new FinalizationRegistry(() => {
+			T.log(`  iterations: ${counter} - map released`);
+			beaconCollected = true;
+		});
+
+		// allocate KVS and register for on-garbage collection callback
+		// registry.register(pot.newSync(bee_url, batch_id));
+		registry.register(["garbage collection beacon 2"]);
+
+		// T.start("Allocate new KVSs until one is garbage collected and released")
+
+		(function allocateMemory() {
+
+			// allocate memory
+			Array.from({ length: 100000 }, () => () => {});
+
+			// T.log("allocated memory chunk #" + counter++)
+			counter++
+
+			if (stop || beaconCollected) return;
+
+			// Use setTimeout to make each allocateMemory a different job
+			setTimeout(allocateMemory);
+		})();
+
+		T.log("√ main job complete")
+
+		await T.completion2(null, T, ()=>{return beaconCollected}, ()=>{return counter}, 1000, 10000)
+		stop = true
+	}
+}
+
+// Testing failure modes: function call arguments that should be caught and trigger an error
+async function TestPotKvs_InvalidArguments(T, bee_url, batch_id) {
+
+	T.head("Invalid-Argument Protection")
+
+	T.log("Testing wether invalid arguments are contained and don't bring down the Go executable.")
+
+
+	T.start("Oversize Key")
+	let maxSize = 32
+	T.log("max key size is " + maxSize)
+
+	let map = await pot.new(bee_url, batch_id)
+	T.assertNoError(t0, T, !map)
+
+	T.log("• " + maxSize + " byte sized key should pass (async)")
+	let key1 = pot.randBuffer(maxSize)
+	let val1 = "+ some value +"
+
+	T.log("• put wth " + maxSize + " byte key ‹" + T.hex(key1) + "›")
+
+	let err = await map.put(key1, val1)
+	T.assertNoError(t0, T, err)
+
+	T.log("• get from " + maxSize + " byte sized key ‹" + T.hex(key1) + "›")
+	let val = await map.get(key1)
+	T.assertEqual(t0, T, val, val1)
+
+	T.log("• " + maxSize + "+1 byte sized key should be stopped (async)")
+	key1 = pot.randBuffer(maxSize+1)
+
+	T.log("• put wth " + (maxSize+1) + " byte key ‹" + T.hex(key1) + "›")
+
+	try {
+		let err = await map.put(key1, val1)
+		T.attestMissingError(t0, T)
+	} catch(err) {
+		T.assertError(t0, T, err, /key byte-array too long/)
+	}
+
+
+	T.log("• " + maxSize + " character sized string key should pass (async)")
+	key1 = "X".repeat(maxSize)
+	val1 = "+ some value +"
+
+	T.log("• put wth " + maxSize + " character string key ‹" + key1 + "›")
+	err = await map.put(key1, val1)
+	T.assertNoError(t0, T, err)
+
+	T.log("• get from " + maxSize + " character sized string key ‹" + key1 + "›")
+	val = await map.get(key1)
+	T.assertEqual(t0, T, val, val1)
+
+	T.log("• " + maxSize + "+1 character sized string key should be stopped (async)")
+	key1 = "Z".repeat(maxSize+1)
+
+	T.log("• put wth " + (maxSize+1) + " character sized string key ‹" + key1 + "›")
+
+	try {
+		let err = await map.put(key1, val1)
+		T.attestMissingError(t0, T)
+	} catch(err) {
+		T.assertError(t0, T, err, /key string too long/)
+	}
+
+
+	T.start("Oversize Value")
+	maxSize = pot.setValueSizeLimit()
+	T.log("max value size is " + maxSize + ". Storing the maximal value is part of the stress test batch.")
+
+	T.log("• " + maxSize + "+1 byte sized value should be stopped (async)")
+	let key2 = "B"
+	let val2 = pot.randBuffer(maxSize+1)
+
+	let map2 = await pot.new(bee_url, batch_id)
+	T.assertNoError(t0, T, !map2)
+
+	T.log("• put " + (maxSize+1) + " byte buffer raw " + key2)
+
+	try {
+		let err = await map2.putRaw(key2, val2)
+		T.attestMissingError(t0, T)
+	} catch(err) {
+		T.assertError(t0, T, err, /value too large/)
+	}
+}
+
 if(T.NODE)
 
 	module.exports = { TestPotKvsSync, TestPotKvsAsync, TestPotKvs_TypeEncoding,
@@ -4310,5 +4601,5 @@ if(T.NODE)
 		TestPotKvs_TypedAccessSync, TestPotKvs_TypedAccessAsync,
 		TestPotKvs_MassSequential, TestPotKvs_ComplexConcurrent,
 		TestPotKvs_Save, TestPotKvs_ComplexSave, TestPotKvs_Cancellation,
-		TestPotKvs_Failures, TestPotKvs_Proof, TestPotKvs_Stress }
-
+		TestPotKvs_Failures, TestPotKvs_Stress, TestPotKvs_Release,
+		TestPotKvs_InternalErrors, TestPotKvs_InvalidArguments }

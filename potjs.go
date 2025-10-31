@@ -48,8 +48,10 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"os"
 	"strconv"
 	"syscall/js"
+	"runtime"
 	"time"
 	"regexp"
 
@@ -80,27 +82,38 @@ var inBrowser bool
 // destiny to be branched into a tree. This is not impeded by the Slot struct,
 // which holds roots of contexts.
 type Slot struct {
-	Ref       int // index+1 in slots array
+	Ref       int // double-link: index+1 in slots array
 	Ctx       context.Context
 	Ls        persister.LoadSaver
+	allowRaw  bool
 	allowSync bool
 	Kvs       *SwarmKvs
 }
 
+// maximal byte size of a value. This number is arbitrary to protect the system
+// from failing in cryptic ways choking on oversize payload.
+var maxValueSize = 100000
+
 // array of all slots
 var Slots = []Slot{}
+
+var Maps = []js.Value{}
 
 // re-used in-memory storage. Must be for state consistency across calls.
 var inMemoryPersister persister.LoadSaver
 
-// the payload function of the Go-created generic promise creator function
-type functionality func(context.Context, js.Value, []js.Value, bool, func([]byte) (js.Value, error), bool) (js.Value, bool)
+// the payload function for the Go-created generic promise-creator function
+type functionality func(ctx context.Context, this js.Value, parameters []js.Value, raw bool, caster func([]byte) (js.Value, error), sync bool) (r js.Value, ok bool)
 
 // defaultFunc prevents crashing with 'object does not exist' after a
 // Go-created JS function is released (freed for garbage collection).
 // It is set as replacement where named functions are released but not for
 // promise executors.
 var defaultFunc js.Func
+
+// falseFund is put in place for promise cancel functions after it is too
+// late to cancel.
+var falseFunc js.Func
 
 // boolean atoms
 const (
@@ -145,6 +158,7 @@ const (
 	INFO  = 3
 	DEB   = 4
 	TRACE = 5
+	MEM   = 5
 )
 
 // default log level: second highest detail level
@@ -171,6 +185,16 @@ var jsSaveSync js.Func
 
 // NEW -------------------------------------------------------------------------
 
+// JS pot.new_() asynchronously creates a new Swarm KVS, returning the promise
+// for a Javascript object that anchors the KVS on the Javascript side, created
+// in createMapObject(). On the Go POT-side, this is a strictly in-memory
+// operation in all cases. It starts a multiplexer though that uses Go channels
+// to sequence writes.
+func new_(this js.Value, parameters []js.Value) (result interface{}) {
+
+	return promise(this, parameters, 4, "new", _new, false, nil)
+}
+
 // JS pot.newSync() synchronously creates a new Swarm KVS, returning
 // a Javascript object that anchors the KVS on the Javascript side,
 // created in createMapObject(). On the Go POT-side, this is a strictly
@@ -178,145 +202,144 @@ var jsSaveSync js.Func
 // Go channels to sequence writes.
 func newSync(this js.Value, parameters []js.Value) (result interface{}) {
 
-	// on panic, log, and return js Error object
+	return first(_new(context.Background(), this, parameters, false, nil, SYNC))
+}
+
+// _new() is the workhorse function that handles sync and async calls for a new
+// KVS. On the Go POT-side, this is a strictly in-memory operation in all cases.
+// It starts a multiplexer though that uses Go channels to sequence writes.
+func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool, _ func([]byte) (js.Value, error), sync bool) (result js.Value, ok bool) {
+
+	// on panic, log, and return js Error object or error promise
 	defer func() {
 		if err := recover(); err != nil {
-			msg := "### panic in newSync: " + toString(err)
+			msg := "### panic in new*(): " + toString(err)
 			log(CRIT, msg)
+			ok = false
 			result = jsError(msg)
 		}
 	}()
-
-	log(INFO, "» initialize new P.O.T.")
 
 	var ls persister.LoadSaver
 	var allowSync bool
 
-	// network parameters bee url and batch id (**), either being null,
-	// undefined, or not existant suffices to skip
-	if len(parameters) >= 2 && parameters[0].Type() != js.TypeNull && parameters[0].Type() != js.TypeUndefined && parameters[1].Type() != js.TypeNull && parameters[1].Type() != js.TypeUndefined {
-
-		if parameters[0].Type() != js.TypeString || parameters[1].Type() != js.TypeString {
-			msg := "### error in newSync(): parameter type error for bee url or batch id"
+	// allow-raw parameter first to not create loadsavers in vain.
+	allowRaw := false /// TEST
+	if len(parameters) >=3 {
+		jsAllowRaw := parameters[2]
+		if jsAllowRaw.Type() == js.TypeBoolean {
+			allowRaw = jsAllowRaw.Bool()
+		} else if jsAllowRaw.IsNull() || jsAllowRaw.IsUndefined() {
+		} else {
+			msg := "### error in new*(), invalid raw flag type, must be boolean"
 			log(ERR, msg)
-			return jsError(msg)
+			return jsError(msg), false
 		}
+	}
 
-		if len(parameters[0].String()) < 1 {
-			msg := "### error in newSync(): parameter error, missing bee url"
+	// no parameters beyond reference: in-memory
+	if len(parameters) == 0 || len(parameters) >= 2 && (parameters[0].IsNull() || parameters[0].IsUndefined()) && (parameters[1].IsNull() || parameters[1].IsUndefined()) {
+		// the in-memory persister is shared between KVS instances. It 
+		// has to be to allow for certain tests to work as if it was a
+		// network persister.
+		if inMemoryPersister == nil {
+			// --------------------------------------------------------------
+			inMemoryPersister = persister.NewInmemLoadSaver()
+			// --------------------------------------------------------------
+			log(DEB, "› created new in-memory persister")
+		}
+		ls = inMemoryPersister
+		log(INFO, "» (re)-using in-memory persister")
+		allowSync = true
+
+
+	// network parameters bee url and batch id. Both null is checked above.
+	} else if len(parameters) == 1 || len(parameters) >= 2 && (parameters[0].IsNull() || parameters[0].IsUndefined() != parameters[1].IsNull() || parameters[1].IsUndefined()) {
+			msg := "### error in new*(), undefined or null bee url or batch id"
 			log(ERR, msg)
-			return jsError(msg)
-		}
+			return jsError(msg), false
 
-		if len(parameters[1].String()) != 64 {
-			msg := "### error in newSync(): parameter size error for batch id, expected 64 hex digits"
+	} else if len(parameters) >= 2 {
+
+		// bee url
+
+		if parameters[0].Type() != js.TypeString {
+			msg := "### error in new*(), invalid bee url type, must be string"
 			log(ERR, msg)
-			return jsError(msg)
+			return jsError(msg), false
 		}
-
 		beeAPIURL := parameters[0].String()
-		postageIDBytes, err := hex.DecodeString(parameters[1].String())
-
-		if err != nil {
-			msg := "### error in newSync(): invalid batch id"
+		if len(beeAPIURL) < 1 {
+			msg := "### error in new*(), empty bee url"
 			log(ERR, msg)
-			return jsError(msg)
+			return jsError(msg), false
 		}
+
+		// batch id
+
+		if parameters[1].Type() != js.TypeString {
+			msg := "### error in new*(), invalid batch id type, must be hex digit string"
+			log(ERR, msg)
+			return jsError(msg), false
+		}
+		if len(parameters[1].String()) != 64 {
+			msg := "### error in new*(), invalid batch id hex string, must be 64 digits"
+			log(ERR, msg)
+			return jsError(msg), false
+		}
+		postageIDBytes, err := hex.DecodeString(parameters[1].String())
+		if err != nil {
+			msg := "### error in new*(): invalid batch id hex string"
+			log(ERR, msg)
+			return jsError(msg), false
+		}
+
 		log(DEB, "› using bee url : ‹" + beeAPIURL + "›")
 		log(DEB, "› using batch id: ‹" + bHex(postageIDBytes) + "›")
 
-		// create the Swarm loader that connects to the network
-		// --------------------------------------------------------
+		// browser and node.js must use different persisters. The one
+		// for node.js has to be a Go/JS hybrid to deal with
+		// synchronicity.
 		if inBrowser {
+			// --------------------------------------------------------------
 			ls = persister.NewSwarmLoadSaver(beeAPIURL, postageIDBytes)
+			// --------------------------------------------------------------
 			log(INFO, "» created new generic swarm network loader")
+			allowSync = false
 		} else {
+			// --------------------------------------------------------------
 			ls = NewSwarmNodeJsLoadSaver(beeAPIURL, postageIDBytes, verbosity)
+			// --------------------------------------------------------------
 			log(INFO, "» created new hybrid swarm network loader")
+			allowSync = true
 		}
-		// --------------------------------------------------------
-		allowSync = false
-
-		// In-Memory Storage
-	} else {
-		// create a new one or re-use an existant in-memory persister
-		if inMemoryPersister == nil {
-
-			// ----------------------------------------------
-			inMemoryPersister = persister.NewInmemLoadSaver()
-			// ----------------------------------------------
-			log(INFO, "» created new in-memory persister")
-		}
-		ls = inMemoryPersister
-		log(INFO, "» using in-memory persister")
-		allowSync = true
 	}
 
-	// go pot call -------------------------------------------------------
+	log(INFO, "» initialize new P.O.T. - slot " + colorMid + strconv.Itoa(len(Slots) + 1) + colorOff)
+
+	// no-op in production build. For cancellation tests in simulation.
+	mockDelay(ctx)
+
+	// --------------------------------------------------------------
 	kvs, err := NewSwarmKvs(ls)
-	// -------------------------------------------------------------------
+	// --------------------------------------------------------------
 	if err != nil {
-		msg := "### error in newSync: " + err.Error()
+		msg := "### error in new*(): " + err.Error()
 		log(ERR, msg)
-		return jsError(msg)
+		return jsError(msg), false
 	}
 
 	// register context and kvs handle, take numerical index as handle
 	slot_ref := len(Slots) + 1 // = starting on 1.
-	Slots = append(Slots, Slot{Ctx: context.Background(), Kvs: kvs, Ref: slot_ref, Ls: ls, allowSync: allowSync})
+	Slots = append(Slots, Slot{Ctx: ctx, Kvs: kvs, Ref: slot_ref, Ls: ls, allowRaw: allowRaw, allowSync: allowSync})
 
 	log(DEB, "› slot ref: " + strconv.Itoa(slot_ref))
-	return createMapObject(slot_ref)
-}
 
-// JS pot.newKvs() asynchronously creates a new Swarm KVS, returning the promise
-// for a Javascript object that anchors the KVS on the Javascript side, created
-// in createMapObject(). On the Go POT-side, this is a strictly in-memory
-// operation in all cases. It starts a multiplexer though that uses Go channels
-// to sequence writes.
-func newKvs(this js.Value, parameters []js.Value) (result interface{}) {
-
-	// on panic, log, and return js Error object
-	defer func() {
-		if err := recover(); err != nil {
-			msg := "### panic in new: " + toString(err)
-			log(CRIT, msg)
-			result = jsError(msg)
-		}
-	}()
-
-	var handler js.Func
-	handler = js.FuncOf(func(handler_this js.Value, handler_parameters []js.Value) interface{} {
-
-		resolve := handler_parameters[0]
-		reject := handler_parameters[1]
-
-		go func() {
-
-			// The Go error type is not used, to make newSync()
-			// usable also directly from JS, where only one result
-			// is expected.
-			jsvalue_or_jserr := newSync(this, parameters).(js.Value)
-			if jsvalue_or_jserr.InstanceOf(js.Global().Get("Error")) {
-				reject.Invoke(jsvalue_or_jserr)
-			} else {
-				resolve.Invoke(jsvalue_or_jserr)
-			}
-		}()
-
-		// free the resources used for this function after one use
-		if optimization > NONE {
-			handler.Release()
-		}
-
-		return nil
-	})
-
-	return js.Global().Get("Promise").New(handler)
+	return createMapObject(slot_ref), true
 }
 
 // JS pot.loadSync() loads an existing Swarm KVS JS object, using its
-// 32-bytei save handle.  This method will break for in-memory load-savers when
+// 32-byte save handle. This method will break for in-memory load-savers when
 // the program is stopped and restarted, as they will lose their storage. It works
 // for the connection to Swarm as the load-saver will then not be the instance
 // where the data is stored but only the connection to the data, which is stored
@@ -337,49 +360,115 @@ func loadSync(this js.Value, parameters []js.Value) (result interface{}) {
 	var ls persister.LoadSaver
 	var allowSync bool
 
+	// 1st paramter: reference
+
 	if len(parameters) < 1 {
-		msg := "### error in load*(): 32 byte KVS reference required as 1st parameter"
+		msg := "### error in load*(): KVS reference hex digit string required as 1st parameter"
+		log(ERR, msg)
+		return jsError(msg)
+	}
+	if parameters[0].Type() != js.TypeString {
+		msg := "### error in load*(): KVS reference type error, must be hex digit string"
+		log(ERR, msg)
+		return jsError(msg)
+	}
+	if len(parameters[0].String()) != 64 {
+		msg := "### error in load*(): parameter size error for KVS reference, expected 64 hex digits"
 		log(ERR, msg)
 		return jsError(msg)
 	}
 
-	jsref32 := parameters[0] /// TODO type check, must be string, 64 char
+	jsRef := parameters[0].String()
 
-	log(DEB, "› reference: " + jsref32.String())
+	log(DEB, "› reference: " + jsRef)
 
-	ref32, err := hex.DecodeString(jsref32.String())
-
-	// type might be untranslateable (symbol, function)
+	ref32, err := hex.DecodeString(jsRef)
 	if err != nil {
-		msg := "### error in load*(): " + err.Error()
+		msg := "### error in load*(), decoding reference hex digits: " + err.Error()
 		log(CRIT, msg)
 		return jsError(msg)
 	}
 
-	// network parameters bee url and batch id (but for indices identical to (**))
-	if len(parameters) >= 3 && !parameters[1].IsNull() && !parameters[1].IsUndefined() { // catch either null
-		beeAPIURL := parameters[1].String()                           /// TODO  catch error
-		postageIDBytes, _ := hex.DecodeString(parameters[2].String()) /// TODO  catch error / missing, also wrong lenght of hexstring (must be 64)
-		log(DEB, "› postage id: "+bHex(postageIDBytes))
-		if inBrowser {
-			ls = persister.NewSwarmLoadSaver(beeAPIURL, postageIDBytes)
-			log(INFO, "» created new generic swarm network loader")
-		} else {
-			ls = NewSwarmNodeJsLoadSaver(beeAPIURL, postageIDBytes, verbosity)
-			log(INFO, "» created new hybrid swarm network loader")
-		}
-		allowSync = false
-		// (note: make sure mock tests use this branch to allow sync calls) /// ? revisit
-	} else { /// TODO  error check for other parameter constellations
+	// 2nd + 3rd paramter: bee url and batch id
+
+	// no parameters beyond reference: in-memory
+	if len(parameters) == 1 || len(parameters) >= 3 && (parameters[1].IsNull() || parameters[1].IsUndefined()) && (parameters[2].IsNull() || parameters[2].IsUndefined()) {
+		// the in-memory persister is shared between KVS instances. It 
+		// has to be to allow for certain tests to work as if it was a
+		// network persister.
 		if inMemoryPersister == nil {
+			// --------------------------------------------------------------
 			inMemoryPersister = persister.NewInmemLoadSaver()
+			// --------------------------------------------------------------
 			log(DEB, "› created new in-memory persister")
 		}
 		ls = inMemoryPersister
 		log(INFO, "» (re)-using in-memory persister")
 		allowSync = true
+
+	// network parameters bee url and batch id. Both null is checked above.
+	} else if len(parameters) == 2 || len(parameters) >= 3 && (parameters[1].IsNull() || parameters[1].IsUndefined() != parameters[2].IsNull() || parameters[2].IsUndefined()) {
+			msg := "### error in load*(), undefined or null bee url or batch id"
+			log(ERR, msg)
+			return jsError(msg)
+
+	} else if len(parameters) >= 3 {
+
+		// bee url
+
+		if parameters[1].Type() != js.TypeString {
+			msg := "### error in load*(), invalid bee url type, must be string"
+			log(ERR, msg)
+			return jsError(msg)
+		}
+		beeAPIURL := parameters[1].String()
+		if len(beeAPIURL) < 1 {
+			msg := "### error in load*(), empty bee url"
+			log(ERR, msg)
+			return jsError(msg)
+		}
+
+		// batch id
+
+		if parameters[2].Type() != js.TypeString {
+			msg := "### error in load*(), invalid batch id type, must be hex digit string"
+			log(ERR, msg)
+			return jsError(msg)
+		}
+		if len(parameters[2].String()) != 64 {
+			msg := "### error in load*(), invalid batch id hex string, must be 64 digits"
+			log(ERR, msg)
+			return jsError(msg)
+		}
+		postageIDBytes, err := hex.DecodeString(parameters[2].String())
+		if err != nil {
+			msg := "### error in load*(): invalid batch id hex string"
+			log(ERR, msg)
+			return jsError(msg)
+		}
+
+		log(DEB, "› using bee url : ‹" + beeAPIURL + "›")
+		log(DEB, "› using batch id: ‹" + bHex(postageIDBytes) + "›")
+
+		// browser and node.js must use different persisters. The one
+		// for node.js has to be a Go/JS hybrid to deal with
+		// synchronicity.
+		if inBrowser {
+			// --------------------------------------------------------------
+			ls = persister.NewSwarmLoadSaver(beeAPIURL, postageIDBytes)
+			// --------------------------------------------------------------
+			log(INFO, "» created new generic swarm network loader")
+			allowSync = false
+		} else {
+			// --------------------------------------------------------------
+			ls = NewSwarmNodeJsLoadSaver(beeAPIURL, postageIDBytes, verbosity)
+			// --------------------------------------------------------------
+			log(INFO, "» created new hybrid swarm network loader")
+			allowSync = true
+		}
 	}
 
+	// implementation of JS-side-cancellable new not planned
 	ctx := context.Background()
 
 	// -------------------------------------------------------------------
@@ -392,7 +481,7 @@ func loadSync(this js.Value, parameters []js.Value) (result interface{}) {
 	}
 
 	// register context and kvs handle, take numerical index as handle
-	slot_ref := len(Slots) + 1 // = starting on 1. /// TODO  add deletion
+	slot_ref := len(Slots) + 1 // = starting on 1.
 	Slots = append(Slots, Slot{Ctx: ctx, Kvs: kvs, Ref: slot_ref, Ls: ls, allowSync: allowSync})
 
 	log(DEB, "› slot ref: "+strconv.Itoa(slot_ref))
@@ -412,7 +501,6 @@ func load(this js.Value, parameters []js.Value) (result interface{}) {
 		if err := recover(); err != nil {
 			msg := "### panic in load: " + toString(err)
 			log(CRIT, msg)
-			result = jsError(msg) /// TODO  make promise + others like it, too
 			result = errorPromise(msg)
 		}
 	}()
@@ -422,6 +510,15 @@ func load(this js.Value, parameters []js.Value) (result interface{}) {
 
 		resolve := handler_parameters[0]
 		reject := handler_parameters[1]
+
+		// on panic, log, and reject
+		defer func() {
+			if err := recover(); err != nil {
+				msg := "### panic in load promise executor: " + toString(err)
+				log(CRIT, msg)
+				reject.Invoke(msg)
+			}
+		}()
 
 		go func() {
 
@@ -478,93 +575,113 @@ func createMapObject(slot_ref int) js.Value {
 	jsMap.Set("save", jsSave)
 	jsMap.Set("saveSync", jsSaveSync)
 
+	runtime.AddCleanup(&jsMap, func(slot_ref int) {
+		log(MEM, colorMid + "⦿ KVS on slot " + strconv.Itoa(slot_ref) + " cleaning up" + colorOff)
+	}, slot_ref)
+
+	// protect against garbage collection
+	Maps = append(Maps, jsMap)
+
 	return jsMap
+}
+
+// GC --------------------------------------------------------------------------
+
+// JS release() triggers the clean up on the Go side from the JS garbage
+// collector.
+func release(this js.Value, parameters []js.Value) (result interface{}) {
+
+	if len(parameters) < 1 {
+		log(CRIT, "Go release call misses slot ref parameter")
+	} else if parameters[0].Type() != js.TypeNumber {
+		log(CRIT, "Go release call slot ref parameter type error, need int")
+	} else {
+		slot_ref := parameters[0].Int()
+		releaseMapObject(slot_ref) 
+	}
+
+	return js.Null()
+}
+
+// releaseMapObject() cleans up the functions and slot reference objects held
+// on the Go side for a KVS. Noop stub.
+func releaseMapObject(slot_ref int) {
+
+	log(NONE, "map release, slot " + strconv.Itoa(slot_ref))
+}
+
+// JS gc() triggers the Go garbage collector. Empirically, KVS objects are
+// not collected on the JS side unless they are collected on the Go side, no
+// matter the pressure put on the JS GC. The release happens some time after
+// they get unreachable on both sides, but Go GC has to run. This function
+// triggers that.
+func gc(this js.Value, parameters []js.Value) (result interface{}) {
+
+	runtime.GC()
+
+	return js.Null()
+}
+
+// SAVE ------------------------------------------------------------------------
+
+// JS kvs.save() writes cached updates to the storage and returns a promise to a
+// 32 byte reference to the saved KVS that is used to retrieve the trie later.
+func save(this js.Value, parameters []js.Value) (result interface{}) {
+
+	return promise(this, parameters, 3, "save", _save, false, nil)
 }
 
 // JS kvs.saveSync() writes cached updates to the storage and returns a 32 byte
 // reference to the saved KVS that is used to retrieve the KVS later.
 func saveSync(this js.Value, parameters []js.Value) (result interface{}) {
 
+	return first(_save(context.Background(), this, parameters, false, nil, SYNC))
+}
+
+// _save() is the workhorse function that handles sync and async calls to save
+// a KVS.
+func _save(ctx context.Context, this js.Value, parameters []js.Value, _ bool, _ func([]byte) (js.Value, error), sync bool) (result js.Value, ok bool) {
+
 	// on panic, log, and return js Error object
 	defer func() {
 		if err := recover(); err != nil {
 			msg := "### panic in save: " + toString(err)
 			log(CRIT, msg)
+			ok = false
 			result = jsError(msg)
 		}
 	}()
 
 	log(INFO, "» saving storage")
 
-	slot_ref := this.Get("slot_ref").Int() /// TODO  error check
-	if slot_ref < 1 {
-		panic("invalid slot reference")
+	// get data slot of kvs
+	slot, err := getSlot(this)
+
+	if err != nil {
+		msg := err.Error() + " in save*()"
+		log(CRIT, msg)
+		return jsError(msg), false
 	}
-	slot := Slots[slot_ref-1] /// TODO  error check
-	/// TODO --ext_test: if slot.Kvs.Slot_ref != slot_ref { panic("slot double link broken ‹" + strconv.Itoa(slot_ref) + "› / ‹" + strconv.Itoa(slot.Kvs.Slot_ref) + "›") }
-	/* /// TODO
-	if sync && !slot.allowSync {
-		msg := "### error in getBooleanSync: no sync calls to swarm network"
+
+/*	if sync && !slot.allowSync {
+		msg := "### error in save*(): no sync calls to networks in-browser"
 		log(ERR, msg)
-		return jsError(msg)
+		return jsError(msg), false
 	}
-	*/
+*/
 	// -------------------------------------------------------------------
 	ref32, err := slot.Kvs.Save(slot.Ctx)
 	// -------------------------------------------------------------------
 	if err != nil {
 		msg := "### error on saving: " + err.Error()
 		log(ERR, msg)
-		return jsError(msg)
+		return jsError(msg), false
 	}
 
 	ref32Hex := bHex(ref32)
 	log(DEB, "› ref32: "+ref32Hex)
 
-	return js.ValueOf(ref32Hex)
-}
-
-// JS kvs.save() writes cached updates to the storage and returns a promise to a
-// 32 byte reference to the saved KVS that is used to retrieve the trie later.
-func save(this js.Value, parameters []js.Value) (result interface{}) {
-
-	// on panic, log, and return js Error object
-	defer func() {
-		if err := recover(); err != nil {
-			msg := "### panic in save: " + toString(err)
-			log(CRIT, msg)
-			result = jsError(msg)
-		}
-	}()
-
-	var handler js.Func
-	handler = js.FuncOf(func(handler_this js.Value, handler_parameters []js.Value) interface{} {
-
-		resolve := handler_parameters[0]
-		reject := handler_parameters[1]
-
-		go func() {
-
-			// The Go error type is not used, to make saveSync()
-			// usable also directly from JS, where only one result
-			// is expected.
-			jsvalue_or_jserr := saveSync(this, parameters).(js.Value)
-			if jsvalue_or_jserr.InstanceOf(js.Global().Get("Error")) {
-				reject.Invoke(jsvalue_or_jserr)
-			} else {
-				resolve.Invoke(jsvalue_or_jserr)
-			}
-		}()
-
-		if optimization > NONE {
-			handler.Release()
-		}
-
-		return nil
-	})
-
-	promiseConstructor := js.Global().Get("Promise")
-	return promiseConstructor.New(handler)
+	return js.ValueOf(ref32Hex), true
 }
 
 // PUT -------------------------------------------------------------------------
@@ -577,37 +694,38 @@ func put(this js.Value, parameters []js.Value) (result interface{}) {
 	return promise(this, parameters, 3, "put", _put, TYPED, nil)
 }
 
-// JS kvs.putRaw() asynchronously stores a key-value pair in raw format.
-// The key can be a string, number, or boolean.  Returns a Javascript promise
-// for the kvs anchor object or throws a JS Error on failure.
-func putRaw(this js.Value, parameters []js.Value) (result interface{}) {
-
-	return promise(this, parameters, 3, "put", _put, RAW, nil)
-}
-
 // JS kvs.putSync() synchronously stores a key-value pair, encoding the value
-// type in the first byte of what is written to storage. It returns Javaascript
+// type in the first byte of what is written to storage. It returns Javascript
 // null on success or an JS error. It does not throw, see (1).
 func putSync(this js.Value, parameters []js.Value) (result interface{}) {
 
 	return first(_put(context.Background(), this, parameters, TYPED, nil, SYNC))
 }
 
+// PUT RAW ---------------------------------------------------------------------
+
+// JS kvs.putRaw() asynchronously stores a key-value pair in raw format.
+// The key can be a string, number, or boolean.  Returns a Javascript promise
+// for the kvs anchor object or throws a JS Error on failure.
+func putRaw(this js.Value, parameters []js.Value) (result interface{}) {
+
+	return promise(this, parameters, 3, "putRaw", _put, RAW, nil)
+}
+
 // JS kvs.putRawSync() synchronously stores a key-value pair in raw format.
 // The key can be a string, number, or boolean.
-// / TODO check key byte conversion ---
 func putRawSync(this js.Value, parameters []js.Value) (result interface{}) {
 
 	return first(_put(context.Background(), this, parameters, RAW, nil, SYNC))
 }
+
+// PUT -------------------------------------------------------------------------
 
 // _put() is the internal put function that put() and putSync() are using
 // to store a key-value pair, encoding the value type in the first byte.
 // It handles raw, as well as type-coded; sync as well as async functions.
 // The sync functions call it directly, blocking, the async functions wrap it
 // into a promisses' executor that calls it asynchronously.
-// / TEST: overlong keys
-// / TODO catch overlong content
 func _put(ctx context.Context, this js.Value, parameters []js.Value, raw bool, _ func([]byte) (js.Value, error), sync bool) (result js.Value, ok bool) {
 
 	// on panic, log, and return js Error object in first result position
@@ -638,12 +756,12 @@ func _put(ctx context.Context, this js.Value, parameters []js.Value, raw bool, _
 
 	// sync calls to networks deadlock for node
 	if sync && !slot.allowSync {
-		msg := "### error in put*(): no sync calls to networks"
+		msg := "### error in put*(): no sync calls to networks in-browser"
 		log(ERR, msg)
 		return jsError(msg), false
 	}
 
-	key := parameters[0] // existence already checked in calling function
+	key := parameters[0]
 	bkey, kerr := jsToKey(key)
 
 	if kerr != nil {
@@ -661,25 +779,36 @@ func _put(ctx context.Context, this js.Value, parameters []js.Value, raw bool, _
 	}
 
 	var bValue []byte
-	jsValue := parameters[1] // ditto
+	jsValue := parameters[1]
+
+	// non-type coded
 	if raw {
-		bValue, _ = jsToBytes(jsValue) /// TODO  error check
-	} else { // type-coded
-		bValue, err = typeEncodedBytes(jsValue)
+		bValue, err = jsToBytes(jsValue)
+
 		if err != nil {
-			switch err.Error() {
-			case "bad type flag": /// TODO / refactor
-				msg := "trying to put unknown type"
-				log(ERR, "» xxx put fail: "+msg) /// TODO  make debug-switched
-				return jsError(msg), false
-			default:
-				msg := "### » put error: " + err.Error()
-				log(ERR, msg)
-				return jsError(msg), false
-			}
+			msg := err.Error() + " in put*()"
+			log(ERR, msg)
+			return jsError(msg), false
+		}
+
+	// type-coded
+	} else {
+		bValue, err = typeEncodedBytes(jsValue)
+
+		if err != nil {
+			msg := "### put error: " + err.Error()
+			log(ERR, msg)
+			return jsError(msg), false
 		}
 	}
 
+	if len(bValue) > maxValueSize {
+		msg := "### put error: value too large (> " + strconv.Itoa(maxValueSize) + " bytes)"
+		log(ERR, msg)
+		return jsError(msg), false
+	}
+
+	// a fourth parameter accepts a lable that shows up in the log entry
 	debug := ""
 	if len(parameters) >= 4 {
 		debug = "[" + jsToString(parameters[3]) + "]"
@@ -730,7 +859,7 @@ func getSync(this js.Value, parameters []js.Value) (result interface{}) {
 // being returned.
 func getRaw(this js.Value, parameters []js.Value) (result interface{}) {
 
-	return promise(this, parameters, 2, "get", _get, RAW, nil)
+	return promise(this, parameters, 2, "getRaw", _get, RAW, nil)
 }
 
 // JS kvs.getRawSync() synchronously retrieves a raw byte value for a key.
@@ -881,7 +1010,7 @@ func _get(ctx context.Context, this js.Value, parameters []js.Value, raw bool, c
 	}
 
 	if sync && !slot.allowSync {
-		msg := "### error in get*(): no sync calls to networks"
+		msg := "### error in get*(): no sync calls to networks in-browser"
 		log(ERR, msg)
 		return jsError(msg), false
 	}
@@ -924,14 +1053,14 @@ func _get(ctx context.Context, this js.Value, parameters []js.Value, raw bool, c
 
 			jsValue = js.Undefined()
 
-			// propagate error
+		// propagate error
 		} else {
 			msg := wrap(err)
 			log(ERR, msg)
 			return jsError(msg), false
 		}
 
-		// no error
+	// no error
 	} else {
 
 		// raw value handling
@@ -947,7 +1076,7 @@ func _get(ctx context.Context, this js.Value, parameters []js.Value, raw bool, c
 				jsValue = jsArrayFromBytes(bValue)
 			}
 
-			// type-coded value
+		// type-coded value
 		} else {
 			jsValue, err = typeDecodedValue(bValue)
 			if err != nil {
@@ -1017,19 +1146,22 @@ func main() {
 	// The following js.Funcs are created once and not released for the
 	// lifetime of the executable.
 
-	// new KVS'
+	// KVS
 	// -------------------------------------------------
-	pot_.Set("new", js.FuncOf(newKvs))
+	pot_.Set("new", js.FuncOf(new_))
 	pot_.Set("newSync", js.FuncOf(newSync))
 	pot_.Set("load", js.FuncOf(load))
 	pot_.Set("loadSync", js.FuncOf(loadSync))
+	pot_.Set("release", js.FuncOf(release))
+	pot_.Set("gc", js.FuncOf(gc))
 
 	// support functions
 	// -------------------------------------------------
 	pot_.Set("hello", js.FuncOf(hello))
-	pot_.Set("log", js.FuncOf(jsLog))
+	pot_.Set("log", js.FuncOf(log_))
 	pot_.Set("setOptimization", js.FuncOf(setOptimization))
 	pot_.Set("setVerbosity", js.FuncOf(setVerbosity))
+	pot_.Set("setValueSizeLimit", js.FuncOf(setValueSizeLimit))
 	pot_.Set("NONE", 0)
 	pot_.Set("CRITICAL", 1)
 	pot_.Set("ERROR", 2)
@@ -1044,19 +1176,27 @@ func main() {
 	pot_.Set("typeDecodedValue", js.FuncOf(typeDecodedValueTest))
 	pot_.Set("randKey", js.FuncOf(randKey))
 	pot_.Set("randValue", js.FuncOf(randValue))
+	pot_.Set("randBuffer", js.FuncOf(randBuffer))
 	pot_.Set("hangingPromise", js.FuncOf(hangingPromise))
+	pot_.Set("panickingPromise", js.FuncOf(panickingPromise))
 	pot_.Set("setFail", js.FuncOf(setFail))
 	pot_.Set("setPanic", js.FuncOf(setPanic))
 
 	// see defaultFunc declaration
 	defaultFunc = js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
-		log(ERR, "released function, no effect")
+		log(ERR, "# released function, no effect")
 		return js.Null
 	})
 
+	// see false Func declaration
+	falseFunc = js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
+		log(INFO, "# too late for cancel")
+		return js.ValueOf(false)
+	})
+
 	// These are pre-cooked, re-usable functions for KVS objects that are
-	// never explicitly released. This avoids creating new js.Funcs for
-	// every new object. They are held in globals.
+	// never released. This avoids creating new js.Funcs for every new
+	// object. They are held in globals.
 	jsPut = js.FuncOf(put)
 	jsGet = js.FuncOf(get)
 	jsPutRaw = js.FuncOf(putRaw)
@@ -1076,12 +1216,18 @@ func main() {
 
 	log(INFO, "» init done")
 
-	// signal to js that go wasm initialization is done
-	if !js.Global().Get("onWasmLoaded").IsUndefined() {
-		js.Global().Call("onWasmLoaded")
+	// signal to pot-*.js that go wasm initialization is done
+	if !js.Global().Get("_onPotInitialized").IsUndefined() {
+		js.Global().Call("_onPotInitialized")
 	}
 
 	log(INFO, "» ready")
+
+	// signal to user-js that go wasm initialization is done
+	// This is separate from _onPot..() for sync-only uses.
+	if !js.Global().Get("onPotInitialized").IsUndefined() {
+		js.Global().Call("onPotInitialized")
+	}
 
 	// make program pause for its above-listed functions to stay available
 	<-make(chan int)
@@ -1089,13 +1235,13 @@ func main() {
 
 // PROMISES --------------------------------------------------------------------
 
-// promise() creates a Javascript promise or a Javascript error object < /// ?. This
-// function provides the promissification, it's a generic wrap. It receives
-// the actual functionality to be performed by the executor of the created
-// promise as function parameter.
+// promise() creates a Javascript promise. This function provides the
+// promissification, it's a generic wrap. It receives the actual functionality
+// to be performed by the executor of the created promise as function parameter
+// of type `functionality`.
 func promise(this js.Value, parameters []js.Value, timeOutPos int, name string, function functionality, raw bool, caster func([]byte) (js.Value, error)) (result interface{}) {
 
-	// on panic, log, and return js Error object
+	// on panic, log, and return a promise that immediately rejects
 	defer func() {
 		if err := recover(); err != nil {
 			msg := "### panic in " + name + ": " + toString(err)
@@ -1105,32 +1251,37 @@ func promise(this js.Value, parameters []js.Value, timeOutPos int, name string, 
 	}()
 
 	// get appropriate context
-	ctx, cancel, err := createContext(timeOutPos, parameters, ASYNC)
+	ctx, ctxCancel, err := createContext(timeOutPos, parameters, ASYNC)
 
-	// time out parameter could have wrong type
+	// time out parameter may have had wrong type
 	if err != nil {
 		msg := err.Error() + " in " + name
 		log(ERR, msg)
 		return errorPromise(msg)
 	}
 
-	executor := js.FuncOf(func(_ js.Value, handler_parameters []js.Value) (result interface{}) {
+	promise := js.Null()
+	var jsCancel js.Func
+	var executor js.Func
+
+	executor = js.FuncOf(func(_ js.Value, handler_parameters []js.Value) (result interface{}) {
+
+		resolve := handler_parameters[0]
+		reject := handler_parameters[1]
 
 		// on panic (in 'function'), log, and return js Error object
 		defer func() {
 			if err := recover(); err != nil {
 				msg := "### panic in " + name + ": " + toString(err)
 				log(CRIT, msg)
-				result = jsError(msg)
+				reject.Invoke(msg)
 			}
 		}()
-
-		resolve := handler_parameters[0]
-		reject := handler_parameters[1]
 
 		go func() {
 
 			jsvalue_or_jserr, ok := function(ctx, this, parameters, raw, caster, ASYNC)
+
 			if ok {
 				resolve.Invoke(jsvalue_or_jserr)
 			} else {
@@ -1138,46 +1289,35 @@ func promise(this js.Value, parameters []js.Value, timeOutPos int, name string, 
 			}
 		}()
 
+		// free the resources used for this function after use
+		if optimization > NONE {
+			executor.Release()
+		}
+
 		return nil
 	})
 
-	return cancelablePromise(name, executor, cancel)
-}
+	// create the promise itself, conveniently expecting the executor for it
+	promise = js.Global().Get("Promise").New(executor)
 
-// cancelablePromise() creates a JS promise that has an additional method attached
-// that allows to cancel it. This releases the waiting resources that might be
-// pending on the Go side. For this, the cancel method is really a Go closure in
-// the mandatory signature of the syscall/js functions, a js.Func.
-func cancelablePromise(function string, executor js.Func, ctxCancel context.CancelFunc) js.Value {
-
-	promise := js.Global().Get("Promise").New(executor)
-
-	var cancel js.Func
-	cancel = js.FuncOf(func(_ js.Value, parameters []js.Value) interface{} {
+	// create the cancel function for it. Note that the executor might 
+	// already have resolved.
+	jsCancel = js.FuncOf(func(_ js.Value, parameters []js.Value) interface{} {
 
 		// this closure variable (that is a function) holds the
 		// ctxCancel function of the context that communicates the
-		// cancellation downwards
+		// cancellation downwards to the Go POT functions.
 		ctxCancel()
 
-		msg := "%%% promise for " + function + " canceled"
-		log(INFO, msg)
+		log(INFO, "% " + name + ", cancel triggered")
 
-		// cancel promise, throw error
-		reject := parameters[1] /// TEST
-		reject.Invoke(jsError(msg))
-
-		// free the resources used for this function after one use
-		if optimization > NONE {
-			cancel.Release()
-			promise.Set("cancel", defaultFunc)
-		}
-
-		return js.Null()
+		// signals that the cancel happened. The entire function is
+		// replaced by a function returning only false, once it is 
+		// too late to cancel.
+		return js.ValueOf(true)
 	})
 
-	// add the cancel method to the promise itself
-	promise.Set("cancel", cancel)
+	promise.Set("cancel", jsCancel) // temp insert
 
 	return promise
 }
@@ -1193,6 +1333,17 @@ func errorPromise(msg string) js.Value {
 	doubleEntry := false
 	executor = js.FuncOf(func(_ js.Value, parameters []js.Value) interface{} {
 
+		reject := parameters[1]
+
+		// on panic, log, and reject
+		defer func() {
+			if err := recover(); err != nil {
+				msg := "### panic in error promise executor: " + toString(err) + " on delivering ‹" + msg + "›"
+				log(CRIT, msg)
+				reject.Invoke(msg)
+			}
+		}()
+
 		// should never happen. To monitor/protect function release.
 		if doubleEntry {
 			panic("double entry to errorPromise executor")
@@ -1201,7 +1352,6 @@ func errorPromise(msg string) js.Value {
 
 		log(ERR, "xxx rejection thrown: "+msg)
 
-		reject := parameters[1]
 		reject.Invoke(jsError(msg))
 
 		if optimization > NONE {
@@ -1245,17 +1395,43 @@ func jsError(msg string) js.Value {
 // log() makes a standardized log message to browser console or terminal,
 // respecting the verbosity setting as set through setVerbosity(). The default
 // is that almost all messages are logged. Messages whose level is too low, are
-// ignored.
-var logrex = regexp.MustCompile(`([0-9a-fA-F]{16})([0-9a-fA-F]{49,})`)
+// ignored. NONE, CRITICAL and ERROR are logged to stderr, higher to stdout.
+var logrex = regexp.MustCompile(`([0-9a-fA-F]{32})([0-9a-fA-F]+)`)
+var colorLow  = "\033[90m"
+var colorMid = "\033[38;5;214m"
+var colorOff  = "\033[0m"
 func log(level int, msg string) {
 	// log only of set verbosity level is matched or exceeded
 	if verbosity >= level {
 		// abbreviate long (hex) numbers unless TRACE level is on
 		if verbosity < TRACE {
-			msg = logrex.ReplaceAllString(msg, "$1..")
+			msg = logrex.ReplaceAllString(msg, "$1…")
 		}
-		fmt.Println("pot:  " + msg)
+		if level <= ERR {
+			fmt.Fprintln(os.Stderr, "pot:  " + msg)
+		} else {
+			fmt.Println("pot:  " + msg)
+		}
 	}
+}
+
+func setValueSizeLimit(_ js.Value, parameters []js.Value) interface{} {
+
+	before := maxValueSize
+
+	if len(parameters) > 0 {
+		p := parameters[0]
+		if p.Type() != js.TypeNumber {
+			return jsError("parameter type error. Number expected.")
+		}
+		if p.Int() < 0 || p.Int() > 1000000000000 {
+			return jsError("parameter range error. 0-1TB are valid.")
+		}
+
+		maxValueSize = p.Int()
+	}
+
+	return before
 }
 
 // JS pot.setVerbosity() can be called from Javascript to control which log()
@@ -1292,12 +1468,12 @@ func setVerbosity(_ js.Value, parameters []js.Value) interface{} {
 	return before
 }
 
-// JS pot.jsLog() can be called from Javascript to test the log() function that,
-// with a prefixed "pot: ", writes directly to stdout. This confirms that the
-// connection to the WASM executable is operational. The function is called as
-// pot.log() from Javascript (see main()).
-// / TODO document default CRIT and 2nd parameter /// TEST it
-func jsLog(this js.Value, parameters []js.Value) interface{} {
+// JS pot.log_() can be called from Javascript to test the log() function that,
+// with a prefixed "pot: ", writes directly to stdout. This can be used to
+// confirm that the connection to the WASM executable is operational. The
+// function is called as pot.log() from Javascript (see main()).
+// TEST second parameter
+func log_(this js.Value, parameters []js.Value) interface{} {
 
 	msg := "" // note empty log() allowed for line break
 	if len(parameters) >= 1 {
@@ -1348,6 +1524,9 @@ func setOptimization(_ js.Value, parameters []js.Value) interface{} {
 
 // SLOTS AND CONTEXT -----------------------------------------------------------
 
+// getSlot() securely retrieves the slot information from the slot list going
+// by the slot index stored in the JS KVS object, slot_ref attribute. It also
+// double checks the index by the double-link in the slot structure, `Ref`.
 func getSlot(this js.Value) (Slot, error) {
 
 	jsSlotRef := this.Get("slot_ref")
@@ -1364,14 +1543,20 @@ func getSlot(this js.Value) (Slot, error) {
 
 	slot := Slots[slotRef-1]
 
+	if slot.Ref != slotRef {
+		return Slot{}, errors.New("### crtical error: slot double link broken, slot ‹" + strconv.Itoa(slotRef) + "› has ‹" + strconv.Itoa(slot.Ref) + "›")
+	}
+
 	return slot, nil
 }
 
-// createContext() returns the right context (Background, WithTimout, or
-// WithCancel) for a call coming from Javascript inspecting the JS parameters
-// crossed over to it from the calling function.
+// createContext() returns the right context (plain Background, WithTimout, or
+// WithCancel) for a call coming from Javascript by inspecting the JS parameters
+// shared by the calling function.
 func createContext(position int, parameters []js.Value, sync bool) (ctx context.Context, cancel context.CancelFunc, err error) {
 
+	// `position` is the place, counted from 1, in which the timeout argument
+	// is expected by the calling function that shared its `parameters`.
 	if len(parameters) >= position {
 		p := parameters[position-1]
 		if p.Type() == js.TypeNumber {
@@ -1379,7 +1564,7 @@ func createContext(position int, parameters []js.Value, sync bool) (ctx context.
 			if timeout > 0 {
 				ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Millisecond)
 			}
-		} else if !p.IsNull() && !p.IsUndefined() { /// TODO check type checking
+		} else if !p.IsNull() && !p.IsUndefined() {
 			log(ERR, "### timeout parameter type error")
 			return nil, nil, errors.New("wrong type of timeout argument")
 		}
@@ -1400,15 +1585,8 @@ func createContext(position int, parameters []js.Value, sync bool) (ctx context.
 // STRINGS AND BYTES -----------------------------------------------------------
 
 // pad(), for keys, adds 0s to a byte array to attain a lenght of 32 bytes.
-// / TODO take error checks down -- length checks should happen elsewhere.
 func pad(key []byte) ([]byte, error) {
 
-	if len(key) > 32 {
-		msg := "### error: key too long"
-		log(ERR, msg)
-		return nil, errors.New(msg)
-	}
-	// pad
 	if len(key) < 32 {
 		key = append(key, bytes.Repeat([]byte{0}, 32-len(key))...)
 	}
@@ -1417,14 +1595,12 @@ func pad(key []byte) ([]byte, error) {
 }
 
 // jsToKey() casts a JS value to a Go byte array to use as key for putting or
-// getting. There is NO type code. It accepts Numbers and Strings. Numbers are
-// converted to their float byte representation. "1", 1, and "0x01" will thus
-// be different keys but 1, 1.0, 0x1 and 01 the same. There is no strong way
-// to tell integer and float apart as JS knows only one unified number type.
-//
-// TODO KEYS ARE NOT BIJECTIVE IN THIS WAY. THIS FUNCTION IS N:1. HOWEVER,
-// FIXING THIS WOULD NECESSARILY REQUIRE TO DROP UINT8ARRAY AS ALLOWABLE INPUT
-// OR TO MOVE TO TYPE-CODING LIKE FOR VALUES.
+// getting. There is NO type code. It accepts numbers, strings, and Uint8Array
+// byte buffers. Numbers are converted to their float byte representation.
+// "1", 1, and "0x01" will thus be different keys but 1, 1.0, 0x1 and 01 the
+// same. This makes sense because there is no strong way in JS to tell integer
+// and float apart as JS knows only one unified Number type. Strings and byte
+// arrays are length-checked to be <= 32 byte.
 func jsToKey(p js.Value) ([]byte, error) {
 
 	switch p.Type() {
@@ -1436,14 +1612,23 @@ func jsToKey(p js.Value) ([]byte, error) {
 
 	case js.TypeString:
 		b := []byte(p.String())
-		if len(b) > 32 {
+		if len(b) > 32 { // note, len = number of bytes
 			return nil, errors.New("key string too long") /// TEST
+		}
+		if len(b) == 0 { // note, len = number of bytes
+			return nil, errors.New("empty key string") /// TEST
 		}
 		return []byte(p.String()), nil
 
-	case js.TypeObject: // JS Uint8Array
+	case js.TypeObject:
+		if !p.InstanceOf(js.Global().Get("Uint8Array")) {
+			return nil, errors.New("wrong object type for a key, accepting number, string, Uint8Array") /// TEST
+		}
+		if p.Length() == 0 {
+			return nil, errors.New("empty key bytes") /// TEST
+		}
 		if p.Length() > 32 {
-			return nil, errors.New("key array too long") /// TEST
+			return nil, errors.New("key byte-array too long") /// TEST
 		}
 		b := make([]byte, p.Length())
 		for i := 0; i < p.Length(); i++ {
@@ -1451,12 +1636,23 @@ func jsToKey(p js.Value) ([]byte, error) {
 			if e.Type() != js.TypeNumber {
 				return nil, errors.New("wrong type of element for a key array: " + e.Type().String()) /// TEST
 			}
+			n := e.Int()
+			if n < 0 || n > 255 {
+				return nil, errors.New("out of range element for a key array: " + strconv.Itoa(n) + " instead of 0-255") /// TEST
+			}
 			b[i] = byte(p.Index(i).Int())
 		}
-		return b, nil /// TODO check length
+
+		// double check
+		if len(b) < 0 || len(b) > 32 {
+			return nil, errors.New("key byte-array too long") /// TEST
+		} else if len(b) == 0 {
+			return nil, errors.New("empty key array") /// TEST
+		}
+		return b, nil
 	}
 
-	return nil, errors.New("wrong type for a key: " + p.Type().String()) /// TEST
+	return nil, errors.New("wrong type for a key: " + p.Type().String() + ", accepting number, string, Uint8Array") /// TEST
 }
 
 // jsToBytes() casts from any JS value to Go byte array, for values to be
@@ -1606,6 +1802,7 @@ func typeEncodedBytes(p js.Value) (result []byte, rerr error) {
 // must comply to JS interface standards of syscall/js and thus can only return
 // one value. It does not get parameter checks because it is only ever called
 // by test suites.
+var ixx interface{}
 func typeEncodedBytesTest(this js.Value, parameters []js.Value) interface{} {
 
 	v := parameters[0]
@@ -1666,7 +1863,6 @@ func typeDecodedValue(p []byte) (result js.Value, rerr error) {
 		f := math.Float64frombits(binary.BigEndian.Uint64(p[1:]))
 		return js.ValueOf(f), nil
 		// note, alternate: f, _ := strconv.ParseFloat(string(p[1:]), 64) see (2)
-		/// TODO error handling?
 	case STRING:
 		return js.ValueOf(string(p[1:])), nil
 	case BYTES:
@@ -1741,7 +1937,7 @@ func hello(this js.Value, parameters []js.Value) interface{} {
 }
 
 // JS pot.randKey() creates a random byte sequence of 32 bytes for use
-// as test key. Analog to pot test's keyValuePair() in kvs_tests.go.
+// as test key. Analog to pot test's keyValuePair() in suites.go.
 func randKey(this js.Value, parameters []js.Value) interface{} {
 
 	key := make([]byte, 32)
@@ -1753,11 +1949,24 @@ func randKey(this js.Value, parameters []js.Value) interface{} {
 }
 
 // JS pot.randValue() creates a random byte sequence of 79 to 101 bytes for use
-// as test value. Analog to pot test's keyValuePair() in kvs_tests.go.
-// / TEST: long and overlong content
+// as test value. Analog to pot test's keyValuePair() in suites.go.
+/// TEST: long and overlong content
 func randValue(this js.Value, parameters []js.Value) interface{} {
 
-	size := rand.Intn(79) + 22 /// TODO taken from native go pot tests, why this lenght?
+	size := rand.Intn(79) + 22 // taken from native go pot tests, why this lenght?
+	value := make([]byte, size)
+	rand.Read(value)
+	log(TRACE, "∙ created random "+strconv.Itoa(size)+" byte value "+bHex(value)+" in go")
+	result := js.Global().Get("Uint8Array").New(size)
+	js.CopyBytesToJS(result, value)
+	return result
+}
+
+// JS pot.randBuffer() creates a random byte sequence of any size for use
+// as test value.
+func randBuffer(this js.Value, parameters []js.Value) interface{} {
+
+	size := parameters[0].Int()
 	value := make([]byte, size)
 	rand.Read(value)
 	log(TRACE, "∙ created random "+strconv.Itoa(size)+" byte value "+bHex(value)+" in go")
@@ -1772,12 +1981,12 @@ func randValue(this js.Value, parameters []js.Value) interface{} {
 // error. It never invokes resolve().
 func hangingPromise(this js.Value, parameters []js.Value) (result interface{}) {
 
-	// on panic, log, and return js Error object
+	// on panic, log, and return a promise that immediately rejects
 	defer func() {
 		if err := recover(); err != nil {
 			msg := "### panic in hangingPromise: " + toString(err)
 			log(CRIT, msg)
-			result = jsError(msg)
+			result = errorPromise(msg)
 		}
 	}()
 
@@ -1790,14 +1999,14 @@ func hangingPromise(this js.Value, parameters []js.Value) (result interface{}) {
 		reject := executor_parameters[1]
 
 		go func() {
-			log(INFO, "sleeping")
+			log(INFO, "» sleeping")
 			time.Sleep(time.Second / 4)
 			select {
 			case <-quit:
 				return
 			default:
 			}
-			log(INFO, "done sleeping")
+			log(INFO, "» done sleeping")
 			jserr := jsError("done sleeping, nothing happened")
 			reject.Invoke(jserr)
 			done <- true
@@ -1808,7 +2017,8 @@ func hangingPromise(this js.Value, parameters []js.Value) (result interface{}) {
 			case <-done:
 			case <-quit:
 				close(quit)
-				reject.Invoke(jsError("canceled")) /// TODO  log?
+				log(DEB, "› test cancellation triggers reject")
+				reject.Invoke(jsError("canceled"))
 			}
 		}()
 
@@ -1824,7 +2034,7 @@ func hangingPromise(this js.Value, parameters []js.Value) (result interface{}) {
 	var cancel js.Func
 	cancel = js.FuncOf(func(js.Value, []js.Value) interface{} {
 		quit <- true
-		log(INFO, "canceled!")
+		log(INFO, "» canceled!")
 		if optimization > NONE {
 			cancel.Release()
 		}
@@ -1836,15 +2046,40 @@ func hangingPromise(this js.Value, parameters []js.Value) (result interface{}) {
 	return promise
 }
 
-// JS pot.wipeSlots() is for testing. It deletes the internal bookkeeping of
-// created maps to allow to test load() as if a different program run
-// had executed new() and save() and load() cannot look their slot up.
-// The side effect is that the maps created before with new() will crash or
-// malfunction by using the handle of a different map.
-// / TODO not used yet; cover in tests
-func wipeSlots(this js.Value, parameters []js.Value) (result interface{}) {
+// JS pot.panickingPromise() is for testing only. It returns a promise that does
+// nothing but react to an internal panic. It never invokes resolve().
+func panickingPromise(this js.Value, parameters []js.Value) (result interface{}) {
 
-	Slots = Slots[:0]
+	// on panic, log, and return a promise that immediately rejects
+	defer func() {
+		if err := recover(); err != nil {
+			msg := "### panic in panickingPromise(): " + toString(err)
+			log(CRIT, msg)
+			result = errorPromise(msg)
+		}
+	}()
 
-	return nil
+	var executor js.Func
+	executor = js.FuncOf(func(executor_this js.Value, executor_parameters []js.Value) interface{} {
+
+		reject := executor_parameters[1]
+
+		// on panic, log, and reject
+		defer func() {
+			if err := recover(); err != nil {
+				msg := "### panic in panickingPromise executor: " + toString(err)
+				log(CRIT, msg)
+				reject.Invoke(msg)
+			}
+		}()
+
+		panic("test panic of panickingPromise")
+
+		return nil
+	})
+
+	promise := js.Global().Get("Promise").New(executor)
+
+	return promise
 }
+

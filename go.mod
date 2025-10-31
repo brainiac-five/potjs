@@ -2,6 +2,8 @@ module potjs
 
 go 1.24.5
 
+replace github.com/ethersphere/proximity-order-trie => github.com/ethersphere/proximity-order-trie v1.0.0
+
 require github.com/ethersphere/proximity-order-trie v1.0.0
 
 require (

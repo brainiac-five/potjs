@@ -65,25 +65,28 @@ function log_and_display(one, two, three, four) {
 	else threadno = ""
 
 	stack = new Error().stack
-	loc = stack.match(/[a-zA-Z0-9:._]+_test\.js:[0-9]+/)
-	//if(!loc) loc = stack.match(/[a-zA-Z_-]+\.html/) + stack.match(/(:[0-9]+):[0-9]+\s*$/)[1]
-	if(!loc) loc = "--" // stack
+	loc = stack.match(/[a-zA-Z0-9:._]*suites\.js:[0-9]+/)
+	if(loc) loc = loc[0]
+	if(!loc) loc = "--"
 
 	// console log
 	if(box && box != T.box) console.log("◊◊◊ out-of-sync message from earlier case follows: " + box.id)
 	logmsg = msg.replace(/\<[^>]*\>/, "▶︎").replace(/\<[^>]*\>/g, "◀︎")
 	if(trail == "•••" || trail == "---") pot.log()
 	if(NODE && trail == "•••") pot.log()
+	if(NODE && trail == "---") pot.log()
 	if(NODE && trail == "•••") pot.log("=".repeat(80))
 	if(NODE && first == "✦") pot.log("-".repeat(80))
 	if(NODE && first == "•" && trail != "•••") pot.log()
 	if(NODE && trail == "•••") logmsg = hi + logmsg + off
-	else if(NODE && first == "✦") logmsg = mid + logmsg + off + " | " + loc
+	if(NODE && trail == "---") logmsg = logmsg + " " + "-".repeat(79-logmsg.length)
+	else if(NODE && first == "✦") logmsg = mid + logmsg + off + alignpad(loc, logmsg, 80, "|")
 	else if(NODE && first == "•") logmsg = mid + logmsg + off
-	else if(NODE && first == "√") logmsg = ok + "√" + off + logmsg.substr(1) + profile()
-	else if(NODE && trail == "###") logmsg = erm + logmsg + off + profile()
+	else if(NODE && first == "√") logmsg = ok + "√" + off + logmsg.substr(1) + profile(threadno + "√" + numcut(logmsg.substr(1)))
+	else if(NODE && trail == "###") logmsg = erm + logmsg + off + profile(threadno + numcut(logmsg))
 	if(pot.log)
-		pot.log(threadno + numcut(logmsg))
+		for (const line of linebreak(numcut(logmsg), 80, threadno))
+			pot.log(threadno + line)
 	else {
 		console.log(">>> direct to console log (pot.log unavailable):")
 		console.log(threadno + logmsg)
@@ -106,10 +109,6 @@ function log_and_display(one, two, three, four) {
 	if(first == "<")
 		display(msg)
 	else if(first == "✦") {
-		// stack = new Error().stack
-		// loc = stack.match(/([a-zA-Z0-9:._]+)\)\s+at (async )*main/)
-		// if(loc) loc = loc[1]
-		// else loc = stack
 		insert = "<div style='float:right'>" + loc + "</div>"
 		pot.log(loc)
 		display("<a name=acase_" + T.cases + "></a> <div class=box id=case_" + T.cases + "> <div class=casehead> " + msg + insert + " </div> </div>")
@@ -137,7 +136,39 @@ function log_and_display(one, two, three, four) {
 }
 
 function numcut(msg) {
-	return msg.replace(/([0-9a-fA-F]{16})([0-9a-fA-F]{49,})/g,"$1..")
+	return msg.replace(/([0-9a-fA-F]{32})([0-9a-fA-F]+)/g,"$1…")
+}
+
+// node only
+function alignpad(add, had, width, sep) {
+	if(!add || !had || !width)
+		return ""
+	const h = had.length 
+	const a = add.length
+	if(width-a-h < 1) return " " + sep + " " + add
+	return " ".repeat(width-a-h) + add
+}
+
+// node only
+function linebreak(text, width, reserve) {
+	if(!text) return new Array("")
+	if(!width) return new Array(text)
+	text = text.replace(ok + "√" + off, "√")
+	if(text.includes("\033")) return new Array(text.replace("√", ok + "√" + off))
+	w = width - (reserve ? reserve.length : 0)
+	if(text.length <= w) return new Array(text.replace("√", ok + "√" + off))
+	lines = new Array()
+	indent = 0
+	findent = text[0] == "√" ? 2 : 0
+	while(text) {
+		p = max = (w < text.length + indent ? w : text.length + indent) - 1
+		if(w < text.length) while(p && text[p] != ' ') p--
+		if(p == 0) p = max
+		lines.push(" ".repeat(indent) + text.slice(0,p).replace("√", ok + "√" + off))
+		text = text.slice(p+1)
+		indent = findent
+	}
+	return lines
 }
 
 // browser only
@@ -171,13 +202,16 @@ function set_counter(count) {
 }
 
 // node/web mix
-function profile() {
+function profile(line_so_far) {
 	if(T.time) {
 		let t = Date.now() - T.time
 		T.time = Date.now()
 		if(t < 60000) {
-			if(t < 1) t = "<1"
-			return (NODE ? " | " + t + "ms" : "<div class=time>" + t + "ms</div>")
+			if(t < 1) t = "⩽ 1"
+			if(NODE)
+				return alignpad(t + " ms", line_so_far, 80, "|")
+			else
+				return "<div class=time>" + t + "ms</div>"
 		}
 	}
 	T.time = Date.now()
@@ -186,10 +220,14 @@ function profile() {
 
 // node/web mix
 function suitehead(msg, gray) {
-	T.log(null,
-	      "••• Test Suite #" + ++(this.suites) + " ••• " + msg.toUpperCase() + " •••"
-	        + (T.tag ? (NODE ? " | " : "<div class=righttag>") + T.tag.toUpperCase() + (NODE ? "" : "</div>") : ""), 
-	      gray)
+	head = "••• Test Suite #" + ++(this.suites) + " ••• " + msg.toUpperCase() + " •••"
+	if(NODE)
+		T.log(null, head + (T.tag ? alignpad(T.tag.toUpperCase(), head, 80, "|") : ""), gray)
+	else
+		T.log(null,
+		      "••• Test Suite #" + ++(this.suites) + " ••• " + msg.toUpperCase() + " •••"
+			+ (T.tag ? "<div class=righttag>" + T.tag.toUpperCase() + "</div>" : ""), 
+		      gray)
 	T.time = Date.now()
 }
 
@@ -325,7 +363,7 @@ T.attestCompletion = function(t, T, suppress_ok) {
 	T.tests++
 	set_counter(T.tests)
 	if(!suppress_ok)
-		T.log(t, "› √ complete.")
+		T.log(t, "√ complete.")
 }
 
 T.assertUndefined = function(t, T, val) {
@@ -365,7 +403,7 @@ T.assertEqual = function(t, T, res, exp, suppress_ok, box) {
 		T.errors++
 	}
 	else if(!suppress_ok)
-		T.log(t, "√ as expected, ‹" + lres + "›.", false, box)
+		T.log(t, "√ as expected, ‹" + (lres && lres.length > 10000 ? numcut(lres) : lres) + "›.", false, box)
 }
 
 T.assertNotEqual = function(t, T, res, exp) {
@@ -388,10 +426,10 @@ function isEqualArray(a, b) {
 }
 
 T.completion = async function(t, T, threads, interval, max) {
-	T.log(t, "› waiting for completion")
+	T.log(t, "• waiting for completion")
 	let snap = ""
 	for(let count = 0; threads() && count++ < max / interval;) {
-		T.log(t, "› concurrent threads: " + threads())
+		T.log(t, "» concurrent threads: " + threads())
 		snap += (snap ? " • ":"") + threads()
 		await T.delay(interval)
 	}
@@ -401,6 +439,18 @@ T.completion = async function(t, T, threads, interval, max) {
 		if(snap.includes("•")) T.log(t, snap)
 		T.attestCompletion(t, T)
 	}
+}
+
+T.completion2 = async function(t, T, done, outer_count, interval, max) {
+	T.log(t, "• waiting for completion")
+	for (let count = 0; !done() && count++ < max / interval;) {
+		T.log(t, "  iterations: " + outer_count())
+		await T.delay(interval)
+	}
+	if(!done())
+		T.attestError(t, T, "timed out (" + max + "ms) on " + outer_count() + " iterations")
+	else
+		T.attestCompletion(t, T)
 }
 
 T.delay = async function(millisec) {
