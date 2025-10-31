@@ -69,7 +69,7 @@
 
     <script src="../lib/wasm_exec.js"></script>
     <script src="test.js"></script>
-    <script src="kvs_test.js"></script>
+    <script src="suites.js"></script>
 
     <script>
 
@@ -99,8 +99,8 @@
 
 		document.getElementById("bee").innerHTML = bee ? bee : "(in-memory)"
 		document.getElementById("batch").innerHTML = batch ? batch : "(none)"
-		document.getElementById("modetag").innerHTML = tag
-		document.getElementById("grouptag").innerHTML = group
+		document.getElementById("modetag").innerHTML = tag ? tag : "std"
+		document.getElementById("grouptag").innerHTML = group ? group : "std"
 
 		/* initialize Go POT */
 
@@ -152,9 +152,10 @@
 				await TestPotKvs_ComplexSave(T, bee, batch)
 
 				await TestPotKvs_Cancellation(T, bee, batch)
-				await TestPotKvs_Failures(T, bee, batch)
+				await TestPotKvs_InternalErrors(T, bee, batch)
 
-				// await TestPotKvs_Proof(T, bee, batch) 
+				await TestPotKvs_InvalidArguments(T, bee, batch)
+				await TestPotKvs_Failures(T, bee, batch)
 			}
 
 			if(group == "stress") {
