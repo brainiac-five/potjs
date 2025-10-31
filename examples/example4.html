@@ -1,15 +1,13 @@
 <pre>
 
 
-	POT JS Example 4: Synchronous
+	POT JS Example 4: Synchronous Calls
 
-	Check source and console.
+	Check source and browser console.
 
 
-	This page uses synchronous calls that can be helpful for prototyping
-	but don't work for network connections (only in-memory, i.e using
-	newSync() without parameters) and not for use with node. Wrong use
-	will just reliably deadlock.
+	This page uses synchronous calls that can be helpful for
+	prototyping but don't work for network connections in the browser.
 
 
 	<img src=favicon.ico>
@@ -17,17 +15,17 @@
 
 </pre>
 
-<script src="lib/pot-web.js" wasm="lib/pot.wasm"></script>
+<script src="lib/pot-web.js"></script>
 
 <script>
 
-function onWasmLoaded() {
+function onPotInitialized() {
 
-	map = pot.newSync()
+	kvs = pot.newSync()
 
-	map.putSync("hello", "POT!")
+	kvs.putSync("hello", "POT!")
 
-	value = map.getSync("hello")
+	value = kvs.getSync("hello")
 
 	console.log("key ‹hello› has:", value)
 }

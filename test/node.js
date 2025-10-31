@@ -6,21 +6,21 @@ const fs = require("fs")
 potjs_verbosity = 6
 require("../lib/pot-node.js")
 require("./test")
-const tests = require("./kvs_test")
+const tests = require("./suites")
 
 /* optional mode parameter */
 
 const tag    = process.argv[2]
 const bee    = process.argv[3] != "-" ? process.argv[3] : null
 const batch  = process.argv[4] != "-" ? process.argv[4] : null
-const stress = process.argv[5]
+const branch = process.argv[5]
 const iter   = process.argv[6]
 
 console.log()
 console.log("tag   ", tag)
 console.log("bee   ", bee)
 console.log("batch ", batch)
-console.log("stress", stress)
+console.log("branch", branch)
 console.log("iter  ", iter)
 
 T.tag = tag
@@ -51,7 +51,8 @@ console.log(`
 
 	${date}
 
-	This is the test suite for the Javascript API to the Go implementation of the Proximity-Order-Trie (POT).
+	This is the test suite for the Javascript API to the Go implementation
+	of the Proximity-Order-Trie (POT).
 
 	Also see examples/ folder and README.MD.
 
@@ -60,7 +61,8 @@ console.log(`
 
 	${note}
 
-	Tests are using different random byte sequences for keys and values every run.
+	Tests are using different random byte sequences for keys and values
+	every run.
 
 
 	Network
@@ -83,35 +85,38 @@ console.log(`
 
 	/* Test Test */
 
-	T.head("Example Test")
-	T.log("Test setup test outside of main test files.")
+	if (branch != "ressources") {
 
-	T.start("script inline")
-	T.log("• put and get K: V")
-	try {
-		map = await pot.new(bee, batch)
-		await map.put("K", "V")
-		r = await map.get("K")
-		T.assertEqual(null, T, r, "V")
-	} catch(err) {
-		T.log(err)
+		T.head("Example Test")
+		T.log("Test setup test outside of main test files.")
+
+		T.start("script inline")
+		T.log("• put and get K: V")
+		try {
+			map = await pot.new(bee, batch)
+			await map.put("K", "V")
+			r = await map.get("K")
+			T.assertEqual(null, T, r, "V")
+		} catch(err) {
+			T.log(err)
+		}
 	}
 
 	/* Tests */
 
 	try {
 
-		if(!stress) {
+		if(!branch || branch == "std") {
 
-			if(!bee) tests.TestPotKvsSync(T, bee, batch)
+			tests.TestPotKvsSync(T, bee, batch)
 			await tests.TestPotKvsAsync(T, bee, batch)
 
 			tests.TestPotKvs_TypeEncoding(T, bee, batch)
 
-			if(!bee) tests.TestPotKvs_EdgeValuesSync(T, bee, batch)
+			tests.TestPotKvs_EdgeValuesSync(T, bee, batch)
 			await tests.TestPotKvs_EdgeValuesAsync(T, bee, batch)
 
-			if (!bee) tests.TestPotKvs_TypedAccessSync(T, bee, batch)
+			tests.TestPotKvs_TypedAccessSync(T, bee, batch)
 			await tests.TestPotKvs_TypedAccessAsync(T, bee, batch)
 
 			await tests.TestPotKvs_MassSequential(T, bee, batch)
@@ -121,11 +126,18 @@ console.log(`
 			await tests.TestPotKvs_ComplexSave(T, bee, batch)
 
 			await tests.TestPotKvs_Cancellation(T, bee, batch)
+			await tests.TestPotKvs_InternalErrors(T, bee, batch)
+
+			await tests.TestPotKvs_InvalidArguments(T, bee, batch)
 			await tests.TestPotKvs_Failures(T, bee, batch)
 
-		} else {
+		} else if (branch == "stress") {
 
 			await tests.TestPotKvs_Stress(T, bee, batch, iter)
+
+		} else if (branch == "ressources") {
+
+			await tests.TestPotKvs_Release(T, bee, batch, iter)
 		}
 
 		T.balance()

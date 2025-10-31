@@ -1,0 +1,30 @@
+<pre>
+
+	key    <input id=key>
+
+	value  <input id=value>
+
+	       <button onclick="put()"> put </button>
+</pre>
+
+<script src="potjs/lib/pot-web.js"></script>
+
+<script>
+
+	var kvs
+
+	(async () => {
+		await pot.ready()
+		kvs = await pot.new()
+	})()
+
+	const field = (id) => { return document.getElementById(id) }
+
+	async function put() {
+		key = field('key').value
+		value = field('value').value
+		await kvs.put(key, value)
+	}
+
+</script>
+

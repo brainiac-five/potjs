@@ -3,34 +3,35 @@
 
 	POT JS Example 6: Network II
 
-	Check source and console.
+	Check source and browser console.
 
 
 	This page connects to a local Swarm network.
 
-	It is very similar to example 5 and can be tried by running `make
-	example6`, which takes care of the local network and the batch id.
+	It can be tried by running `make example6`, which takes care
+	of the local network and the batch id. The script connects to
+	the http server at port 8080, the Swarm queen node at 1633.
 
 	What those make rules do is essentially:
 
-	% fdp-play start --detach
-	% swarm-cli stamp buy --yes --verbose --depth 20 --amount 1b > .batch_creation
-	% grep "Stamp ID:" .batch_creation | cut -c11-74 > .batch_id
-	% npx http-server -c1 . &
-	% open "http://127.0.0.1:8080/example6.html?bee=http://127.0.0.1:1633&batch=$(cat .batch_id)"
+	  fdp-play start --detach
+	  swarm-cli stamp buy --yes --verbose --depth 20 --amount 1b > .batch_creation
+	  grep "Stamp ID:" .batch_creation | cut -c11-74 > .batch_id
+	  npx http-server -c1 . &
+	  open "http://127.0.0.1:8080/example6.html?bee=http://127.0.0.1:1633&batch=$(cat .batch_id)"
 
-	If the batch id file exists, or the server is already running, some
-	lines will be skipped.
+	If the batch id file exists, or the http server is already running, the
+	make rules will skip the respective lines.
 
-	Use `make stop` to stop servers.
+	Use `make stop` to stop the servers, or keep them running for the next
+	examples.
 
 
 	<img src=favicon.ico>
 
-
 </pre>
 
-<script src="lib/pot-web.js" wasm="lib/pot.wasm" verbosity=2></script>
+<script src="lib/pot-web.js" verbosity=2></script>
 
 <script>
 
@@ -40,17 +41,37 @@
 
 	batch = new URLSearchParams(window.location.search).get('batch');
 
-	map = await pot.new("http://localhost:1633", batch)
+	kvs1 = await pot.new("http://localhost:1633", batch)
 
-	await map.put("hello", "POT!")
+	console.log("kvs #1 -- put hello      : POT!")
 
-	value = await map.get("hello")
+	await kvs1.put("hello", "POT!")
 
-	console.log("key ‹hello› has:", value)
+	value = await kvs1.get("hello")
 
-	ref = await map.save()
+	console.log("kvs #1 -- key ‹hello› has:", value)
 
-	console.log("tree root is:", ref)
+	ref1 = await kvs1.save()
+
+	console.log("kvs #1 -- trie root is   :", ref1)
+
+	kvs2 = await pot.load(ref1, "http://localhost:1633", batch)
+
+	value2 = await kvs2.get("hello")
+
+	console.log("kvs #2 -- key ‹hello› has:", value2)
+
+	ref2 = await kvs2.save()
+
+	console.log("kvs #2 -- trie root is   :", ref2)
+
+	console.log("kvs #2 -- put baz        : true")
+
+	await kvs2.put("baz", true)
+
+	ref3 = await kvs2.save()
+
+	console.log("kvs #2 -- trie root is   :", ref3)
 
 })()
 

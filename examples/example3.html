@@ -1,7 +1,11 @@
 <pre>
 
 
-	POT JS Example 3: Explicit Initialization 
+	POT JS Example 3: Explicit Initialization
+
+	This page does not use pot-web.js but initializes pot.wasm directly.
+	It uses a global variable to set verbosity.
+
 
 
 	key    <input id=key>
@@ -24,25 +28,22 @@
 	<img src=favicon.ico>
 
 
-<hr />
-
-
-	This page does not use pot.js but initializes pot.wasm directly.
-
 </pre>
 
 <script src="lib/wasm_exec.js"></script>
 
 <script>
 
+	var kvs
+
 	const go = new Go()
 
-	var map;
+	window.potjs_verbosity = 3
 
 	WebAssembly.instantiateStreaming(fetch("lib/pot.wasm"), go.importObject)
-		.then((r)=>{
+		.then(async (r)=>{
 			go.run(r.instance)
-			map = pot.newSync()
+			kvs = await pot.new()
 		})
 
 	const field = (id) => { return document.getElementById(id) }
@@ -51,13 +52,13 @@
 
 		key = field('key').value
 		value = field('value').value
-		await map.putSync(key, value)
+		await kvs.put(key, value)
 	}
 
 	async function get() {
 
 		key = field('search').value
-		value = await map.getSync(key)
+		value = await kvs.get(key)
 		field('result').value = value
 	}
 

@@ -1,0 +1,30 @@
+name: Stress MacOS
+
+on:
+  push:
+    branches: [ dev ]
+  pull_request:
+    branches: [ dev ]
+
+jobs:
+  inmem-stress-tests-macos:
+    name: In-Memory Stress Tests MacOS
+    runs-on: macos-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Run in-memory stress tests
+      run: |
+        make node_inmem_stress
+

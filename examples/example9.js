@@ -1,18 +1,21 @@
 console.log(`
 
-	POT JS Example 9: Node.js Web App Server / local Swarm network
+	POT JS Example 9: Node.js, local Swarm network, synchronous
 
-	This is a self-contained web app, serving
-	a page to receive input, returning results.
+	This is a self-contained web app, serving a page to receive input,
+	returning the results.
 
-	Identical to example 8, just started with different arguments,
-	giving a network url and a batch id, by make.
+	Functionally identical to example 8, just: started with different
+	arguments — a network url and a batch id — by the calling make rule;
+	and POT calls used are synchronously blocking instead of promises.
+
+	open http://localhost:3000
 
 `)
 
 const http = require("http")
 const qs = require("querystring")
-const pot = require("./lib/pot-node")("./lib/pot.wasm", 2) // 2 = ERROR log level
+require("./lib/pot-node")
 
 const form = `<pre>
 
@@ -39,79 +42,63 @@ const form = `<pre>
 
 		</form>
 
+	<hr />
+
 	</pre>
 
-	<script> console.log('see server log in terminal') </script>`
+	<script> console.log('see server log in terminal') </script>
+
+	<pre>
+		`
 
 var kvs
 
-; (async () => {
-
-	await pot.ready()
+global.onPotInitialized = () => {
 
 	bee = process.argv[2]
 	batch = process.argv[3]
-	console.log("srv:  network parameters:", bee, batch)
 
 	kvs = pot.newSync(bee, batch)
-	console.log("srv:  KVS initialized")
 
-	// Notes:
-	// * onWasmLoaded has to be added to `global` to be detected
-	// * There is no catching of early calls of put() and get()
-	//   in this example, which in theory could race the loading
-	//   of pot.wasm and the creation of kvs.
-	// * onWasmLoaded could be defined async to use `await pot.new()`
-	// * The "pot: " log entries are coming from pot.wasm.
-})()
+	// There is no catching of early calls of put() and get()
+	// in this example, which in theory could race the loading
+	// of pot.wasm and the creation of kvs.
+}
 
-async function put(key, value) {
+function put(key, value) {
 
-	await kvs.put(key, value)
+	kvs.putSync(key, value)
 
 	return `put ${key}: ${value}`
 }
 
-async function get(search) {
+function get(search) {
 
-	value = await kvs.get(search)
+	value = kvs.getSync(search)
 
 	return `get ${search}: ${value}
+
 		<script>
 		document.getElementsByName('result')[0].value = '${value}'
 		</script>`
 }
 
-const server = http.createServer(function(request, response) {
+const server = http.createServer((request, response) => {
 
-	if (request.method == 'POST') {
+	var log  = ''
+	var body = ''
 
-		var body = ''
-		request.on('data', function(data) {
-			body += data
-		})
-
-		request.on('end', async function() {
-
-			var log
-			const post = qs.parse(body)
-
-			if(post.button == 'put')
-				log = await put(post.key, post.value)
-			else
-				log = await get(post.search)
-
-			console.log("srv: " + log.match(/.*/)[0])
-
-			response.writeHead(200, {'Content-Type': 'text/html'})
-			response.end(form + '<hr><br><pre>\t\t' + log)
-		})
-	}
-	else {
-		response.writeHead(200, {'Content-Type': 'text/html'})
-		response.end(form)
-	}
+	request.on('data', (data) => body += data)
+	       .on('end', () => {
+			const { button, key, value, search } = qs.parse(body)
+			switch(button) {
+			case 'put': log = put(key, value) ; break
+			case 'get': log = get(search)
+			}
+			response.writeHead(200)
+			response.end(form + log)
+	})
 })
 .listen(3000, '127.0.0.1')
 
-console.log(`srv: listening at http://127.0.0.1:3000`)
+console.log('srv: listening at http://127.0.0.1:3000')
