@@ -186,6 +186,23 @@ func (ps *SwarmKvs) Put(ctx context.Context, key []byte, value []byte) error {
 	return nil
 }
 
+// Delete() drops a key-value pair from the mock store.
+func (ps *SwarmKvs) Delete(ctx context.Context, key []byte) error {
+
+	log(INFO, "» using simulated storage")
+
+	if mockFail() {
+		return errors.New("mock fail of Delete()")
+	}
+	mockPanic("Delete()")
+	mockDelay(ctx)
+	mockHang(ctx)
+
+	delete(ps.Store, bHex(key))
+
+	return nil
+}
+
 // Save() saves key-value pair to the underlying storage and returns the reference.
 func (ps *SwarmKvs) Save(ctx context.Context) (rref []byte, rerr error) {
 

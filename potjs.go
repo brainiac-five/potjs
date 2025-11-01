@@ -55,7 +55,7 @@ import (
 	"time"
 	"regexp"
 
-	. "github.com/ethersphere/proximity-order-trie" // . helps mocking
+	. "github.com/brainiac-five/pot" // . helps mocking
 	"github.com/ethersphere/proximity-order-trie/pkg/persister"
 )
 
@@ -173,6 +173,7 @@ var jsGetRaw js.Func
 var jsGetBoolean js.Func
 var jsGetNumber js.Func
 var jsGetString js.Func
+var jsDelete js.Func
 var jsPutSync js.Func
 var jsGetSync js.Func
 var jsPutRawSync js.Func
@@ -180,6 +181,7 @@ var jsGetRawSync js.Func
 var jsGetBooleanSync js.Func
 var jsGetNumberSync js.Func
 var jsGetStringSync js.Func
+var jsDeleteSync js.Func
 var jsSave js.Func
 var jsSaveSync js.Func
 
@@ -565,6 +567,7 @@ func createMapObject(slot_ref int) js.Value {
 	jsMap.Set("getBoolean", jsGetBoolean)
 	jsMap.Set("getNumber", jsGetNumber)
 	jsMap.Set("getString", jsGetString)
+	jsMap.Set("delete", jsDelete)
 	jsMap.Set("putSync", jsPutSync)
 	jsMap.Set("getSync", jsGetSync)
 	jsMap.Set("putRawSync", jsPutRawSync)
@@ -572,6 +575,7 @@ func createMapObject(slot_ref int) js.Value {
 	jsMap.Set("getBooleanSync", jsGetBooleanSync)
 	jsMap.Set("getNumberSync", jsGetNumberSync)
 	jsMap.Set("getStringSync", jsGetStringSync)
+	jsMap.Set("deleteSync", jsDeleteSync)
 	jsMap.Set("save", jsSave)
 	jsMap.Set("saveSync", jsSaveSync)
 
@@ -753,14 +757,14 @@ func _put(ctx context.Context, this js.Value, parameters []js.Value, raw bool, _
 		log(CRIT, msg)
 		return jsError(msg), false
 	}
-
+/*
 	// sync calls to networks deadlock for node
 	if sync && !slot.allowSync {
 		msg := "### error in put*(): no sync calls to networks in-browser"
 		log(ERR, msg)
 		return jsError(msg), false
 	}
-
+*/
 	key := parameters[0]
 	bkey, kerr := jsToKey(key)
 
@@ -1015,7 +1019,7 @@ func _get(ctx context.Context, this js.Value, parameters []js.Value, raw bool, c
 		return jsError(msg), false
 	}
 
-	key := parameters[0] // existence already checked in calling function
+	key := parameters[0]
 	bkey, kerr := jsToKey(key)
 
 	if kerr != nil {
@@ -1091,6 +1095,101 @@ func _get(ctx context.Context, this js.Value, parameters []js.Value, raw bool, c
 	log(DEB, "› ⟵  "+bHex(pkey)+": "+bHex(bValue)+"")
 
 	return jsValue, true // success
+}
+
+// DELETE ----------------------------------------------------------------------
+
+func delete_(this js.Value, parameters []js.Value) (result interface{}) {
+
+	return promise(this, parameters, 2, "delete", _delete, TYPED, nil)
+}
+
+func deleteSync(this js.Value, parameters []js.Value) (result interface{}) {
+
+	return first(_delete(context.Background(), this, parameters, TYPED, nil, SYNC))
+}
+
+// _delete() is the internal get function that handles the delete*() variants.
+// It is blocking, and async delete() wraps it into a promise.
+func _delete(ctx context.Context, this js.Value, parameters []js.Value, _ bool, _ func([]byte) (js.Value, error), sync bool) (result js.Value, ok bool) {
+
+	// on panic, log, and return js Error object in first result position
+	defer func() {
+		if err := recover(); err != nil {
+			msg := "### panic in delete*(): " + toString(err)
+			log(CRIT, msg)
+			result = jsError(msg)
+			ok = false
+		}
+	}()
+
+	wrap := func(err error) string { return "### error in delete*(): " + err.Error() }
+
+	// check of parameter count
+	if len(parameters) < 1 {
+		msg := "### parameter count error: delete*() requires 1, got none" 
+		log(ERR, msg)
+		return jsError(msg), false
+	}
+
+	// get data slot of kvs
+	slot, err := getSlot(this)
+
+	if err != nil {
+		msg := wrap(err)
+		log(CRIT, msg)
+		return jsError(msg), false
+	}
+/*
+	if sync && !slot.allowSync {
+		msg := "### error in get*(): no sync calls to networks in-browser"
+		log(ERR, msg)
+		return jsError(msg), false
+	}
+*/
+	key := parameters[0]
+	bkey, kerr := jsToKey(key)
+
+	if kerr != nil {
+		msg := wrap(kerr) /// cover
+		log(CRIT, msg)
+		return jsError(msg), false
+	}
+
+	pkey, perr := pad(bkey)
+
+	if perr != nil {
+		msg := wrap(perr) /// cover
+		log(CRIT, msg)
+		return jsError(msg), false
+	}
+
+	debug := ""
+	if len(parameters) >= 3 {
+		debug = "[" + jsToString(parameters[2]) + "]"
+	}
+
+	// -------------------------------------------------------------------
+	err = slot.Kvs.Delete(ctx, pkey)
+	// -------------------------------------------------------------------
+
+	if err != nil {
+
+		// legit unset value, no error
+		// if err.Error() == "not found" {
+		//	jsValue = js.Undefined()
+
+		// propagate error
+		//} else {
+			msg := wrap(err)
+			log(ERR, msg)
+			return jsError(msg), false
+		//}
+	}
+
+	log(INFO, "» delete "+debug+" "+jsToString(key))
+
+	return js.Null(), true // success
 }
 
 // MAIN ----------------------------------------------------------------------
@@ -1204,6 +1303,7 @@ func main() {
 	jsGetBoolean = js.FuncOf(getBoolean)
 	jsGetNumber = js.FuncOf(getNumber)
 	jsGetString = js.FuncOf(getString)
+	jsDelete = js.FuncOf(delete_)
 	jsPutSync = js.FuncOf(putSync)
 	jsGetSync = js.FuncOf(getSync)
 	jsPutRawSync = js.FuncOf(putRawSync)
@@ -1211,6 +1311,7 @@ func main() {
 	jsGetBooleanSync = js.FuncOf(getBooleanSync)
 	jsGetNumberSync = js.FuncOf(getNumberSync)
 	jsGetStringSync = js.FuncOf(getStringSync)
+	jsDeleteSync = js.FuncOf(deleteSync)
 	jsSave = js.FuncOf(save)
 	jsSaveSync = js.FuncOf(saveSync)
 
@@ -1364,6 +1465,23 @@ func errorPromise(msg string) js.Value {
 	return js.Global().Get("Promise").New(executor)
 }
 
+// -----------------------------------------------------------------------------
+//
+//   Missing Go POT KVS Function
+//
+// -----------------------------------------------------------------------------
+
+// DELETE ----------------------------------------------------------------------
+/*
+// Delete takes the key's key-value pair out of the trie
+func  Delete(ctx context.Context, ps *SwarmKvs, key []byte) error {
+	err := ps.idx.Delete(ctx, key)
+	if err != nil {
+		return fmt.Errorf("failed to delete key-value pair from pot %w", err)
+	}
+	return nil
+}
+*/
 // -----------------------------------------------------------------------------
 //
 //   Support Functions
@@ -1752,11 +1870,11 @@ func jsToString(p js.Value) string {
 //
 // byte  const     Javascript   Go          excl.   incl. type byte
 //
-//	0   NULL      null         nil          0+      1+
-//	1   BOOLEAN   boolean      bool         1+      2+
-//	2   NUMBER    number       float64      8       9
-//	3   STRING    string       string       0+      1+
-//	4   BYTES     Uint8Array   []byte       0+      1+
+//   0   NULL      null         nil          0+      1+
+//   1   BOOLEAN   boolean      bool         1+      2+
+//   2   NUMBER    number       float64      8       9
+//   3   STRING    string       string       0+      1+
+//   4   BYTES     Uint8Array   []byte       0+      1+
 func typeEncodedBytes(p js.Value) (result []byte, rerr error) {
 
 	defer func() {

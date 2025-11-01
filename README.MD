@@ -1278,9 +1278,9 @@ Possible future improvements:
 	•  hashes for internal slot references
 	•  proof retrieval function
 	•  tree walk functions
-	•  js-native persisters*
+	•  js-native persisters
 	•  typescript version
 	•  go-side resource tracking instrumentation
-	•  use of js new operator*
+	•  use of js new operator
 	•  error message clean up
 

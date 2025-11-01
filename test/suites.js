@@ -81,6 +81,14 @@ function TestPotKvsSync(T, bee_url, batch_id) {
 	val = map.getBooleanSync(key1)
 	T.assertEqual(t0, T, val, val1)
 
+	T.log("• delete " + key1)
+	err = map.deleteSync(key1)
+	T.assertNoError(t0, T, err)
+
+	T.log("• getBooleanSync " + key1)
+	val = map.getBooleanSync(key1)
+	T.assertEqual(t0, T, val, undefined)
+
 
 	T.log("--- s t r i n g")
 
@@ -184,6 +192,14 @@ async function TestPotKvsAsync(T, bee_url, batch_id) {
 		T.log("• get " + key1)
 		val = await map.get(key1)
 		T.assertEqual(t0, T, val, val1)
+
+		T.log("• delete " + key1)
+		err = await map.delete(key1)
+		T.assertNoError(t0, T, err)
+
+		T.log("• get " + key1)
+		val = await map.get(key1)
+		T.assertEqual(t0, T, val, undefined)
 
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)

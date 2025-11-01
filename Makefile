@@ -182,7 +182,7 @@ lib/wasm_exec.js.sh384: lib/wasm_exec.js
 # as opposed to the simulation (below).
 go.mod:
 	go mod init potjs
-	go mod edit -replace github.com/ethersphere/proximity-order-trie=github.com/ethersphere/proximity-order-trie@v1.0.0
+	go mod edit -replace github.com/brainiac-five/pot=github.com/brainiac-five/pot@v1.0.2
 	go get
 
 
@@ -457,9 +457,9 @@ stop: http_stop locnet_stop
 # special version of pot.wasm though which behaves very similar to the real
 # one and can trip up the building.
 mock: go.mod
-	go mod edit -dropreplace github.com/ethersphere/proximity-order-trie
-	go mod edit -replace github.com/ethersphere/proximity-order-trie=./mock
-	go get github.com/ethersphere/proximity-order-trie/pkg/persister
+	go mod edit -dropreplace github.com/brainiac-five/pot
+	go mod edit -replace github.com/brainiac-five/pot=./mock
+	go get github.com/brainiac-five/pot/pkg/persister
 
 # revert the changes that `mock` effects, namely the replacing of the go
 # pot implementation with the mock stub in mock/. This reverts to the normal
@@ -467,7 +467,7 @@ mock: go.mod
 unmock: go.mod
 ifneq ($(MOCKED),)
 	@echo "⬡ undoing simulation build settings"
-	go mod edit -dropreplace github.com/ethersphere/proximity-order-trie
+	go mod edit -dropreplace github.com/brainiac-five/pot
 	go mod tidy
 endif
 
