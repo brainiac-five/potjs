@@ -145,6 +145,7 @@ function alignpad(add, had, width, sep) {
 		return ""
 	const h = had.length 
 	const a = add.length
+	const w = width
 	if(width-a-h < 1) return " " + sep + " " + add
 	return " ".repeat(width-a-h) + add
 }
@@ -167,6 +168,21 @@ function linebreak(text, width, reserve) {
 		lines.push(" ".repeat(indent) + text.slice(0,p).replace("√", ok + "√" + off))
 		text = text.slice(p+1)
 		indent = findent
+	}
+	z = lines.length-1
+	k = lines[z].lastIndexOf("|")
+	if(k > 0) {
+		f = width - lines[z].length + 1
+		lines[z] = lines[z].replace("|", " ".repeat(f))
+	} else {
+		if(z > 0) {
+			k = lines[z-1].lastIndexOf("|")
+			if(k > 0) {
+				lines[z-1] = lines[z-1].replace("|", "")
+				f = width - lines[z].length
+				lines[z] = " ".repeat(f) + lines[z]
+			}
+		}
 	}
 	return lines
 }
@@ -328,7 +344,7 @@ T.attestError = function(t, T, err) {
 T.attestExpectedError = function(t, T, err, exp) {
 	T.tests++
 	set_counter(T.tests)
-	if(exp && err != exp) {
+	if(exp && err != exp && !err.message.includes(exp)) {
 		T.log(t, "### Wrong Error: ‹" + err + "›, expected ‹" + exp + "› ###")
 		T.errors++
 	}

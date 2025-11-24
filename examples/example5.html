@@ -31,9 +31,9 @@
 
 	await pot.ready()
 
-	kvs = await pot.new("http://localhost:1633", "f3a6154ddc77fb56ff53661abdcbce59e7b0ce27c57ff6ac87bf7609e8dc2d4c")
+	kvs = await pot.new("http://localhost:1633", "0c3426baea54e462160184ec48f74ec0ab9e1d9dcce7fe09fc376c5fc1e2d3c8")
 
-	await kvs.put("hello", "POT!")
+	kvs.putSync("hello", "POT!")
 
 	ref = await kvs.save()
 

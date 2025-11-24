@@ -5,16 +5,6 @@
 	value  <input id=value>
 
 	       <button onclick="put()"> put </button>
-
-
-<hr />
-
-	key    <input id=search>
-
-	       <button onclick="get()"> get </button>
-
-	value  <input id=result>
-
 </pre>
 
 <script src="potjs/lib/pot-web.js"></script>
@@ -34,12 +24,6 @@
 		key = field('key').value
 		value = field('value').value
 		await kvs.put(key, value)
-	}
-
-	async function get() {
-		key = document.getElementById ('search').value
-		value = await kvs.get(key)
-		document.getElementById ('result').value = value
 	}
 
 </script>

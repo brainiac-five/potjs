@@ -1898,7 +1898,7 @@ async function TestPotKvs_TypedAccessAsync(T, bee_url, batch_id) {
 	T.start("• testing wrong type code by promise")
 	v = pot.randValue()
 	v[0] = 10 // not a type code
-	T.log("This would be an internal error, or trying to access an entry put raw with the higher-level type-aware get.")
+	T.log("This would be an internal error, or trying to access an entry put raw with a type-aware get*().")
 	T.log("• testing these wrongly marked bytes: ")
 	T.log(T.hexa(v))
 	T.log("• new map")
@@ -1923,7 +1923,7 @@ async function TestPotKvs_TypedAccessAsync(T, bee_url, batch_id) {
 
 	T.start("• too-short byte sequence for a number" + " by promise")
 	v = new Uint8Array([2,1,0]) // 2 = number, which expects 9 bytes total
-	T.log("This would be an internal error, or trying to access an entry put raw with the higher-level type-aware get.")
+	T.log("This would be an internal error, or trying to access an entry put raw with a type-aware get*().")
 	T.log("• testing these too short bytes (for a number): " + T.hexa(v))
 	T.log("• new map")
 	map = pot.newSync(bee_url, batch_id)
@@ -1974,7 +1974,7 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 	ref = map.saveSync()
 	T.assertIsError(t0, T, ref)
 
-	{
+	if(T.NODE || !bee_url && !batch_id) {
 
 		T.start("Save non-empty KVS, return reference, synchronous")
 
@@ -2825,7 +2825,9 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 		await T.delay(100)
 	}{
 
-		T.start("store and retrieve "+massmax+" values concurrently, awaiting promises")
+		T.start("Concurrent store and retrieve "+massmax+", with promises")
+
+		T.log("Store and retrieve "+massmax+" values concurrently, awaiting promises")
 
 		timeout = massmax * 100
 
@@ -2875,7 +2877,9 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 	}{
 
-		T.start("Concurrent Putting, Getting, Saving, Loading, Switching Maps, with Promises")
+		T.start("Concurrency, with Promises")
+
+		T.log("Concurrent Putting, Getting, Saving, Loading, Switching Maps, with Promises")
 
 		key1 = "K1"
 		val1 = "V1"
@@ -3078,7 +3082,8 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 	}{
 
-		T.start("Crossover Concurrent Putting, Getting, Saving, Loading, Switching Maps across threads, with Promises")
+		T.start("Cross-KVS Concurrency with Promises")
+
 		T.log("Crossover concurrent putting, getting, saving, loading, switching maps across threads, with promises")
 
 		key1 = "K1"
@@ -3772,13 +3777,19 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 
-	T.head("Time Out and Cancellations")
+	T.head("Timeout and Cancellations")
+
+
+	if(pot.testMode() != "simulation") {
+		T.log("Timeout and Cancellation tests are available in `simulation` test mode. Use `make web_sim_test` or `make node_sim_test`.")
+		return
+	}
 
 	T.log("This tests the cancellable promises created in Go to control resource leakage.")
-	T.log("It uses mock promises that hang undtil cancelled.")
+	T.log("It uses mock promises that hang until cancelled.")
 
 
-	T.start("Time Out of Test Function")
+	T.start("Timeout of Test Function")
 
 	T.log("• create hanging test promise and let it time out (try-catch)")
 	try {
@@ -3789,11 +3800,390 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	}
 
 
-	T.start("Time Out of Test Function II")
+	T.start("Timeout of Test Function II")
 
 	T.log("• create hanging test promise and let it time out (chained catch)")
 	ref = await pot.hangingPromise()
+		.then(()=>T.attestMissingError(t0, T))
 		.catch((err)=>T.attestExpectedError(t0, T, err, "Error: done sleeping, nothing happened"))
+
+
+
+	// ---------------------------------------------------------------------
+	// Timeouts of standard operations
+
+
+	T.start("Timeout of sync Put")
+
+	key = pot.randKey()
+	val = pot.randValue()
+
+	if(T.NODE || !bee_url && !batch_id) {
+		kvs = await pot.new(bee_url, batch_id) 
+		T.assertNoError(t0, T, !kvs)
+		pot.setHang(true)
+		ret = kvs.putSync(key, val, 100)
+		T.assertError(t0, T, ret, /context deadline exceeded/)
+	} else {
+		T.log("n/a in-browser with network")
+	}
+
+	T.start("Timeout of async Put (try/catch)")
+
+	key = pot.randKey()
+	val = pot.randValue()
+
+	try {
+		kvs = await pot.new(bee_url, batch_id) 
+		T.assertNoError(t0, T, !kvs)
+		pot.setHang(true)
+		await kvs.put(key, val, 100)
+		T.attestMissingError(t0, T)
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "context deadline exceeded")
+	}
+
+	T.start("Timeout of async Put (chained .catch())")
+
+	kvs = await pot.new(bee_url, batch_id) 
+	T.assertNoError(t0, T, !kvs)
+	err = await kvs.put(key, val)
+	T.assertNoError(t0, T, err)
+	pot.setHang(true)
+	await kvs.put(key, val, 100)
+		.then(()=>T.attestMissingError(t0, T))
+		.catch((err)=>T.attestExpectedError(t0, T, err, "context deadline exceeded"))
+
+
+	T.start("Timeout of sync Get")
+
+	key = pot.randKey()
+	val = pot.randValue()
+
+	if(T.NODE || !bee_url && !batch_id) {
+		kvs = await pot.new(bee_url, batch_id)
+		T.assertNoError(t0, T, !kvs)
+		err = await kvs.put(key, val)
+		T.assertNoError(t0, T, err)
+		pot.setHang(true)
+		ret = kvs.getSync(key, 100)
+		T.assertError(t0, T, ret, /context deadline exceeded/)
+	} else {
+		T.log("n/a in-browser with network")
+	}
+
+	T.start("Timeout of async Get (try/catch)")
+
+	key = pot.randKey()
+	val = pot.randValue()
+
+	try {
+		kvs = await pot.new(bee_url, batch_id)
+		T.assertNoError(t0, T, !kvs)
+		err = await kvs.put(key, val)
+		T.assertNoError(t0, T, err)
+		pot.setHang(true)
+		val1 = await kvs.get(key, 100)
+		T.attestMissingError(t0, T)
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "context deadline exceeded")
+	}
+
+	T.start("Timeout of async Get (chained .catch)")
+
+	kvs = await pot.new(bee_url, batch_id) 
+	T.assertNoError(t0, T, !kvs)
+	err = await kvs.put(key, val)
+	T.assertNoError(t0, T, err)
+	pot.setHang(true)
+	val1 = await kvs.get(key, 100)
+		.then(()=>T.attestMissingError(t0, T))
+		.catch((err)=>T.attestExpectedError(t0, T, err, "context deadline exceeded"))
+
+
+	T.start("Timeout of sync Get Boolean")
+
+	key = pot.randKey()
+	val = pot.randValue()
+
+	if(T.NODE || !bee_url && !batch_id) {
+		kvs = await pot.new(bee_url, batch_id) 
+		T.assertNoError(t0, T, !kvs)
+		err = await kvs.putRaw(key, val)
+		T.assertNoError(t0, T, err)
+		pot.setHang(true)
+		ret = kvs.getBooleanSync(key, 100)
+		T.assertError(t0, T, ret, /context deadline exceeded/)
+	} else {
+		T.log("n/a in-browser with network")
+	}
+
+	T.start("Timeout of async Get Boolean (try/catch)")
+
+	key = pot.randKey()
+	val = true
+
+	try {
+		kvs = await pot.new(bee_url, batch_id) 
+		T.assertNoError(t0, T, !kvs)
+		err = await kvs.putRaw(key, val)
+		T.assertNoError(t0, T, err)
+		pot.setHang(true)
+		val1 = await kvs.getBoolean(key, 100)
+		T.attestMissingError(t0, T)
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "context deadline exceeded")
+	}
+
+	T.start("Timeout of async Get Boolean (chained .catch)")
+
+	kvs = await pot.new(bee_url, batch_id) 
+	T.assertNoError(t0, T, !kvs)
+	err = await kvs.putRaw(key, val)
+	T.assertNoError(t0, T, err)
+	pot.setHang(true)
+	val1 = await kvs.getBoolean(key, 100)
+		.then(()=>T.attestMissingError(t0, T))
+		.catch((err)=>T.attestExpectedError(t0, T, err, "context deadline exceeded"))
+
+
+	T.start("Timeout of sync Get Number")
+
+	key = pot.randKey()
+	val = pot.randValue()
+
+	if(T.NODE || !bee_url && !batch_id) {
+		kvs = await pot.new(bee_url, batch_id) 
+		T.assertNoError(t0, T, !kvs)
+		err = await kvs.putRaw(key, val)
+		T.assertNoError(t0, T, err)
+		pot.setHang(true)
+		ret = kvs.getNumberSync(key, 100)
+		T.assertError(t0, T, ret, /context deadline exceeded/)
+	} else {
+		T.log("n/a in-browser with network")
+	}
+
+	T.start("Timeout of async Get Number (try/catch)")
+
+	key = pot.randKey()
+	val = 2137
+
+	try {
+		kvs = await pot.new(bee_url, batch_id) 
+		T.assertNoError(t0, T, !kvs)
+		err = await kvs.putRaw(key, val)
+		T.assertNoError(t0, T, err)
+		pot.setHang(true)
+		val1 = await kvs.getNumber(key, 100)
+		T.attestMissingError(t0, T)
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "context deadline exceeded")
+	}
+
+	T.start("Timeout of async Get Number (chained .catch)")
+
+	kvs = await pot.new(bee_url, batch_id) 
+	T.assertNoError(t0, T, !kvs)
+	err = await kvs.putRaw(key, val)
+	T.assertNoError(t0, T, err)
+	pot.setHang(true)
+	val1 = await kvs.getNumber(key, 100)
+		.then(()=>T.attestMissingError(t0, T))
+		.catch((err)=>T.attestExpectedError(t0, T, err, "context deadline exceeded"))
+
+
+	T.start("Timeout of sync Get String")
+
+	key = pot.randKey()
+	val = pot.randValue()
+
+	if(T.NODE || !bee_url && !batch_id) {
+		kvs = await pot.new(bee_url, batch_id) 
+		T.assertNoError(t0, T, !kvs)
+		err = await kvs.putRaw(key, val)
+		T.assertNoError(t0, T, err)
+		pot.setHang(true)
+		ret = kvs.getStringSync(key, 100)
+		T.assertError(t0, T, ret, /context deadline exceeded/)
+	} else {
+		T.log("n/a in-browser with network")
+	}
+
+	T.start("Timeout of async Get String (try/catch)")
+
+	key = pot.randKey()
+	val = "abc"
+
+	try {
+		kvs = await pot.new(bee_url, batch_id) 
+		T.assertNoError(t0, T, !kvs)
+		err = await kvs.putRaw(key, val)
+		T.assertNoError(t0, T, err)
+		pot.setHang(true)
+		val1 = await kvs.getString(key, 100)
+		T.attestMissingError(t0, T)
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "context deadline exceeded")
+	}
+
+	T.start("Timeout of async Get String (chained .catch)")
+
+	kvs = await pot.new(bee_url, batch_id) 
+	T.assertNoError(t0, T, !kvs)
+	err = await kvs.putRaw(key, val)
+	T.assertNoError(t0, T, err)
+	pot.setHang(true)
+	val1 = await kvs.getString(key, 100)
+		.then(()=>T.attestMissingError(t0, T))
+		.catch((err)=>T.attestExpectedError(t0, T, err, "context deadline exceeded"))
+
+
+	T.start("Timeout of sync Delete")
+
+	key = pot.randKey()
+	val = pot.randValue()
+
+	if(T.NODE || !bee_url && !batch_id) {
+		kvs = await pot.new(bee_url, batch_id) 
+		T.assertNoError(t0, T, !kvs)
+		err = await kvs.put(key, val)
+		T.assertNoError(t0, T, err)
+		pot.setHang(true)
+		ret = kvs.deleteSync(key, 100)
+		T.assertError(t0, T, ret, /context deadline exceeded/)
+	} else {
+		T.log("n/a in-browser with network")
+	}
+
+	T.start("Timeout of async Delete (try/catch)")
+
+	key = pot.randKey()
+	val = "abc"
+
+	try {
+		kvs = await pot.new(bee_url, batch_id) 
+		T.assertNoError(t0, T, !kvs)
+		err = await kvs.put(key, val)
+		T.assertNoError(t0, T, err)
+		pot.setHang(true)
+		await kvs.delete(key, 100)
+		T.attestMissingError(t0, T)
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "context deadline exceeded")
+	}
+
+	T.start("Timeout of async Delete (chained .catch)")
+
+	kvs = await pot.new(bee_url, batch_id) 
+	T.assertNoError(t0, T, !kvs)
+	err = await kvs.put(key, val)
+	T.assertNoError(t0, T, err)
+	pot.setHang(true)
+	await kvs.delete(key, 100)
+		.then(()=>T.attestMissingError(t0, T))
+		.catch((err)=>T.attestExpectedError(t0, T, err, "context deadline exceeded"))
+
+
+	T.start("Timeout of sync Save")
+
+	key = pot.randKey()
+	val = pot.randValue()
+
+	if(T.NODE || !bee_url && !batch_id) {
+		kvs = await pot.new(bee_url, batch_id)
+		T.assertNoError(t0, T, !kvs)
+		err = await kvs.put(key, val)
+		T.assertNoError(t0, T, err)
+		pot.setHang(true)
+		ret = kvs.saveSync(100)
+		T.assertError(t0, T, ret, /context deadline exceeded/)
+	} else {
+		T.log("n/a in-browser with network")
+	}
+
+	T.start("Timeout of async Save (try/catch)")
+
+	key = pot.randKey()
+	val = pot.randValue()
+
+	try {
+		kvs = await pot.new(bee_url, batch_id)
+		T.assertNoError(t0, T, !kvs)
+		err = await kvs.put(key, val)
+		T.assertNoError(t0, T, err)
+		pot.setHang(true)
+		await kvs.save(100)
+		T.attestMissingError(t0, T)
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "context deadline exceeded")
+	}
+
+	T.start("Timeout of async Save (chained .catch)")
+
+	kvs = await pot.new(bee_url, batch_id) 
+	T.assertNoError(t0, T, !kvs)
+	err = await kvs.put(key, val)
+	T.assertNoError(t0, T, err)
+	pot.setHang(true)
+	await kvs.save(100)
+		.then(()=>T.attestMissingError(t0, T))
+		.catch((err)=>T.attestExpectedError(t0, T, err, "context deadline exceeded"))
+
+
+	T.start("Timeout of sync Load")
+
+	key = pot.randKey()
+	val = pot.randValue()
+
+	if(T.NODE || !bee_url && !batch_id) {
+		kvs = await pot.new(bee_url, batch_id)
+		T.assertNoError(t0, T, !kvs)
+		err = await kvs.put(key, val)
+		T.assertNoError(t0, T, err)
+		ref = await kvs.save()
+		T.assertNotAnError(t0, T, ref)
+		pot.setHang(true)
+		ret = pot.loadSync(ref, bee_url, batch_id, 100)
+		T.assertError(t0, T, ret, /context deadline exceeded/)
+	} else {
+		T.log("n/a in-browser with network")
+	}
+
+	T.start("Timeout of async Load (try/catch)")
+
+	key = pot.randKey()
+	val = pot.randValue()
+
+	try {
+		kvs = await pot.new(bee_url, batch_id)
+		T.assertNoError(t0, T, !kvs)
+		err = await kvs.put(key, val)
+		T.assertNoError(t0, T, err)
+		ref = await kvs.save()
+		T.assertNotAnError(t0, T, ref)
+		pot.setHang(true)
+		await pot.load(ref, bee_url, batch_id, 100)
+		T.attestMissingError(t0, T)
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "context deadline exceeded")
+	}
+
+	T.start("Timeout of async Load (chained .catch)")
+
+	kvs = await pot.new(bee_url, batch_id) 
+	T.assertNoError(t0, T, !kvs)
+	err = await kvs.put(key, val)
+	T.assertNoError(t0, T, err)
+	ref = await kvs.save()
+	T.assertNotAnError(t0, T, ref)
+	pot.setHang(true)
+	await pot.load(ref, bee_url, batch_id, 100)
+		.then(()=>T.attestMissingError(t0, T))
+		.catch((err)=>T.attestExpectedError(t0, T, err, "context deadline exceeded"))
+
+
+	// ---------------------------------------------------------------------
 
 
 	T.start("Cancel Timer")
@@ -3816,7 +4206,9 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 		ref = pot.hangingPromise()
 		setTimeout(ref.cancel, 100)
 		// note, chaining the .catch immediatelly above gives the wrong ref for cancel().
-		await ref.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
+		await ref
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
@@ -3828,7 +4220,9 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	try {
 		ref = pot.hangingPromise()
 		// note, chaining the .catch immediatelly above gives the wrong ref for cancel().
-		ref.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
+		ref
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
 		await T.delay(100)
 		ref.cancel()
 		T.attestNoError(t0, T)
@@ -3857,14 +4251,15 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	try {
 		ref = pot.hangingPromise()
 		// note, chaining the .catch immediatelly above gives the wrong ref for cancel().
-		ref.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
+		ref
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
 		ref.cancel()
 		T.attestNoError(t0, T)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
-
-
+/*
 
 	T.start("Cancel new()")
 
@@ -3872,7 +4267,9 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	try {
 		ref = pot.new()
 		// note, chaining the .catch immediatelly above gives the wrong ref for cancel().
-		ref.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
+		ref
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
 		await T.delay(100)
 		ref.cancel()
 	} catch(err) {
@@ -3883,13 +4280,18 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	try {
 		ref = pot.new()
 		// note, chaining the .catch immediatelly above gives the wrong ref for cancel().
-		ref.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
+		ref
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
 		ref.cancel()
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
 	await T.delay(700)
+*/
+
+
 }
 
 async function TestPotKvs_InternalErrors(T, bee_url, batch_id) {
@@ -3903,7 +4305,8 @@ async function TestPotKvs_InternalErrors(T, bee_url, batch_id) {
 	T.log("• create panicking test promise and catch it (.catch)")
 	try {
 		pot.panickingPromise()
-		.catch((err)=>T.attestExpectedError(t0, T, err, "### panic in panickingPromise executor: test panic of panickingPromise"))
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "### panic in panickingPromise executor: test panic of panickingPromise"))
 		await T.delay(100)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
@@ -4140,55 +4543,6 @@ async function TestPotKvs_Failures(T, bee_url, batch_id) {
 		T.assertError(t0, T, err, /mock panic/)
 	}
 
-
-	T.start("put - parameter error")
-
-	T.log("• new map, synchronous")
-	map = pot.newSync(bee_url, batch_id)
-	T.assertNoError(t0, T, !map)
-
-	// 1 less
-
-	// fail raw synchronously
-	T.log("• put raw, synchronous - missing value parameter")
-	err = map.putRawSync(key1)
-	T.assertError(t0, T, err, /parameter count.*requires 2/)
-
-	// fail typed synchronously
-	T.log("• put typed, synchronous - missing value parameter")
-	err = map.putSync(key1)
-	T.assertError(t0, T, err, /parameter count.*requires 2/)
-
-	// fail typed asynchronously
-	T.log("• put typed, asynchronous (promise) - missing value parameter")
-	try {
-		err = await map.put(key1)
-		T.attestMissingError(t0, T)
-	} catch(err) {
-		T.assertError(t0, T, err, /parameter count.*requires 2/)
-	}
-
-	// 2 less
-
-	// fail raw synchronously
-	T.log("• put raw, synchronous - missing both parameters")
-	err = map.putRawSync()
-	T.assertError(t0, T, err, /parameter count.*requires 2/)
-
-	// fail typed synchronously
-	T.log("• put typed, synchronous - missing both parameters")
-	err = map.putSync()
-	T.assertError(t0, T, err, /parameter count.*requires 2/)
-
-	// fail typed asynchronously
-	T.log("• put typed, asynchronous (promise) - missing both parameters")
-	try {
-		err = await map.put()
-		T.attestMissingError(t0, T)
-	} catch(err) {
-		T.assertError(t0, T, err, /parameter count.*requires 2/)
-	}
-
 }
 
 
@@ -4204,14 +4558,14 @@ async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 	T.log("max value size is " + maxSize)
 
 	T.log("• " + maxSize + " byte sized value should pass (async)")
-	key1 = "A"
-	val1 = pot.randBuffer(maxSize)
+	let key1 = "A"
+	let val1 = pot.randBuffer(maxSize)
 
 	map = await pot.new(bee_url, batch_id)
 	T.assertNoError(t0, T, !map)
 
 	T.log("• put " + maxSize + " byte buffer raw " + key1)
-	err = await map.putRaw(key1, val1)
+	let err = await map.putRaw(key1, val1)
 	T.assertNoError(t0, T, err)
 
 	T.log("• get " + maxSize + " byte buffer raw " + key1)
@@ -4526,25 +4880,82 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations) {
 // Testing failure modes: function call arguments that should be caught and trigger an error
 async function TestPotKvs_InvalidArguments(T, bee_url, batch_id) {
 
+	T.head("Parameter Errors")
+
+	T.log("Testing wether missing or invalid arguments are contained and don't bring down the Go executable.")
+
+
+	T.start("put - parameter errors")
+
+	T.log("• new map, synchronous")
+	let map = pot.newSync(bee_url, batch_id)
+	T.assertNoError(t0, T, !map)
+
+	// 1 less
+
+	// fail raw synchronously
+	T.log("• put raw, synchronous - missing value parameter")
+	err = map.putRawSync(key1)
+	T.assertError(t0, T, err, /parameter count.*requires 2/)
+
+	// fail typed synchronously
+	T.log("• put typed, synchronous - missing value parameter")
+	err = map.putSync(key1)
+	T.assertError(t0, T, err, /parameter count.*requires 2/)
+
+	// fail typed asynchronously
+	T.log("• put typed, asynchronous (promise) - missing value parameter")
+	try {
+		err = await map.put(key1)
+		T.attestMissingError(t0, T)
+	} catch(err) {
+		T.assertError(t0, T, err, /parameter count.*requires 2/)
+	}
+
+	// 2 less
+
+	// fail raw synchronously
+	T.log("• put raw, synchronous - missing both parameters")
+	err = map.putRawSync()
+	T.assertError(t0, T, err, /parameter count.*requires 2/)
+
+	// fail typed synchronously
+	T.log("• put typed, synchronous - missing both parameters")
+	err = map.putSync()
+	T.assertError(t0, T, err, /parameter count.*requires 2/)
+
+	// fail typed asynchronously
+	T.log("• put typed, asynchronous (promise) - missing both parameters")
+	try {
+		err = await map.put()
+		T.attestMissingError(t0, T)
+	} catch(err) {
+		T.assertError(t0, T, err, /parameter count.*requires 2/)
+	}
+
+
+	// --------------------------------------------------------------------
+
 	T.head("Invalid-Argument Protection")
 
 	T.log("Testing wether invalid arguments are contained and don't bring down the Go executable.")
 
 
 	T.start("Oversize Key")
+
 	let maxSize = 32
 	T.log("max key size is " + maxSize)
 
-	let map = await pot.new(bee_url, batch_id)
+	map = await pot.new(bee_url, batch_id)
 	T.assertNoError(t0, T, !map)
 
 	T.log("• " + maxSize + " byte sized key should pass (async)")
-	let key1 = pot.randBuffer(maxSize)
-	let val1 = "+ some value +"
+	key1 = pot.randBuffer(maxSize)
+	val1 = "+ some value +"
 
 	T.log("• put wth " + maxSize + " byte key ‹" + T.hex(key1) + "›")
 
-	let err = await map.put(key1, val1)
+	err = await map.put(key1, val1)
 	T.assertNoError(t0, T, err)
 
 	T.log("• get from " + maxSize + " byte sized key ‹" + T.hex(key1) + "›")
@@ -4554,7 +4965,7 @@ async function TestPotKvs_InvalidArguments(T, bee_url, batch_id) {
 	T.log("• " + maxSize + "+1 byte sized key should be stopped (async)")
 	key1 = pot.randBuffer(maxSize+1)
 
-	T.log("• put wth " + (maxSize+1) + " byte key ‹" + T.hex(key1) + "›")
+	T.log("• put with " + (maxSize+1) + " byte key ‹" + T.hex(key1) + "›")
 
 	try {
 		let err = await map.put(key1, val1)
@@ -4562,7 +4973,6 @@ async function TestPotKvs_InvalidArguments(T, bee_url, batch_id) {
 	} catch(err) {
 		T.assertError(t0, T, err, /key byte-array too long/)
 	}
-
 
 	T.log("• " + maxSize + " character sized string key should pass (async)")
 	key1 = "X".repeat(maxSize)

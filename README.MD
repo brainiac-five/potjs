@@ -92,14 +92,11 @@ This is a complete example for the browser:
 	(async () => {
 
 		await pot.ready()
-
 		kvs = await pot.new()
-
 		await kvs.put("hello", "POT!")
-
 		value = await kvs.get("hello")
-
 		console.log("key ‹hello› has:", value)
+
 	})()
 
 	</script>
@@ -135,6 +132,7 @@ This is how the same functionality looks in node:
 		await kvs.put("hello", "node")
 		value = await kvs.get("hello")
 		console.log("hello:", value)
+
 	})()
 
 ```
@@ -162,6 +160,7 @@ values controlled by html input.
 	key    <input id=key>
 	value  <input id=value>
 	       <button onclick="put()"> put </button>
+
 <hr />
 
 	key    <input id=search>
@@ -228,7 +227,8 @@ the [function reference](doc/POT_JS_function_reference.pdf).
 
 #### NEW KVS
 
-	pot.new([bee node url : string, batch id : string]) ⟶   kvs
+
+	pot.new([bee node url : string, batch id : string]) ⟶   promise of kvs
 
 Create a new Swarm key-value store.
 
@@ -242,12 +242,14 @@ in-memory. Giving both conects to a Swarm Bee node to store the KVS there
 
 #### LOAD KVS
 
-	pot.load(reference : int, [bee node url : string, batch id : string]) ⟶   kvs
+
+	pot.load(reference : int, [bee node url : string, batch id : string[, timeout : int]]) ⟶   prommise of kvs
 
 Create a new Swarm KVS from a reference that was returned from a previous
-'save()'. The parameters are optional. Leaving them out creates a key-value
-store in-memory. Giving both conects to a Swarm Bee node to load, and save, the
-KVS from and to there.
+'save()'. The parameters after the first are optional. Leaving them out creates
+a key-value store in-memory. Giving both conects to a Swarm Bee node to load,
+and save, the KVS from and to there. Timeout is in milliseconds. Use null for
+unused parameters if you want to use a timeout with in-memory storage.
 
 ```js
 	kvs = await pot.load(ref)
@@ -255,10 +257,11 @@ KVS from and to there.
 
 #### SAVE
 
-	kvs.save() ⟶   reference : int
+
+	kvs.save([timeout : int]) ⟶   promise of reference : int
 
 Store a Swarm KVS, writing it from cache to the network. The bee URL and batch
-ID are taken from the `new()` call.
+ID are taken from the `new()` call. The timeout is optional, and in milliseconds.
 
 ```js
         ref = kvs.save()
@@ -266,13 +269,14 @@ ID are taken from the `new()` call.
 
 #### PUT
 
-	kvs.put(key, value) ⟶   promise of null
+
+	kvs.put(key, value[, timeout: int]) ⟶   promise of null
 
 	key : string, number, boolean
 	value : string, number, boolean, Uint8Array, null
 
 Write or update a value. Returns a promise that resolves to null when the put
-has happened.
+has happened. Timeout is optional, and in milliseconds.
 
 ```js
         k = "entry1"
@@ -285,24 +289,26 @@ has happened.
                 result = await kvs.get(k)
 
         } catch(e) {
-		console.log(e)
+                console.log(e)
         }
 ```
 
 #### GET
 
-	kvs.get(key) ⟶   promise of value
+
+	kvs.get(key[, timeout : int]) ⟶   promise of value
 
 	key : string, number, boolean
 	value : string, number, boolean, Uint8Array, null
 
-Retrieve a value. Returns a promise for the value to get.
+Retrieve a value. Returns a promise for the value to get.  Timeout is optional,
+in milliseconds.
 
 ```js
         try {
-                 r = await kvs.get("entry 1")
+                r = await kvs.get("entry 1")
         } catch(e) {
-		     ...
+	        ...
         }
 ```
 
@@ -312,6 +318,23 @@ When using `.catch`, don’t chain it before recording the promise.
 ```js
         promise = kvs.get("123")
         promise.catch((err)=>attestExpectedError(T, err, "Error: canceled"))
+```
+
+#### DELETE
+
+
+	kvs.delete(key[, timeout : int]) ⟶   promise of null
+
+	key : string, number, boolean
+
+Delete a key-value pair. Timeout is optional, in milliseconds.
+
+```js
+        try {
+                 await kvs.delete("entry X")
+        } catch(e) {
+		     ...
+        }
 ```
 
 
@@ -326,6 +349,7 @@ results, or fail, for values that were stored raw, i.e., by `putRaw()`.
 
 #### PUT RAW
 
+
 	kvs.putRaw(key, value) ⟶   promise of null
 
 	key : string, number, boolean
@@ -338,12 +362,14 @@ functions below, not `get()` or `getSync()`.
 
 #### GET RAW
 
+
 	kvs.getRaw(key) ⟶   promise of Uint8Array
 
 Get a raw Uint8Bytes array.
 
 
 #### GET BOOLEAN FROM RAW
+
 
 	kvs.getBoolean(key) ⟶   promise of boolean
 
@@ -352,6 +378,7 @@ Get a raw value as Boolean. First byte 0 means false, all else true.
 
 #### GET NUMBER FROM RAW
 
+
 	kvs.getNumber(key) ⟶   promise of number
 
 Get a raw value as floating point number. The value must be eight byte.
@@ -359,6 +386,7 @@ Note that Javascript does not have integers.
 
 
 #### GET STRING FROM RAW
+
 
 	kvs.getString(key) ⟶   promise of string
 
@@ -377,10 +405,7 @@ and auxiliary Javascript and HTML files are portable.
 
 To build, run
 
-```bash
-
-	GOOS=js GOARCH=wasm go build -o lib/pot.wasm potjs.go swarm_nodejs.go nomock.go
-```
+	% GOOS=js GOARCH=wasm go build -o lib/pot.wasm potjs.go swarm_nodejs.go nomock.go
 
 or
 
@@ -509,7 +534,7 @@ Cf. `locnet_install` rule in the [Makefile]().
 
 ## Note on Go POT WASM
 
-Being wrapped in WASM for the interfacing with JS, the Go executable is opaque,
+Being wrapped in WASM for interfacing with JS, the Go executable is opaque,
 it cannot in that form be debugged as there are no debuggers for WASM, and it
 becomes unavailable once it has an unrecovered panic or deadlock.
 
@@ -520,12 +545,14 @@ and POT JS has to be re-initialized.
 As the JS `pot` object is created as Javascript object by the WASM executable
 when it is starting, the new object will replace the old one. After
 re-initialization the same code with no modifications will just run again
-but the KVS caches are gone, all data that was not persisted yet with `save()`.
+but the KVS caches are gone, i.e., all data that was not persisted yet with
+`save()`.
 
 The chance of the WASM executable to go down has been minimized and extensively
 tested. Deadlocks are easy to provoke though by using functions ending on
 'Sync' in the browser when connecting to a network (using `new()` with bee url
-and batch id parameter).
+and batch id parameter). This happens reliably though, not unpredictably,
+which makes it less of a pitfall.
 
 
 
@@ -1267,8 +1294,6 @@ This is the standard local Swarm network test
 Possible future improvements:
 
 	•  npm package
-	•  element deletion
-	•  function timeouts
 	•  function cancelling
 	•  javascript module mode
 	•  higher limit of node.js value size

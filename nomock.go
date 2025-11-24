@@ -22,10 +22,12 @@ func setPanic(_ js.Value, _ []js.Value) interface{} {
 	return nil
 }
 
-func setDelay(_ int) {
+func setDelay(_ js.Value, _ []js.Value) interface{} {
+	return nil
 }
 
-func setHang(_ bool) {
+func setHang(_ js.Value, _ []js.Value) interface{} {
+	return nil
 }
 
 func mockFail() bool {
@@ -40,3 +42,7 @@ func mockDelay(_ context.Context) {
 
 func mockHang(_ context.Context) {
 }
+
+func mockTrigger(_ context.Context, _ string) {
+}
+

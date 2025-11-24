@@ -1,29 +1,26 @@
 <pre>
 
 
-	POT JS Example 3: Explicit Initialization
+	POT JS Example 3: The Root, Alternate Initialization, Delete
 
-	This page does not use pot-web.js but initializes pot.wasm directly.
-	It uses a global variable to set verbosity.
+	This page demonstrates the trie root value and to that end,
+	how to delete key-value pairs from the KVS. It does not use
+	pot-web.js but initializes pot.wasm directly. And it uses a
+	global variable to set verbosity.
 
 
 
-	key    <input id=key>
+	key    <input id=key onfocus="field('value').value = ''">
 
 	value  <input id=value>
 
 	       <button onclick="put()"> put </button>
 
-
-<hr />
-
-
-	key    <input id=search>
-
 	       <button onclick="get()"> get </button>
 
-	value  <input id=result>
+	       <button onclick="del()"> delete </button>
 
+	root   <input id=root style=width:500>
 
 	<img src=favicon.ico>
 
@@ -53,13 +50,29 @@
 		key = field('key').value
 		value = field('value').value
 		await kvs.put(key, value)
+		save()
 	}
 
 	async function get() {
 
-		key = field('search').value
+		key = field('key').value
 		value = await kvs.get(key)
-		field('result').value = value
+		field('value').value = value
+	}
+
+	async function del() {
+
+		key = field('key').value
+		await kvs.delete(key)
+		field('value').value = ''
+		save()
+	}
+
+	async function save() {
+
+		ref = await kvs.save(key)
+		field('root').value = ref
+		pot.log("root: " + ref)
 	}
 
 </script>

@@ -157,7 +157,7 @@ function modenote(tag) {
 
 	switch(tag) {
 	case "ext-api":
-		note = `The extended test suite runs on ${b}mock storage${unb} that leaves out the Go POT implementation to emulate exceptions.`
+		note = `The extended test suite runs on ${b}mock storage${unb} that leaves out the\n\tGo POT implementation to emulate exceptions.`
 		break
 	case "in-mem":
 		note = `The test suite runs ${b}in-memory of the Go POT implementation${unb}.`

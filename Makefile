@@ -197,7 +197,7 @@ webtest: explain_tests web_inmem_test
 # print available test rules.
 explain_tests:
 	#
-	#  Tests can run in 2x3x2 modes:
+	#  Tests can run in 2x3x2 combinable modes:
 	#
 	#  browser / node | in-memory / simulated / network | standard / stress.
 	#

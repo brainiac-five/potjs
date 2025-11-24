@@ -1,9 +1,5 @@
 <pre>
 
-
-	POT JS Example 2: Interactive, Verbosity, Path, Integrity
-
-
 	key    <input id=key>
 
 	value  <input id=value>
@@ -13,46 +9,38 @@
 
 <hr />
 
-
 	key    <input id=search>
 
 	       <button onclick="get()"> get </button>
 
 	value  <input id=result>
 
-
-	<img src=favicon.ico>
-
-
 </pre>
 
-<script src="lib/pot-web.js" wasm="lib/pot.wasm" verbosity="3" integrity="sha384-4hEVHN8uJHWpa4gAFHswdsKiz5Ss9sFjp/X+HLrZGsqVsQunkRmMdFojIZ38s64T"></script>
+<script src="potjs/lib/pot-web.js"></script>
 
 <script>
 
 	var kvs
 
 	(async () => {
-
 		await pot.ready()
 		kvs = await pot.new()
-
 	})()
 
 	const field = (id) => { return document.getElementById(id) }
 
 	async function put() {
-
 		key = field('key').value
 		value = field('value').value
 		await kvs.put(key, value)
 	}
 
 	async function get() {
-
-		key = field('search').value
+		key = document.getElementById ('search').value
 		value = await kvs.get(key)
-		field('result').value = value
+		document.getElementById ('result').value = value
 	}
 
 </script>
+

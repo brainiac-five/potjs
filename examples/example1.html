@@ -19,11 +19,11 @@
 
 	await pot.ready()
 
-	map = await pot.new()
+	kvs = await pot.new()
 
-	await map.put("hello", "POT!")
+	await kvs.put("hello", "POT!")
 
-	value = await map.get("hello")
+	value = await kvs.get("hello")
 
 	console.log("key ‹hello› has:", value)
 })()

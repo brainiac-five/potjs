@@ -1,30 +1,31 @@
-<pre>
-
-	key    <input id=key>
-
-	value  <input id=value>
-
-	       <button onclick="put()"> put </button>
-</pre>
-
-<script src="potjs/lib/pot-web.js"></script>
+<script src="potjs/lib/pot-web.js" verbosity=3></script>
 
 <script>
 
-	var kvs
+; (async () => {
 
-	(async () => {
-		await pot.ready()
-		kvs = await pot.new()
-	})()
+	await pot.ready()
+	kvs = await pot.new()
+	await kvs.put("hello", "P.O.T.")
+	value = await kvs.get("hello")
+	console.log("hello:", value)
 
-	const field = (id) => { return document.getElementById(id) }
+	ref = await kvs.save()
+	console.log("save reference:", ref)
 
-	async function put() {
-		key = field('key').value
-		value = field('value').value
-		await kvs.put(key, value)
-	}
+	await kvs.put("Hogy vagy", "Viktor")
+	value = await kvs.get("Hogy vagy")
+	console.log("Hogy vagy:", value)
+
+	ref = await kvs.save()
+	console.log("save reference:", ref)
+
+	await kvs.delete("Hogy vagy")
+	value = await kvs.get("Hogy vagy")
+	console.log("Hogy vagy:", value)
+
+	ref = await kvs.save()
+	console.log("save reference:", ref)
+})()
 
 </script>
-

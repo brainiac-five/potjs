@@ -194,7 +194,7 @@ var jsSaveSync js.Func
 // to sequence writes.
 func new_(this js.Value, parameters []js.Value) (result interface{}) {
 
-	return promise(this, parameters, 4, "new", _new, false, nil)
+	return promise(this, parameters, 3, "new", _new, false, nil)
 }
 
 // JS pot.newSync() synchronously creates a new Swarm KVS, returning
@@ -204,15 +204,16 @@ func new_(this js.Value, parameters []js.Value) (result interface{}) {
 // Go channels to sequence writes.
 func newSync(this js.Value, parameters []js.Value) (result interface{}) {
 
-	return first(_new(context.Background(), this, parameters, false, nil, SYNC))
+	return syncWrap(this, parameters, 3, "new", _new, false, nil)
 }
 
 // _new() is the workhorse function that handles sync and async calls for a new
 // KVS. On the Go POT-side, this is a strictly in-memory operation in all cases.
 // It starts a multiplexer though that uses Go channels to sequence writes.
-func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool, _ func([]byte) (js.Value, error), sync bool) (result js.Value, ok bool) {
+func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
+	_ func([]byte) (js.Value, error), sync bool) (result js.Value, ok bool) {
 
-	// on panic, log, and return js Error object or error promise
+	// on panic, log, and return js Error object in first result position
 	defer func() {
 		if err := recover(); err != nil {
 			msg := "### panic in new*(): " + toString(err)
@@ -226,9 +227,9 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool, _ f
 	var allowSync bool
 
 	// allow-raw parameter first to not create loadsavers in vain.
-	allowRaw := false /// TEST
-	if len(parameters) >=3 {
-		jsAllowRaw := parameters[2]
+	allowRaw := false
+	if len(parameters) >=4 {
+		jsAllowRaw := parameters[3]
 		if jsAllowRaw.Type() == js.TypeBoolean {
 			allowRaw = jsAllowRaw.Bool()
 		} else if jsAllowRaw.IsNull() || jsAllowRaw.IsUndefined() {
@@ -319,9 +320,16 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool, _ f
 
 	log(INFO, "» initialize new P.O.T. - slot " + colorMid + strconv.Itoa(len(Slots) + 1) + colorOff)
 
-	// no-op in production build. For cancellation tests in simulation.
+	/*
+	// These functions are no-ops in production build. They are for
+	// cancellation, timeout and error simulation tests.
+	if mockFail() {
+		return jsError("mock fail of new*()"), false
+	}
+	mockPanic("mock panic in new*()")
 	mockDelay(ctx)
-
+	mockHang(ctx)
+	*/
 	// --------------------------------------------------------------
 	kvs, err := NewSwarmKvs(ls)
 	// --------------------------------------------------------------
@@ -340,6 +348,17 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool, _ f
 	return createMapObject(slot_ref), true
 }
 
+// JS pot.load() asynchronously loads an existing Swarm KVS JS object,
+// using its 32-bytei save handle to return a promise to a KVS anchor object. This
+// method will break for in-memory load-savers when the program is stopped and
+// restarted, as they will lose their storage. It works for the connection to
+// Swarm as the load-saver will then not be the instance where the data is stored
+// but only the connection to the data, which is stored on Swarm.
+func load(this js.Value, parameters []js.Value) (result interface{}) {
+
+	return promise(this, parameters, 4, "load", _load, false, nil)
+}
+
 // JS pot.loadSync() loads an existing Swarm KVS JS object, using its
 // 32-byte save handle. This method will break for in-memory load-savers when
 // the program is stopped and restarted, as they will lose their storage. It works
@@ -348,36 +367,44 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool, _ f
 // on Swarm.
 func loadSync(this js.Value, parameters []js.Value) (result interface{}) {
 
-	// on panic, log, and return js Error object
+	return syncWrap(this, parameters, 4, "load", _load, false, nil)
+}
+
+// _load() is the internal get function that handles load*() variants.
+// It is blocking, and the async load() function wraps it into a promise.
+func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, caster func([]byte) (js.Value, error), sync bool) (result js.Value, ok bool) {
+
+	// on panic, log, and return js Error object in first result position
 	defer func() {
 		if err := recover(); err != nil {
-			msg := "### panic in loadSync: " + toString(err)
+			msg := "### panic in load*(): " + toString(err)
 			log(CRIT, msg)
 			result = jsError(msg)
+			ok = false
 		}
 	}()
-
-	log(INFO, "» load P.O.T. by reference")
 
 	var ls persister.LoadSaver
 	var allowSync bool
 
-	// 1st paramter: reference
+	log(INFO, "» load P.O.T. by reference")
 
+	// check of parameter count
 	if len(parameters) < 1 {
-		msg := "### error in load*(): KVS reference hex digit string required as 1st parameter"
+		msg := "### parameter count error: load*() requires KVS reference hex digit string as 1st parameter, got " + strconv.Itoa(len(parameters))
 		log(ERR, msg)
-		return jsError(msg)
+		return jsError(msg), false
 	}
+
 	if parameters[0].Type() != js.TypeString {
 		msg := "### error in load*(): KVS reference type error, must be hex digit string"
 		log(ERR, msg)
-		return jsError(msg)
+		return jsError(msg), false
 	}
 	if len(parameters[0].String()) != 64 {
 		msg := "### error in load*(): parameter size error for KVS reference, expected 64 hex digits"
 		log(ERR, msg)
-		return jsError(msg)
+		return jsError(msg), false
 	}
 
 	jsRef := parameters[0].String()
@@ -388,7 +415,7 @@ func loadSync(this js.Value, parameters []js.Value) (result interface{}) {
 	if err != nil {
 		msg := "### error in load*(), decoding reference hex digits: " + err.Error()
 		log(CRIT, msg)
-		return jsError(msg)
+		return jsError(msg), false
 	}
 
 	// 2nd + 3rd paramter: bee url and batch id
@@ -412,7 +439,7 @@ func loadSync(this js.Value, parameters []js.Value) (result interface{}) {
 	} else if len(parameters) == 2 || len(parameters) >= 3 && (parameters[1].IsNull() || parameters[1].IsUndefined() != parameters[2].IsNull() || parameters[2].IsUndefined()) {
 			msg := "### error in load*(), undefined or null bee url or batch id"
 			log(ERR, msg)
-			return jsError(msg)
+			return jsError(msg), false
 
 	} else if len(parameters) >= 3 {
 
@@ -421,13 +448,13 @@ func loadSync(this js.Value, parameters []js.Value) (result interface{}) {
 		if parameters[1].Type() != js.TypeString {
 			msg := "### error in load*(), invalid bee url type, must be string"
 			log(ERR, msg)
-			return jsError(msg)
+			return jsError(msg), false
 		}
 		beeAPIURL := parameters[1].String()
 		if len(beeAPIURL) < 1 {
 			msg := "### error in load*(), empty bee url"
 			log(ERR, msg)
-			return jsError(msg)
+			return jsError(msg), false
 		}
 
 		// batch id
@@ -435,18 +462,18 @@ func loadSync(this js.Value, parameters []js.Value) (result interface{}) {
 		if parameters[2].Type() != js.TypeString {
 			msg := "### error in load*(), invalid batch id type, must be hex digit string"
 			log(ERR, msg)
-			return jsError(msg)
+			return jsError(msg), false
 		}
 		if len(parameters[2].String()) != 64 {
 			msg := "### error in load*(), invalid batch id hex string, must be 64 digits"
 			log(ERR, msg)
-			return jsError(msg)
+			return jsError(msg), false
 		}
 		postageIDBytes, err := hex.DecodeString(parameters[2].String())
 		if err != nil {
 			msg := "### error in load*(): invalid batch id hex string"
 			log(ERR, msg)
-			return jsError(msg)
+			return jsError(msg), false
 		}
 
 		log(DEB, "› using bee url : ‹" + beeAPIURL + "›")
@@ -470,8 +497,16 @@ func loadSync(this js.Value, parameters []js.Value) (result interface{}) {
 		}
 	}
 
-	// implementation of JS-side-cancellable new not planned
-	ctx := context.Background()
+	if sync && !allowSync {
+		msg := "### error in load*(): no sync calls to networks in-browser"
+		log(ERR, msg)
+		return jsError(msg), false
+	}
+
+	debug := ""
+	if len(parameters) >= 3 {
+		debug = "[" + jsToString(parameters[2]) + "]"
+	}
 
 	// -------------------------------------------------------------------
 	kvs, err := NewSwarmKvsReference(ctx, ls, ref32)
@@ -479,72 +514,15 @@ func loadSync(this js.Value, parameters []js.Value) (result interface{}) {
 	if err != nil {
 		msg := "### error in load*(): " + err.Error()
 		log(ERR, msg)
-		return jsError(msg)
+		return jsError(msg), false
 	}
 
 	// register context and kvs handle, take numerical index as handle
 	slot_ref := len(Slots) + 1 // = starting on 1.
 	Slots = append(Slots, Slot{Ctx: ctx, Kvs: kvs, Ref: slot_ref, Ls: ls, allowSync: allowSync})
 
-	log(DEB, "› slot ref: "+strconv.Itoa(slot_ref))
-	return createMapObject(slot_ref)
-}
-
-// JS pot.load() asynchronously loads an existing Swarm KVS JS object,
-// using its 32-bytei save handle to return a promise to a KVS anchor object. This
-// method will break for in-memory load-savers when the program is stopped and
-// restarted, as they will lose their storage. It works for the connection to
-// Swarm as the load-saver will then not be the instance where the data is stored
-// but only the connection to the data, which is stored on Swarm.
-func load(this js.Value, parameters []js.Value) (result interface{}) {
-
-	// on panic, log, and return js Error promise
-	defer func() {
-		if err := recover(); err != nil {
-			msg := "### panic in load: " + toString(err)
-			log(CRIT, msg)
-			result = errorPromise(msg)
-		}
-	}()
-
-	var handler js.Func
-	handler = js.FuncOf(func(handler_this js.Value, handler_parameters []js.Value) interface{} {
-
-		resolve := handler_parameters[0]
-		reject := handler_parameters[1]
-
-		// on panic, log, and reject
-		defer func() {
-			if err := recover(); err != nil {
-				msg := "### panic in load promise executor: " + toString(err)
-				log(CRIT, msg)
-				reject.Invoke(msg)
-			}
-		}()
-
-		go func() {
-
-			// The Go error type is not used, to make loadSync()
-			// usable also directly from JS, where only one result
-			// is expected.
-			jsvalue_or_jserr := loadSync(this, parameters).(js.Value)
-			if jsvalue_or_jserr.InstanceOf(js.Global().Get("Error")) {
-				reject.Invoke(jsvalue_or_jserr)
-			} else {
-				resolve.Invoke(jsvalue_or_jserr)
-			}
-		}()
-
-		// free the resources used for this function after one use
-		if optimization > NONE {
-			handler.Release()
-		}
-
-		return nil
-	})
-
-	promiseConstructor := js.Global().Get("Promise")
-	return promiseConstructor.New(handler)
+	log(DEB, "› slot ref: "+debug+" "+strconv.Itoa(slot_ref))
+	return createMapObject(slot_ref), true
 }
 
 // createMapObject() creates the JS KVS object that new*() and load*()
@@ -630,16 +608,17 @@ func gc(this js.Value, parameters []js.Value) (result interface{}) {
 
 // JS kvs.save() writes cached updates to the storage and returns a promise to a
 // 32 byte reference to the saved KVS that is used to retrieve the trie later.
+// It's one parameter is save(timeout).
 func save(this js.Value, parameters []js.Value) (result interface{}) {
 
-	return promise(this, parameters, 3, "save", _save, false, nil)
+	return promise(this, parameters, 1, "save", _save, false, nil)
 }
 
 // JS kvs.saveSync() writes cached updates to the storage and returns a 32 byte
 // reference to the saved KVS that is used to retrieve the KVS later.
 func saveSync(this js.Value, parameters []js.Value) (result interface{}) {
 
-	return first(_save(context.Background(), this, parameters, false, nil, SYNC))
+	return syncWrap(this, parameters, 1, "save", _save, false, nil)
 }
 
 // _save() is the workhorse function that handles sync and async calls to save
@@ -667,14 +646,14 @@ func _save(ctx context.Context, this js.Value, parameters []js.Value, _ bool, _ 
 		return jsError(msg), false
 	}
 
-/*	if sync && !slot.allowSync {
+	if sync && !slot.allowSync {
 		msg := "### error in save*(): no sync calls to networks in-browser"
 		log(ERR, msg)
 		return jsError(msg), false
 	}
-*/
+
 	// -------------------------------------------------------------------
-	ref32, err := slot.Kvs.Save(slot.Ctx)
+	ref32, err := slot.Kvs.Save(ctx)
 	// -------------------------------------------------------------------
 	if err != nil {
 		msg := "### error on saving: " + err.Error()
@@ -691,8 +670,9 @@ func _save(ctx context.Context, this js.Value, parameters []js.Value, _ bool, _ 
 // PUT -------------------------------------------------------------------------
 
 // JS kvs.put() asynchronously stores a key-value pair, encoding the value type
-// in the first byte of what is written to the storage. Returns a Javascript
-// promise that returns null on success or throws a JS Error on failure.
+// in the first byte of what is written to the storage. JS parameters are
+// put(key, value, timeout, debugTag).  Returns a Javascript promise that
+// returns null on success or throws a JS Error on failure.
 func put(this js.Value, parameters []js.Value) (result interface{}) {
 
 	return promise(this, parameters, 3, "put", _put, TYPED, nil)
@@ -703,7 +683,7 @@ func put(this js.Value, parameters []js.Value) (result interface{}) {
 // null on success or an JS error. It does not throw, see (1).
 func putSync(this js.Value, parameters []js.Value) (result interface{}) {
 
-	return first(_put(context.Background(), this, parameters, TYPED, nil, SYNC))
+	return syncWrap(this, parameters, 3, "put", _put, TYPED, nil)
 }
 
 // PUT RAW ---------------------------------------------------------------------
@@ -720,7 +700,7 @@ func putRaw(this js.Value, parameters []js.Value) (result interface{}) {
 // The key can be a string, number, or boolean.
 func putRawSync(this js.Value, parameters []js.Value) (result interface{}) {
 
-	return first(_put(context.Background(), this, parameters, RAW, nil, SYNC))
+	return syncWrap(this, parameters, 3, "putRaw", _put, RAW, nil)
 }
 
 // PUT -------------------------------------------------------------------------
@@ -757,14 +737,14 @@ func _put(ctx context.Context, this js.Value, parameters []js.Value, raw bool, _
 		log(CRIT, msg)
 		return jsError(msg), false
 	}
-/*
+
 	// sync calls to networks deadlock for node
 	if sync && !slot.allowSync {
 		msg := "### error in put*(): no sync calls to networks in-browser"
 		log(ERR, msg)
 		return jsError(msg), false
 	}
-*/
+
 	key := parameters[0]
 	bkey, kerr := jsToKey(key)
 
@@ -837,8 +817,9 @@ func _put(ctx context.Context, this js.Value, parameters []js.Value, raw bool, _
 
 // JS kvs.get() asynchronously retrieves a value for a key, decoding the value
 // type in the first value byte and casting the value appropriately for JS.
-// Returns a Javascript promise for the value that throws a JS error on failure.
-// A value that does not exist results in Javascript `undefined` being returned.
+// JS parameters are get(key, timeout, debugtag). Returns a Javascript promise
+// for the value that throws a JS error on failure. A value that does not exist
+// results in Javascript `undefined` being returned.
 func get(this js.Value, parameters []js.Value) (result interface{}) {
 
 	return promise(this, parameters, 2, "get", _get, TYPED, nil)
@@ -850,7 +831,7 @@ func get(this js.Value, parameters []js.Value) (result interface{}) {
 // A value that does not exist results in Javascript `undefined` being returned.
 func getSync(this js.Value, parameters []js.Value) (result interface{}) {
 
-	return first(_get(context.Background(), this, parameters, TYPED, nil, SYNC))
+	return syncWrap(this, parameters, 2, "get", _get, TYPED, nil)
 }
 
 // GET RAW ---------------------------------------------------------------------
@@ -873,7 +854,7 @@ func getRaw(this js.Value, parameters []js.Value) (result interface{}) {
 // see (1). A value that does not exist returns a Javascript `undefined`.
 func getRawSync(this js.Value, parameters []js.Value) (result interface{}) {
 
-	return first(_get(context.Background(), this, parameters, RAW, nil, SYNC))
+	return syncWrap(this, parameters, 2, "getRaw", _get, RAW, nil)
 }
 
 // GET BOOLEAN -----------------------------------------------------------------
@@ -895,7 +876,7 @@ func getBoolean(this js.Value, parameters []js.Value) (result interface{}) {
 // It basically wraps a blocking call to _get() and returns what that returns.
 func getBooleanSync(this js.Value, parameters []js.Value) (result interface{}) {
 
-	return first(_get(context.Background(), this, parameters, RAW, castBoolean, SYNC))
+	return syncWrap(this, parameters, 2, "get", _get, RAW, castBoolean)
 }
 
 // castBoolean() converts a byte pattern to a Javascript Boolean value.
@@ -935,7 +916,7 @@ func getNumber(this js.Value, parameters []js.Value) (result interface{}) {
 // not throw, see note (1).
 func getNumberSync(this js.Value, parameters []js.Value) (result interface{}) {
 
-	return first(_get(context.Background(), this, parameters, RAW, castNumber, SYNC))
+	return syncWrap(this, parameters, 2, "get", _get, RAW, castNumber)
 }
 
 // castNumber() converts a byte pattern to a Javascript Number value.
@@ -970,7 +951,7 @@ func getString(this js.Value, parameters []js.Value) (result interface{}) {
 // value, which is a JS string or a JS error.
 func getStringSync(this js.Value, parameters []js.Value) (result interface{}) {
 
-	return first(_get(context.Background(), this, parameters, RAW, castString, SYNC))
+	return syncWrap(this, parameters, 2, "get", _get, RAW, castString)
 }
 
 // castString() converts a byte pattern to a Javascript String value.
@@ -1106,7 +1087,7 @@ func delete_(this js.Value, parameters []js.Value) (result interface{}) {
 
 func deleteSync(this js.Value, parameters []js.Value) (result interface{}) {
 
-	return first(_delete(context.Background(), this, parameters, TYPED, nil, SYNC))
+	return syncWrap(this, parameters, 2, "delete", _delete, TYPED, nil)
 }
 
 // _delete() is the internal get function that handles the delete*() variants.
@@ -1140,13 +1121,13 @@ func _delete(ctx context.Context, this js.Value, parameters []js.Value, _ bool, 
 		log(CRIT, msg)
 		return jsError(msg), false
 	}
-/*
+
 	if sync && !slot.allowSync {
-		msg := "### error in get*(): no sync calls to networks in-browser"
+		msg := "### error in delete*(): no sync calls to networks in-browser"
 		log(ERR, msg)
 		return jsError(msg), false
 	}
-*/
+
 	key := parameters[0]
 	bkey, kerr := jsToKey(key)
 
@@ -1280,6 +1261,7 @@ func main() {
 	pot_.Set("panickingPromise", js.FuncOf(panickingPromise))
 	pot_.Set("setFail", js.FuncOf(setFail))
 	pot_.Set("setPanic", js.FuncOf(setPanic))
+	pot_.Set("setHang", js.FuncOf(setHang))
 
 	// see defaultFunc declaration
 	defaultFunc = js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
@@ -1332,6 +1314,32 @@ func main() {
 
 	// make program pause for its above-listed functions to stay available
 	<-make(chan int)
+}
+
+// SYNC WRAP -------------------------------------------------------------------
+
+func syncWrap(this js.Value, parameters []js.Value, timeOutPos int, name string, function functionality, raw bool, caster func([]byte) (js.Value, error)) (result interface{}) {
+
+	// on panic, log, and return js Error object
+	defer func() {
+		if err := recover(); err != nil {
+			msg := "### panic in " + name + ": " + toString(err)
+			log(CRIT, msg)
+			result = jsError(msg)
+		}
+	}()
+
+	// get appropriate context
+	ctx, _, err := createContext(timeOutPos, parameters, SYNC)
+
+	// time out parameter may have had wrong type
+	if err != nil {
+		msg := err.Error() + " in " + name
+		log(ERR, msg)
+		return jsError(msg)
+	}
+
+	return first(function(ctx, this, parameters, raw, caster, SYNC))
 }
 
 // PROMISES --------------------------------------------------------------------
@@ -1687,7 +1695,8 @@ func createContext(position int, parameters []js.Value, sync bool) (ctx context.
 		if p.Type() == js.TypeNumber {
 			timeout := p.Int()
 			if timeout > 0 {
-				ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Millisecond)
+				log(TRACE, "∙ create timing out context of " + strconv.Itoa(timeout)  + " ms")
+				ctx, cancel = context.WithTimeout(context.Background(), time.Duration(timeout)*time.Millisecond)
 			}
 		} else if !p.IsNull() && !p.IsUndefined() {
 			log(ERR, "### timeout parameter type error")
@@ -1697,8 +1706,10 @@ func createContext(position int, parameters []js.Value, sync bool) (ctx context.
 
 	if ctx == nil {
 		if !sync {
+			log(TRACE, "∙ create cancellable context")
 			ctx, cancel = context.WithCancel(context.Background())
 		} else {
+			log(TRACE, "∙ create basic context")
 			ctx = context.Background()
 			cancel = nil
 		}

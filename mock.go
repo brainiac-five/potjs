@@ -48,6 +48,9 @@ func testMode(_ js.Value, parameters []js.Value) interface{} {
 // setFail() instructs the next mock POT KVS function called to fail, for
 // testing.
 func setFail(_ js.Value, parameters []js.Value) interface{} {
+	if parameters[0].Bool() {
+		log(INFO, "» set up for failure")
+	}
 	fail = parameters[0].Bool()
 	return nil
 }
@@ -55,20 +58,29 @@ func setFail(_ js.Value, parameters []js.Value) interface{} {
 // setPanic() instructs the next mock POT KVS function called to panic, for
 // testing.
 func setPanic(_ js.Value, parameters []js.Value) interface{} {
+	if parameters[0].Bool() {
+		log(INFO, "» set up for panic")
+	}
 	panix = parameters[0].Bool()
 	return nil
 }
 
 // setDelay() instructs the next mock POT KVS function called to delay
 // execution, for mS milliseconds, for testing.
-func setDelay(mS int) {
-	delay = mS
+func setDelay(_ js.Value, parameters []js.Value) interface{} {
+	log(INFO, "» set up delay of " + strconv.Itoa(parameters[0].Int()) + " ms")
+	delay = parameters[0].Int()
+	return nil
 }
 
 // setHang() instructs the next mock POT KVS function called to hang, or not,
 // for testing.
-func setHang(v bool) {
-	hang = v
+func setHang(_ js.Value, parameters []js.Value) interface{} {
+	if parameters[0].Bool() {
+		log(INFO, "» set up for hanging")
+	}
+	hang = parameters[0].Bool()
+	return nil
 }
 
 // mockFail() returns the status of the `fail` setting
@@ -83,6 +95,7 @@ func mockFail() bool {
 // unless setPanic() was called again.
 func mockPanic(where string) {
 	if panix {
+		log(INFO, "» mock panic …")
 		panix = false
 		panic("mock panic at " + where)
 	}
@@ -90,26 +103,42 @@ func mockPanic(where string) {
 
 // mockDelay() delays the program until cancelled or time is up, if setDelay()
 // has been called before to set the delay time. Sets the delay time to 0.
-func mockDelay(ctx context.Context) {
+func mockDelay(ctx context.Context) error {
 	d := time.Duration(delay) * time.Millisecond
 	delay = 0
-	select {
-	case <-ctx.Done():
-	case <-time.After(d):
+	if d > 0 {
+		now := time.Now().UnixNano() / int64(time.Millisecond)
+		log(INFO, "» mock delay …")
+		select {
+		case <-ctx.Done():
+			then := time.Now().UnixNano() / int64(time.Millisecond) - now
+			log(INFO, "» mock delay done at " + strconv.Itoa(int(then)) + " ms")
+			return ctx.Err()
+		case <-time.After(d):
+			then := time.Now().UnixNano() / int64(time.Millisecond) - now
+			log(INFO, "» mock delay over after " + strconv.Itoa(int(then)) + " ms")
+		}
 	}
+	return nil
 }
 
 // mockHang() stops the program until cancelled, if setHang() has been called.
 // Unsets the hang flag, the next mockHang() call will hang only after setHang()
 // has been called again.
-func mockHang(ctx context.Context) {
+func mockHang(ctx context.Context) error {
 	h := hang
 	hang = false
 	if h {
+		now := time.Now().UnixNano() / int64(time.Millisecond)
+		log(INFO, "» mock hanging …")
 		select {
 		case <-ctx.Done():
+			then := time.Now().UnixNano() / int64(time.Millisecond) - now
+			log(INFO, "» mock hanging done at " + strconv.Itoa(int(then)) + " ms")
+			return ctx.Err()
 		}
 	}
+	return nil
 }
 
 // NewSwarmKvs() creates a new mock test key-value store.
@@ -121,8 +150,6 @@ func NewSwarmKvs(_ persister.LoadSaver) (*SwarmKvs, error) {
 		return nil, errors.New("mock fail of NewSwarmKvs()")
 	}
 	mockPanic("NewSwarmKvs()")
-	// likely needed: mockDelay(ctx)
-	// likely needed: mockHang(ctx)
 
 	kvs := &SwarmKvs{Store: make(map[string][]byte), Slot_ref: len(Slots) + 1}
 
@@ -130,7 +157,7 @@ func NewSwarmKvs(_ persister.LoadSaver) (*SwarmKvs, error) {
 }
 
 // NewSwarmKvsReference() loads a mock key-value store from the given root hash.
-func NewSwarmKvsReference(_ context.Context, _ persister.LoadSaver, ref32 []byte) (*SwarmKvs, error) {
+func NewSwarmKvsReference(ctx context.Context, _ persister.LoadSaver, ref32 []byte) (*SwarmKvs, error) {
 
 	log(INFO, "» using simulated storage")
 
@@ -138,12 +165,18 @@ func NewSwarmKvsReference(_ context.Context, _ persister.LoadSaver, ref32 []byte
 		return nil, errors.New("mock fail of NewSwarmKvsReference()")
 	}
 	mockPanic("NewSwarmKvsReference()")
-	// likely needed: mockDelay(ctx)
-	// likely needed: mockHang(ctx)
+	err := mockDelay(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = mockHang(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	slot_ref := Saved[bHex(ref32)] /// error handling
-	slot := Slots[slot_ref-1]      /// error handling
-	kvs := slot.Kvs                /// error handling
+	slot_ref := Saved[bHex(ref32)]
+	slot := Slots[slot_ref-1]
+	kvs := slot.Kvs
 
 	return kvs, nil
 }
@@ -157,8 +190,14 @@ func (ps *SwarmKvs) Get(ctx context.Context, key []byte) ([]byte, error) {
 		return nil, errors.New("mock fail of Get()")
 	}
 	mockPanic("Get()")
-	mockDelay(ctx)
-	mockHang(ctx)
+	err := mockDelay(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = mockHang(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	value := ps.Store[bHex(key)]
 
@@ -178,8 +217,14 @@ func (ps *SwarmKvs) Put(ctx context.Context, key []byte, value []byte) error {
 		return errors.New("mock fail of Put()")
 	}
 	mockPanic("Put()")
-	mockDelay(ctx)
-	mockHang(ctx)
+	err := mockDelay(ctx)
+	if err != nil {
+		return err
+	}
+	err = mockHang(ctx)
+	if err != nil {
+		return err
+	}
 
 	ps.Store[bHex(key)] = value
 
@@ -195,8 +240,14 @@ func (ps *SwarmKvs) Delete(ctx context.Context, key []byte) error {
 		return errors.New("mock fail of Delete()")
 	}
 	mockPanic("Delete()")
-	mockDelay(ctx)
-	mockHang(ctx)
+	err := mockDelay(ctx)
+	if err != nil {
+		return err
+	}
+	err = mockHang(ctx)
+	if err != nil {
+		return err
+	}
 
 	delete(ps.Store, bHex(key))
 
@@ -212,7 +263,6 @@ func (ps *SwarmKvs) Save(ctx context.Context) (rref []byte, rerr error) {
 			rerr = err.(error)
 		}
 	}()
-	/// catch here? Not one up?
 
 	log(INFO, "» using simulated storage")
 
@@ -220,8 +270,14 @@ func (ps *SwarmKvs) Save(ctx context.Context) (rref []byte, rerr error) {
 		return nil, errors.New("mock fail of Save()")
 	}
 	mockPanic("Save()")
-	mockDelay(ctx)
-	mockHang(ctx)
+	err := mockDelay(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = mockHang(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	if ps.Slot_ref < 1 {
 		msg := "invalid slot"
@@ -255,3 +311,4 @@ func (ps *SwarmKvs) Save(ctx context.Context) (rref []byte, rerr error) {
 
 	return ref32, nil
 }
+
