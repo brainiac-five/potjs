@@ -88,6 +88,7 @@ help:
 	#  example7            node in-memory, logging to terminal
 	#  example8            node in-memory, interactive web app
 	#  example9            node local network, interactive web app (same as 8)
+	#  example10           node local network, simulation of cancelation
 	#
 	#  support & debugging
 	#
@@ -157,6 +158,10 @@ example9: examples/lib build
 	$(MAKE) .batch_id
 	open http://127.0.0.1:3000
 	node examples/$@.js "http://127.0.0.1:1633" "$$(cat .batch_id)"
+
+# simulation of cancelation
+example10: examples/lib mockbuild
+	node examples/$@.js
 
 # update the integrity hashes in example 2 when potjs.js or wasm_exec.js change
 integrity: examples/example2.html lib/wasm_exec.js.sha384
@@ -499,4 +504,4 @@ distclean:
 	$(MAKE) clean unmock build
 
 # this is a list of all rules that are not a file name and thus always trigger ///
-.PHONY: all help build example1 example2 example3 example4 example5 example6 example7 example8 example9 test inmem_test ext_test mock unmock locnet_test locnet_quick locnet_start locnet_stop locnet_batch locnet_tests locnet_log locnet_clean http_serve stop locnet_install clean distclean
+.PHONY: all help build example1 example2 example3 example4 example5 example6 example7 example8 example9 example10 test inmem_test ext_test mock unmock locnet_test locnet_quick locnet_start locnet_stop locnet_batch locnet_tests locnet_log locnet_clean http_serve stop locnet_install clean distclean

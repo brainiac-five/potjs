@@ -802,7 +802,7 @@ func _put(ctx context.Context, this js.Value, parameters []js.Value, raw bool, _
 	err = slot.Kvs.Put(ctx, pkey, bValue)
 	// -------------------------------------------------------------------
 	if err != nil {
-		msg := "### error in put*(): " + err.Error()
+		msg := "### exception in put*(): " + err.Error()
 		log(ERR, msg)
 		return jsError(msg), false
 	}
@@ -1262,6 +1262,7 @@ func main() {
 	pot_.Set("setFail", js.FuncOf(setFail))
 	pot_.Set("setPanic", js.FuncOf(setPanic))
 	pot_.Set("setHang", js.FuncOf(setHang))
+	pot_.Set("setDelay", js.FuncOf(setDelay))
 
 	// see defaultFunc declaration
 	defaultFunc = js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
@@ -1406,10 +1407,10 @@ func promise(this js.Value, parameters []js.Value, timeOutPos int, name string, 
 		return nil
 	})
 
-	// create the promise itself, conveniently expecting the executor for it
+	// create the JS promise object
 	promise = js.Global().Get("Promise").New(executor)
 
-	// create the cancel function for it. Note that the executor might 
+	// create the cancel function for it. Note that the executor might
 	// already have resolved.
 	jsCancel = js.FuncOf(func(_ js.Value, parameters []js.Value) interface{} {
 
@@ -1418,14 +1419,15 @@ func promise(this js.Value, parameters []js.Value, timeOutPos int, name string, 
 		// cancellation downwards to the Go POT functions.
 		ctxCancel()
 
-		log(INFO, "% " + name + ", cancel triggered")
+		log(INFO, "𐄂 " + name + " canceled")
 
 		// signals that the cancel happened. The entire function is
-		// replaced by a function returning only false, once it is 
+		// replaced by a function returning only false, once it is
 		// too late to cancel.
 		return js.ValueOf(true)
 	})
 
+	// attach the cancel function to the promise object.
 	promise.Set("cancel", jsCancel) // temp insert
 
 	return promise

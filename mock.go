@@ -144,7 +144,7 @@ func mockHang(ctx context.Context) error {
 // NewSwarmKvs() creates a new mock test key-value store.
 func NewSwarmKvs(_ persister.LoadSaver) (*SwarmKvs, error) {
 
-	log(INFO, "» using simulated storage")
+	log(DEB, "› using simulated storage")
 
 	if mockFail() {
 		return nil, errors.New("mock fail of NewSwarmKvs()")
@@ -159,7 +159,7 @@ func NewSwarmKvs(_ persister.LoadSaver) (*SwarmKvs, error) {
 // NewSwarmKvsReference() loads a mock key-value store from the given root hash.
 func NewSwarmKvsReference(ctx context.Context, _ persister.LoadSaver, ref32 []byte) (*SwarmKvs, error) {
 
-	log(INFO, "» using simulated storage")
+	log(DEB, "› using simulated storage")
 
 	if mockFail() {
 		return nil, errors.New("mock fail of NewSwarmKvsReference()")
@@ -184,7 +184,7 @@ func NewSwarmKvsReference(ctx context.Context, _ persister.LoadSaver, ref32 []by
 // Get() retrieves the value of the given key from the mock storage.
 func (ps *SwarmKvs) Get(ctx context.Context, key []byte) ([]byte, error) {
 
-	log(INFO, "» using simulated storage")
+	log(DEB, "› using simulated storage")
 
 	if mockFail() {
 		return nil, errors.New("mock fail of Get()")
@@ -211,7 +211,7 @@ func (ps *SwarmKvs) Get(ctx context.Context, key []byte) ([]byte, error) {
 // Put() stores the given key-value pair in the mock store.
 func (ps *SwarmKvs) Put(ctx context.Context, key []byte, value []byte) error {
 
-	log(INFO, "» using simulated storage")
+	log(DEB, "› using simulated storage")
 
 	if mockFail() {
 		return errors.New("mock fail of Put()")
@@ -234,7 +234,7 @@ func (ps *SwarmKvs) Put(ctx context.Context, key []byte, value []byte) error {
 // Delete() drops a key-value pair from the mock store.
 func (ps *SwarmKvs) Delete(ctx context.Context, key []byte) error {
 
-	log(INFO, "» using simulated storage")
+	log(DEB, "› using simulated storage")
 
 	if mockFail() {
 		return errors.New("mock fail of Delete()")
@@ -264,7 +264,7 @@ func (ps *SwarmKvs) Save(ctx context.Context) (rref []byte, rerr error) {
 		}
 	}()
 
-	log(INFO, "» using simulated storage")
+	log(DEB, "› using simulated storage")
 
 	if mockFail() {
 		return nil, errors.New("mock fail of Save()")
@@ -304,10 +304,10 @@ func (ps *SwarmKvs) Save(ctx context.Context) (rref []byte, rerr error) {
 
 	ref32 := make([]byte, 32)
 	rand.Read(ref32)
-	log(INFO, "» simulated save reference "+bHex(ref32))
+	log(DEB, "› simulated save reference "+bHex(ref32))
 
 	Saved[bHex(ref32)] = slot_ref
-	log(DEB, "» simulated save of map in slot #"+strconv.Itoa(ps.Slot_ref)+" cloned new slot #"+strconv.Itoa(slot_ref)+" to key "+bHex(ref32))
+	log(DEB, "› simulated save of map in slot #"+strconv.Itoa(ps.Slot_ref)+" cloned new slot #"+strconv.Itoa(slot_ref)+" to key "+bHex(ref32))
 
 	return ref32, nil
 }

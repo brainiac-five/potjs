@@ -75,11 +75,11 @@ function log_and_display(one, two, three, four) {
 	if(trail == "•••" || trail == "---") pot.log()
 	if(NODE && trail == "•••") pot.log()
 	if(NODE && trail == "---") pot.log()
-	if(NODE && trail == "•••") pot.log("=".repeat(80))
-	if(NODE && first == "✦") pot.log("-".repeat(80))
+	if(NODE && trail == "•••") pot.log("═".repeat(80))
+	if(NODE && first == "✦") pot.log("—".repeat(80))
 	if(NODE && first == "•" && trail != "•••") pot.log()
 	if(NODE && trail == "•••") logmsg = hi + logmsg + off
-	if(NODE && trail == "---") logmsg = logmsg + " " + "-".repeat(79-logmsg.length)
+	if(NODE && trail == "---") logmsg = "···" + logmsg.substr(3) + " " + "·".repeat(79-logmsg.length)
 	else if(NODE && first == "✦") logmsg = mid + logmsg + off + alignpad(loc, logmsg, 80, "|")
 	else if(NODE && first == "•") logmsg = mid + logmsg + off
 	else if(NODE && first == "√") logmsg = ok + "√" + off + logmsg.substr(1) + profile(threadno + "√" + numcut(logmsg.substr(1)))
@@ -91,8 +91,8 @@ function log_and_display(one, two, three, four) {
 		console.log(">>> direct to console log (pot.log unavailable):")
 		console.log(threadno + logmsg)
 	}
-	if(NODE && trail == "•••") pot.log("=".repeat(80))
-	if(NODE && first == "✦") pot.log("-".repeat(80))
+	if(NODE && trail == "•••") pot.log("═".repeat(80))
+	if(NODE && first == "✦") pot.log("—".repeat(80))
 
 	if(NODE) return
 

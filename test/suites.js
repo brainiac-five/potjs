@@ -35,7 +35,6 @@
 **  Tests log approximate response times. They are crudely taken as diff from
 **  the previous case head or last assertion.
 */
-
 const t0 = null
 const massmax = 100 // iterations for mass concurrent tests
 
@@ -45,6 +44,15 @@ var map2
 var map3
 var map4
 var map5
+
+// ·····································································
+let noUncaughtRejectionExpected = "[ not expecting unhandled rejections ]"
+let expectedUncaughtRejection = noUncaughtRejectionExpected
+process.on("unhandledRejection", (err) => {
+	T.log("◊◊◊ unhandled rejection :" + err.message)
+	T.attestExpectedError(t0, T, err, expectedUncaughtRejection ? expectedUncaughtRejection : noUncaughtRejectionExpected ) 
+})
+// ·····································································
 
 function TestPotKvsSync(T, bee_url, batch_id) {
 
@@ -4183,8 +4191,9 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 		.catch((err)=>T.attestExpectedError(t0, T, err, "context deadline exceeded"))
 
 
-	// ---------------------------------------------------------------------
+	await T.delay(10)
 
+	// ---------------------------------------------------------------------
 
 	T.start("Cancel Timer")
 
@@ -4198,6 +4207,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 		T.attestExpectedError(t0, T, err, "Error: canceled")
 	}
 
+	await T.delay(10)
 
 	T.start("Cancel Timer II")
 
@@ -4213,6 +4223,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
+	await T.delay(10)
 
 	T.start("Cancel Delay")
 
@@ -4230,6 +4241,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
+	await T.delay(10)
 
 /* Does not work, although X1 does. Throws Uncaught (in promise) Error: canceled
 
@@ -4259,38 +4271,1188 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
-/*
 
-	T.start("Cancel new()")
+	await T.delay(10)
 
-	T.log("• start KVS creation and cancel it after 100ms (.catch)")
+	// ---------------------------------------------------------------------
+
+	T.start("Cancel put()")
+
+	T.log("• cancel put immediately (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
 	try {
-		ref = pot.new()
-		// note, chaining the .catch immediatelly above gives the wrong ref for cancel().
-		ref
-			.then(()=>T.attestMissingError(t0, T))
-			.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
-		await T.delay(100)
-		ref.cancel()
+		map = await pot.new()
+		pot.setHang(true)
+		promise = map.put(key, val)
+		promise.cancel()
+		// -> unhandledRejection event
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
-	T.log("• start KVS creation and cancel it immediately (.catch)")
+	await T.delay(1)
+
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel put immediately (try-await-catch, cancel by timer)")
 	try {
-		ref = pot.new()
-		// note, chaining the .catch immediatelly above gives the wrong ref for cancel().
-		ref
+		map = await pot.new()
+		pot.setHang(true)
+		promise = map.put(key, val)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel put after 50ms (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		pot.setHang(true)
+		promise = map.put(key, val)
+		await T.delay(50)
+		promise.cancel()
+		// -> unhandledRejection event
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel put after 50ms (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		pot.setHang(true)
+		promise = map.put(key, val)
+		await T.delay(40)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel put immediately (.catch)")
+	try {
+		map = await pot.new()
+		pot.setHang(true)
+		promise = map.put(key, val)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
 			.then(()=>T.attestMissingError(t0, T))
-			.catch((err)=>T.attestExpectedError(t0, T, err, "Error: canceled"))
-		ref.cancel()
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		promise.cancel()
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
-	await T.delay(700)
-*/
+	await T.delay(1)
 
+	T.log("• cancel put after 50ms (.catch)")
+	try {
+		map = await pot.new()
+		pot.setHang(true)
+		promise = map.put(key, val)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(70)
+
+	T.log("• cancel wrong promise (.catch)")
+	try {
+		map = await pot.new()
+		pot.setHang(true)
+		// chaining the .catch immediatelly gives the wrong promise for cancel().
+		promise = map.put(key, val).catch(e => T.attestMissingError(t0, T))
+		promise.cancel()
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "is not a function")
+	}
+
+	await T.delay(10)
+
+	// ---------------------------------------------------------------------
+
+	T.start("Cancel raw put")
+
+	T.log("• cancel raw put immediately (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		pot.setHang(true)
+		promise = map.putRaw(key, val)
+		promise.cancel()
+		// -> unhandledRejection event
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(1)
+
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel raw put immediately (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		pot.setHang(true)
+		promise = map.putRaw(key, val)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel raw put after 50ms (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		pot.setHang(true)
+		promise = map.putRaw(key, val)
+		await T.delay(50)
+		promise.cancel()
+		// -> unhandledRejection event
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel raw put after 50ms (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		pot.setHang(true)
+		promise = map.putRaw(key, val)
+		await T.delay(40)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel raw put immediately (.catch)")
+	try {
+		map = await pot.new()
+		pot.setHang(true)
+		promise = map.putRaw(key, val)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel raw put after 50ms (.catch)")
+	try {
+		map = await pot.new()
+		pot.setHang(true)
+		promise = map.putRaw(key, val)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(70)
+
+	T.log("• cancel wrong promise (.catch)")
+	try {
+		map = await pot.new()
+		pot.setHang(true)
+		// chaining the .catch immediatelly gives the wrong promise for cancel().
+		promise = map.putRaw(key, val).catch(e => T.attestMissingError(t0, T))
+		promise.cancel()
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "is not a function")
+	}
+
+	await T.delay(10)
+
+	// ---------------------------------------------------------------------
+
+	T.start("Cancel get()")
+
+	T.log("• cancel get immediately (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.get(key)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel get immediately (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.get(key)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel get after 50ms (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.get(key)
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel get after 50ms (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.get(key)
+		await T.delay(40)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	T.log("• cancel get immediately (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.get(key)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel get after 50ms (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.get(key)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(70)
+
+	T.log("• cancel wrong promise (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		// chaining the .catch immediatelly gives the wrong promise for cancel().
+		promise = map.get(key).catch(e => T.attestMissingError(t0, T))
+		promise.cancel()
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "is not a function")
+	}
+
+	await T.delay(10)
+
+
+	// ---------------------------------------------------------------------
+
+	T.start("Cancel raw get")
+
+	T.log("• cancel raw get immediately (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getRaw(key)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel raw get immediately (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getRaw(key)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel raw get after 50ms (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getRaw(key)
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel raw get after 50ms (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getRaw(key)
+		await T.delay(40)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	T.log("• cancel raw get immediately (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getRaw(key)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel raw get after 50ms (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getRaw(key)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(70)
+
+	T.log("• cancel wrong promise (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		// chaining the .catch immediatelly gives the wrong promise for cancel().
+		promise = map.getRaw(key).catch(e => T.attestMissingError(t0, T))
+		promise.cancel()
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "is not a function")
+	}
+
+	await T.delay(10)
+
+
+	// ---------------------------------------------------------------------
+
+	T.start("Cancel getBoolean()")
+
+	T.log("• cancel getBoolean() immediately (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getBoolean(key)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel getBoolean() immediately (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getBoolean(key)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel getBoolean() after 50ms (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getBoolean(key)
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel getBoolean() after 50ms (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getBoolean(key)
+		await T.delay(40)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	T.log("• cancel getBoolean() immediately (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getBoolean(key)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel getBoolean() after 50ms (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getBoolean(key)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(70)
+
+	T.log("• cancel wrong promise (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		// chaining the .catch immediatelly gives the wrong promise for cancel().
+		promise = map.getBoolean(key).catch(e => T.attestMissingError(t0, T))
+		promise.cancel()
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "is not a function")
+	}
+
+	await T.delay(10)
+
+
+	// ---------------------------------------------------------------------
+
+	T.start("Cancel getNumber()")
+
+	T.log("• cancel getNumber() immediately (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getNumber(key)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel getNumber() immediately (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getNumber(key)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel getNumber() after 50ms (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getNumber(key)
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel getNumber() after 50ms (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getNumber(key)
+		await T.delay(40)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	T.log("• cancel getNumber() immediately (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getNumber(key)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel getNumber() after 50ms (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getNumber(key)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(70)
+
+	T.log("• cancel wrong promise (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		// chaining the .catch immediatelly gives the wrong promise for cancel().
+		promise = map.getNumber(key).catch(e => T.attestMissingError(t0, T))
+		promise.cancel()
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "is not a function")
+	}
+
+	await T.delay(10)
+
+
+	// ---------------------------------------------------------------------
+
+	T.start("Cancel getString()")
+
+	T.log("• cancel getString() immediately (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getString(key)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel getString() immediately (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getString(key)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel getString() after 50ms (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getString(key)
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel getString() after 50ms (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getString(key)
+		await T.delay(40)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	T.log("• cancel getString() immediately (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getString(key)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel getString() after 50ms (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.getString(key)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(70)
+
+	T.log("• cancel wrong promise (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		// chaining the .catch immediatelly gives the wrong promise for cancel().
+		promise = map.getString(key).catch(e => T.attestMissingError(t0, T))
+		promise.cancel()
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "is not a function")
+	}
+
+	await T.delay(10)
+
+
+	// ---------------------------------------------------------------------
+
+	T.start("Cancel delete()")
+
+	T.log("• cancel delete immediately (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.delete(key)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel delete immediately (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.delete(key)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel delete after 50ms (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.delete(key)
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel delete after 50ms (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.delete(key)
+		await T.delay(40)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	T.log("• cancel delete immediately (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.delete(key)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel delete after 50ms (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.delete(key)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(70)
+
+	T.log("• cancel wrong promise (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		// chaining the .catch immediatelly gives the wrong promise for cancel().
+		promise = map.delete(key).catch(e => T.attestMissingError(t0, T))
+		promise.cancel()
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "is not a function")
+	}
+
+	await T.delay(10)
+
+	// ---------------------------------------------------------------------
+
+	T.start("Cancel save()")
+
+	T.log("• cancel save immediately (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.save()
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel save immediately (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.save()
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel save after 50ms (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.save()
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel save after 50ms (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.save()
+		await T.delay(40)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	T.log("• cancel save immediately (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.save()
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel save after 50ms (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		promise = map.save()
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(70)
+
+	T.log("• cancel wrong promise (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		pot.setHang(true)
+		// chaining the .catch immediatelly gives the wrong promise for cancel().
+		promise = map.save().catch(e => T.attestMissingError(t0, T))
+		promise.cancel()
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "is not a function")
+	}
+
+	await T.delay(10)
+
+	// ---------------------------------------------------------------------
+
+	T.start("Cancel load()")
+
+	T.log("• cancel load immediately (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		ref = await map.save()
+		pot.setHang(true)
+		promise = pot.load(ref, bee_url, batch_id)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel load immediately (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		ref = await map.save()
+		pot.setHang(true)
+		promise = pot.load(ref, bee_url, batch_id)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel load after 50ms (try-catch)")
+	// ·····································································
+	expectedUncaughtRejection = "context canceled"
+	// ·····································································
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		ref = await map.save()
+		pot.setHang(true)
+		promise = pot.load(ref, bee_url, batch_id)
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+	await T.delay(1)
+	// ·····································································
+	expectedUncaughtRejection = null
+	// ·····································································
+
+	T.log("• cancel load after 50ms (try-await-catch, cancel by timer)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		ref = await map.save()
+		pot.setHang(true)
+		promise = pot.load(ref, bee_url, batch_id)
+		await T.delay(40)
+		setTimeout(promise.cancel, 10)
+		await promise
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "canceled")
+	}
+
+	T.log("• cancel load immediately (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		ref = await map.save()
+		pot.setHang(true)
+		promise = pot.load(ref, bee_url, batch_id)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(1)
+
+	T.log("• cancel load after 50ms (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		ref = await map.save()
+		pot.setHang(true)
+		promise = pot.load(ref, bee_url, batch_id)
+		// note, chaining the .catch immediatelly above would give the wrong promise for cancel().
+		promise
+			.then(()=>T.attestMissingError(t0, T))
+			.catch((err)=>T.attestExpectedError(t0, T, err, "context canceled"))
+		await T.delay(50)
+		promise.cancel()
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	await T.delay(70)
+
+	T.log("• cancel wrong promise (.catch)")
+	try {
+		map = await pot.new()
+		await map.put(key, val)
+		ref = await map.save()
+		pot.setHang(true)
+		// chaining the .catch immediatelly gives the wrong promise for cancel().
+		promise = pot.load(ref, bee_url, batch_id).catch(e => T.attestMissingError(t0, T))
+		promise.cancel()
+	} catch(err) {
+		T.attestExpectedError(t0, T, err, "is not a function")
+	}
+
+	await T.delay(10)
 
 }
 
@@ -4449,14 +5611,14 @@ async function TestPotKvs_Failures(T, bee_url, batch_id) {
 	T.assertNoError(t0, T, !map)
 
 	// fail synchronously
-	pot.setFail(true)
 	T.log("• new map synchronous call failure")
+	pot.setFail(true)
 	map = pot.newSync(bee_url, batch_id)
 	T.assertError(t0, T, map)
 
 	// fail asynchronously
-	pot.setFail(true)
 	T.log("• new map asynchronous call failure")
+	pot.setFail(true)
 	try {
 		map = await pot.new(bee_url, batch_id)
 		T.attestMissingError(t0, T)
@@ -4465,14 +5627,14 @@ async function TestPotKvs_Failures(T, bee_url, batch_id) {
 	}
 
 	// panic synchronously
-	pot.setPanic(true)
 	T.log("• new map synchronous call panic")
+	pot.setPanic(true)
 	map = pot.newSync(bee_url, batch_id)
 	T.assertError(t0, T, map)
 
 	// panic asynchronously
-	pot.setPanic(true)
 	T.log("• new map asynchronous call panic")
+	pot.setPanic(true)
 	try {
 		map = await pot.new(bee_url, batch_id)
 		T.attestMissingError(t0, T)
@@ -4496,20 +5658,20 @@ async function TestPotKvs_Failures(T, bee_url, batch_id) {
 	T.assertNoError(t0, T, err)
 
 	// fail raw synchronously
-	pot.setFail(true)
 	T.log("• put raw - synchronous call failure")
+	pot.setFail(true)
 	err = map.putRawSync(key1, val1)
 	T.assertError(t0, T, err, /mock fail/)
 
 	// fail typed synchronously
-	pot.setFail(true)
 	T.log("• put typed - synchronous call failure")
+	pot.setFail(true)
 	err = map.putSync(key1, val1)
 	T.assertError(t0, T, err, /mock fail/)
 
 	// fail typed asynchronously
-	pot.setFail(true)
 	T.log("• put typed - asynchronous (promise) call failure")
+	pot.setFail(true)
 	try {
 		err = await map.put(key1, val1)
 		T.attestMissingError(t0, T)
@@ -4518,14 +5680,14 @@ async function TestPotKvs_Failures(T, bee_url, batch_id) {
 	}
 
 	// panic raw synchronously
-	pot.setPanic(true)
 	T.log("• put raw sync - panic")
+	pot.setPanic(true)
 	err = map.putRawSync(key1, val1)
 	T.assertError(t0, T, err, /mock panic/)
 
 	// panic typed synchronously
-	pot.setPanic(true)
 	T.log("• put - synchronous call panic")
+	pot.setPanic(true)
 	try {
 		err = map.putSync(key1, val1)
 		T.assertError(t0, T, err, /mock panic/)
@@ -4534,8 +5696,8 @@ async function TestPotKvs_Failures(T, bee_url, batch_id) {
 	}
 
 	// panic asynchronously
-	pot.setPanic(true)
 	T.log("• put - asynchronous call panic")
+	pot.setPanic(true)
 	try {
 		err = await map.put(key1, val1)
 		T.attestMissingError(t0, T)
