@@ -5,30 +5,30 @@
 #
 #
 # POT JS can be used without building, as downloaded or cloned. The files needed
-# are lib/pot.wasm, lib/pot-node.js, lib/pot-web.js, or lib/wasm_exec.js. They
-# can be used as they come with no building required. This Makefile helps building,
-# developing and testing. It also simplifies running examples.
+# are lib/pot.wasm; lib/pot-node.js, lib/pot-web.js, or lib/wasm_exec.js. They
+# can be used as they come with no building required. This Makefile helps
+# building, developing and testing. It also simplifies running examples.
 #
 # To run an example, have 'make' installed and execute from the command line:
 #
 #	make example1
 #
-# To build WITHOUT using make, and this Makefile, do:
+# To build WITHOUT using make and this Makefile, do:
 #
 #	GOOS=js GOARCH=wasm go build -o lib/pot.wasm potjs.go swarm_nodejs.go nomock.go
 #
-# To build with make, do:
+# To build the same with make, do:
 #
 #	make
 #
 # The rules below can help to build from scratch, run tests, and as a convenient
-# way to run examples. They support developing POT JS itself.
+# way to run the more involved examples.
 
 # use a more powerfull shell to execute the rules
 SHELL = /bin/zsh
 
 # project state
-# MOCKED means that pot.wasm is compiled for simulation tests
+# MOCKED means that pot.wasm has been compiled for simulation tests
 # SERVING means that a test http server is currently runnning
 MOCKED = $(shell grep -s mock go.mod)
 SERVING = $(shell ps ax | grep 'npm exec http-server' | grep -v grep | head -n 1 | sed 's/^ *//' | cut -d ' ' -f 1)
@@ -43,10 +43,10 @@ off = \033[0m
 # do not run sub rules in parallel
 .NOTPARALLEL:
 
-# standard rule: make the standard production build
+# standard rule: standard production build
 all: build
 
-# print make rules
+# explain make rules
 help:
 	#  ⬢  SWARM POT JS
 	#
@@ -187,7 +187,7 @@ lib/wasm_exec.js.sh384: lib/wasm_exec.js
 # as opposed to the simulation (below).
 go.mod:
 	go mod init potjs
-	go mod edit -replace github.com/brainiac-five/pot=github.com/brainiac-five/pot@v1.0.2
+	go mod edit -replace github.com/brainiac-five/pot=github.com/brainiac-five/pot@v1.0.6
 	go get
 
 
@@ -504,4 +504,5 @@ distclean:
 	$(MAKE) clean unmock build
 
 # this is a list of all rules that are not a file name and thus always trigger ///
-.PHONY: all help build example1 example2 example3 example4 example5 example6 example7 example8 example9 example10 test inmem_test ext_test mock unmock locnet_test locnet_quick locnet_start locnet_stop locnet_batch locnet_tests locnet_log locnet_clean http_serve stop locnet_install clean distclean
+.PHONY: all help build mockbuild example1 example2 example3 example4 example5 example6 example7 example8 example9 example10 clean test webtest explain_tests web_inmem_test web_sim_test web_inmem_stress web_local_test web_local_quick web_local_stress node_inmem_test node_sim_test node_inmem_stress node_inmem_ressources node_locnet_test node_locnet_quick node_locnet_stress locnet_start locnet_stop locnet_batch locnet_tests locnet_log locnet_clean locnet_install http_serve http_stop stop mock unmock vet lint clean distclean
+

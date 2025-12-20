@@ -119,7 +119,8 @@ console.log(`
 			tests.TestPotKvs_TypedAccessSync(T, bee, batch)
 			await tests.TestPotKvs_TypedAccessAsync(T, bee, batch)
 
-			await tests.TestPotKvs_MassSequential(T, bee, batch)
+			await tests.TestPotKvs_MassSequentialSync(T, bee, batch)
+			await tests.TestPotKvs_MassSequentialAsync(T, bee, batch)
 			await tests.TestPotKvs_ComplexConcurrent(T, bee, batch)
 
 			await tests.TestPotKvs_Save(T, bee, batch)

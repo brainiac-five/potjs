@@ -5,13 +5,13 @@
 | [![Simulation Tests](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-ubuntu.yml) | [![In-Memory Tests](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-ubuntu.yml) | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests-ubuntu.yml) | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-ubuntu.yml) |
 | [![Simulation Tests](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-macos.yml) | [![In-Memory Tests](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-macos.yml) | | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-macos.yml) |
 
+POT JS allows to effortlessly save mutable key-value maps to an immutable,
+decentralized storage network like Swarm, from node.js or a browser.
+
 This is a Javascript POT package, for use with the Swarm decentralized
 storage network, based on the
 [Go implementation](https://github.com/ethersphere/proximity-order-trie) of
 proximity order tries.
-
-POT JS allows to effortlessly save mutable key-value maps to an immutable,
-decentralized storage network like Swarm.
 
 The underlying technology is called Proximity Order Tree (POT) after a storage
 technique that is described in a forthcoming paper. It can store a key-value
@@ -28,8 +28,8 @@ To use POT JS:
 * Drop `pot.wasm`, and `pot-web.js`, or `pot-node.js` in a directory.
 * Write some html and js like seen in [example 1](examples/example1.html).
 
-Check out the [manual](doc/POT_JS_manual.pdf) — for examples, an introduction
-and a tutorial — and the [function reference](doc/POT_JS_function_reference.pdf).
+Check out the [manual](doc/POT_JS_manual.pdf) — for examples, the introduction
+or the tutorial — and the [function reference](doc/POT_JS_function_reference.pdf).
 
 
 ## Use

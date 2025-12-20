@@ -145,7 +145,8 @@
 				if (!bee) TestPotKvs_TypedAccessSync(T, bee, batch)
 				await TestPotKvs_TypedAccessAsync(T, bee, batch)
 
-				await TestPotKvs_MassSequential(T, bee, batch)
+				if (!bee) await TestPotKvs_MassSequentialSync(T, bee, batch)
+				await TestPotKvs_MassSequentialAsync(T, bee, batch)
 				await TestPotKvs_ComplexConcurrent(T, bee, batch)
 
 				await TestPotKvs_Save(T, bee, batch)

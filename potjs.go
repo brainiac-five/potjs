@@ -3,21 +3,21 @@
 // # SWARM POT JS
 //
 // This is functionally an API from Javascript to the implementation of POT in
-// Go: https://github.com/ethersphere/proximity-order-trie/releases/tag/v1.0.0
-// The Go code is compiled to WASM and most functions below mimic Javascript
-// functions with the help of the Go package syscall/js.
+// Go: https://github.com/ethersphere/proximity-order-trie. The Go code is
+// compiled to WASM and most functions below mimic Javascript functions with
+// the help of the Go package syscall/js.
 //
 // These functions, although programmed in Go, are callable from Javascript.
 // Their Go signatures are uniform as is required by syscall/js. Their first
 // parameter is always Javascript's `this`, the second the array of the actual
 // JS arguments to the JS-side function call. There are no formal, visible
-// signatures here that would visually reveal, which parameters are expected.
+// signatures that would visually reveal, which parameters are expected.
 //
 // Functions are not Go-exported because they are not intended to be called
 // directly by a Go function outside this package. The 'export' to Javascript
-// is by the Set(name, s.FuncOf(..)) calls. This makes them part of the
-// Javascript runtime that called into the Go code running as WASM. This makes
-// Go doc less useful that only lists exported functions and structures.
+// is by the calls of Set(name, s.FuncOf(..)). This makes them part of the
+// Javascript runtime that called into the Go code run as WASM. This makes
+// Go doc less useful as it only lists exported functions and structures.
 //
 // Because the WASM code has to continually run, it is not technically a
 // library and this package, therefore, has to be a `main` package.
@@ -29,12 +29,12 @@
 //
 // (1) It is not possible to throw directly from Go to Javascript. Because
 // the *Sync() functions are less relevant, syscall/js has not been modified
-// to allow for it. See developer notes in doc/.
+// to allow for throwing. See developer notes in doc/.
 //
 // (2) Numbers are stored in 8 byte IEEE 754 floating point format rather than
 // strings because there are numerous NaNs that could cause the get() to return
 // something else than the put() argument was. Additionally precision might
-// change in fringe cases when converted to string and back.
+// change in fringe cases when converted, e.g., to a string and back.
 //
 // ---------------------------------------------------------------------------
 package main
@@ -185,6 +185,161 @@ var jsDeleteSync js.Func
 var jsSave js.Func
 var jsSaveSync js.Func
 
+// MAIN ----------------------------------------------------------------------
+
+// main() exposes the functions to be called from JS-land, and stays running on
+// 'stand-by'. The Javascript object `pot` is created as anchor-point for the
+// general functions that are not specific to an individual KVS. Eventually,
+// the OnWasmLoaded() function is called, if it exists, to signal readiness.
+// This function never returns, it stays up by listening to a private channel
+// as the intended way how to run a Go WASM module for JS.
+func main() {
+
+	// handle verbosity setting per variable
+	v := js.Global().Get("potjs_verbosity")
+	if v.Type() == js.TypeNumber {
+		verbosity = v.Int()
+		log(CRIT, "verbosity set " + jsToString(v))
+	}
+	if v.Type() == js.TypeString {
+		var err error
+		intVer, err := strconv.ParseInt(v.String(), 0, 0)
+		if err != nil {
+			log(CRIT, "verbosity setting invalid: " + v.String())
+		} else {
+			verbosity = int(intVer)
+			log(DEB, "verbosity set " + v.String())
+		}
+	}
+
+	log(INFO, "» POTWASM")
+
+	// handle optimization setting per variable
+	o := js.Global().Get("potjs_optimization")
+	if o.Type() == js.TypeNumber {
+		optimization = o.Int()
+	}
+
+	// detect node.js or browser
+	w := js.Global().Get("window")
+	inBrowser = w.Type() == js.TypeObject
+	if(inBrowser) {
+		log(INFO, "» browser detected")
+	} else {
+		log(INFO, "» node.js detected")
+	}
+
+	// create pot module object
+	if js.Global().Get("pot").IsUndefined() {
+		js.Global().Set("pot", js.ValueOf(make(map[string]interface{})))
+	}
+	pot_ := js.Global().Get("pot")
+
+	// The following js.Funcs are created once and not released for the
+	// lifetime of the executable.
+
+	// KVS
+	// -------------------------------------------------
+	pot_.Set("new", js.FuncOf(new_))
+	pot_.Set("newSync", js.FuncOf(newSync))
+	pot_.Set("load", js.FuncOf(load))
+	pot_.Set("loadSync", js.FuncOf(loadSync))
+	pot_.Set("release", js.FuncOf(release))
+	pot_.Set("gc", js.FuncOf(gc))
+
+	// support functions
+	// -------------------------------------------------
+	pot_.Set("hello", js.FuncOf(hello))
+	pot_.Set("log", js.FuncOf(log_))
+	pot_.Set("setOptimization", js.FuncOf(setOptimization))
+	pot_.Set("setVerbosity", js.FuncOf(setVerbosity))
+	pot_.Set("setValueSizeLimit", js.FuncOf(setValueSizeLimit))
+	pot_.Set("NONE", 0)
+	pot_.Set("CRITICAL", 1)
+	pot_.Set("ERROR", 2)
+	pot_.Set("INFO", 3)
+	pot_.Set("DEBUG", 4)
+	pot_.Set("TRACE", 5)
+
+	// test functions
+	// -------------------------------------------------
+	pot_.Set("testMode", js.FuncOf(testMode))
+	pot_.Set("typeEncodedBytes", js.FuncOf(typeEncodedBytesTest))
+	pot_.Set("typeDecodedValue", js.FuncOf(typeDecodedValueTest))
+	pot_.Set("randKey", js.FuncOf(randKey))
+	pot_.Set("randValue", js.FuncOf(randValue))
+	pot_.Set("randBuffer", js.FuncOf(randBuffer))
+	pot_.Set("hangingPromise", js.FuncOf(hangingPromise))
+	pot_.Set("panickingPromise", js.FuncOf(panickingPromise))
+	pot_.Set("setFail", js.FuncOf(setFail))
+	pot_.Set("setPanic", js.FuncOf(setPanic))
+	pot_.Set("setHang", js.FuncOf(setHang))
+	pot_.Set("setDelay", js.FuncOf(setDelay))
+
+	// see defaultFunc declaration
+	defaultFunc = js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
+		log(ERR, "# released function, no effect")
+		return js.Null
+	})
+
+	// see false Func declaration
+	falseFunc = js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
+		log(INFO, "# too late for cancel")
+		return js.ValueOf(false)
+	})
+
+	// These are pre-cooked, re-usable functions for KVS objects that are
+	// never released. This avoids creating new js.Funcs for every new
+	// object. They are held in globals.
+	jsPut = js.FuncOf(put)
+	jsGet = js.FuncOf(get)
+	jsPutRaw = js.FuncOf(putRaw)
+	jsGetRaw = js.FuncOf(getRaw)
+	jsGetBoolean = js.FuncOf(getBoolean)
+	jsGetNumber = js.FuncOf(getNumber)
+	jsGetString = js.FuncOf(getString)
+	jsDelete = js.FuncOf(delete_)
+	jsPutSync = js.FuncOf(putSync)
+	jsGetSync = js.FuncOf(getSync)
+	jsPutRawSync = js.FuncOf(putRawSync)
+	jsGetRawSync = js.FuncOf(getRawSync)
+	jsGetBooleanSync = js.FuncOf(getBooleanSync)
+	jsGetNumberSync = js.FuncOf(getNumberSync)
+	jsGetStringSync = js.FuncOf(getStringSync)
+	jsDeleteSync = js.FuncOf(deleteSync)
+	jsSave = js.FuncOf(save)
+	jsSaveSync = js.FuncOf(saveSync)
+
+	log(INFO, "» init done")
+
+	// signal to pot-*.js that go wasm initialization is done
+	if !js.Global().Get("_onPotInitialized").IsUndefined() {
+		js.Global().Call("_onPotInitialized")
+	}
+
+	log(INFO, "» ready")
+
+	// signal to user-js that go wasm initialization is done
+	// This is separate from _onPot..() for sync-only uses.
+	if !js.Global().Get("onPotInitialized").IsUndefined() {
+		js.Global().Call("onPotInitialized")
+	}
+
+	// make program pause for its above-listed functions to stay available
+	<-make(chan int)
+}
+
+
+// -----------------------------------------------------------------------------
+//
+//   Core Functionality
+//
+// -----------------------------------------------------------------------------
+//
+// As a rule, functions are split into a Javascript-facing part that is either
+// asynchronous or synchronous; and a workhorse function, name starting on _
+// that does the actual work, the same in both cases.
+
 // NEW -------------------------------------------------------------------------
 
 // JS pot.new_() asynchronously creates a new Swarm KVS, returning the promise
@@ -249,10 +404,11 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 			// --------------------------------------------------------------
 			inMemoryPersister = persister.NewInmemLoadSaver()
 			// --------------------------------------------------------------
-			log(DEB, "› created new in-memory persister")
+			log(INFO, "» created new in-memory persister")
+		} else {
+			log(INFO, "» reusing in-memory persister")
 		}
 		ls = inMemoryPersister
-		log(INFO, "» (re)-using in-memory persister")
 		allowSync = true
 
 
@@ -320,16 +476,6 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 
 	log(INFO, "» initialize new P.O.T. - slot " + colorMid + strconv.Itoa(len(Slots) + 1) + colorOff)
 
-	/*
-	// These functions are no-ops in production build. They are for
-	// cancellation, timeout and error simulation tests.
-	if mockFail() {
-		return jsError("mock fail of new*()"), false
-	}
-	mockPanic("mock panic in new*()")
-	mockDelay(ctx)
-	mockHang(ctx)
-	*/
 	// --------------------------------------------------------------
 	kvs, err := NewSwarmKvs(ls)
 	// --------------------------------------------------------------
@@ -347,6 +493,8 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 
 	return createMapObject(slot_ref), true
 }
+
+// LOAD ------------------------------------------------------------------------
 
 // JS pot.load() asynchronously loads an existing Swarm KVS JS object,
 // using its 32-bytei save handle to return a promise to a KVS anchor object. This
@@ -429,10 +577,11 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 			// --------------------------------------------------------------
 			inMemoryPersister = persister.NewInmemLoadSaver()
 			// --------------------------------------------------------------
-			log(DEB, "› created new in-memory persister")
+			log(INFO, "» created new in-memory persister")
+		} else {
+			log(INFO, "» reusing in-memory persister")
 		}
 		ls = inMemoryPersister
-		log(INFO, "» (re)-using in-memory persister")
 		allowSync = true
 
 	// network parameters bee url and batch id. Both null is checked above.
@@ -1090,7 +1239,7 @@ func deleteSync(this js.Value, parameters []js.Value) (result interface{}) {
 	return syncWrap(this, parameters, 2, "delete", _delete, TYPED, nil)
 }
 
-// _delete() is the internal get function that handles the delete*() variants.
+// _delete() is the internal function that handles the delete*() variants.
 // It is blocking, and async delete() wraps it into a promise.
 func _delete(ctx context.Context, this js.Value, parameters []js.Value, _ bool, _ func([]byte) (js.Value, error), sync bool) (result js.Value, ok bool) {
 
@@ -1173,149 +1322,27 @@ func _delete(ctx context.Context, this js.Value, parameters []js.Value, _ bool, 
 	return js.Null(), true // success
 }
 
-// MAIN ----------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+//
+//   Cryptographic Proof
+//
+// -----------------------------------------------------------------------------
+//
 
-// main() exposes the functions to be called from JS-land, and stays running on
-// 'stand-by'. The Javascript object `pot` is created as anchor-point for the
-// general functions that are not specific to an individual KVS. Eventually,
-// the OnWasmLoaded() function is called, if it exists, to signal readiness.
-// This function never returns, it stays up by listening to a private channel
-// as the intended way how to run a Go WASM module for JS.
-func main() {
+func CreateForkPathProof(this js.Value, parameters []js.Value) (result interface{}) {
 
-	// handle verbosity setting per variable
-	v := js.Global().Get("potjs_verbosity")
-	if v.Type() == js.TypeNumber {
-		verbosity = v.Int()
-		log(CRIT, "verbosity set " + jsToString(v))
-	}
-	if v.Type() == js.TypeString {
-		var err error
-		intVer, err := strconv.ParseInt(v.String(), 0, 0)
-		if err != nil {
-			log(CRIT, "verbosity setting invalid: " + v.String())
-		} else {
-			verbosity = int(intVer)
-			log(DEB, "verbosity set " + v.String())
-		}
-	}
-
-	log(INFO, "» POTWASM")
-
-	// handle optimization setting per variable
-	o := js.Global().Get("potjs_optimization")
-	if o.Type() == js.TypeNumber {
-		optimization = o.Int()
-	}
-
-	// detect node.js or browser
-	w := js.Global().Get("window")
-	inBrowser = w.Type() == js.TypeObject
-	if(inBrowser) {
-		log(INFO, "» browser detected")
-	} else {
-		log(INFO, "» node.js detected")
-	}
-
-	// create pot module object
-	if js.Global().Get("pot").IsUndefined() {
-		js.Global().Set("pot", js.ValueOf(make(map[string]interface{})))
-	}
-	pot_ := js.Global().Get("pot")
-
-	// The following js.Funcs are created once and not released for the
-	// lifetime of the executable.
-
-	// KVS
-	// -------------------------------------------------
-	pot_.Set("new", js.FuncOf(new_))
-	pot_.Set("newSync", js.FuncOf(newSync))
-	pot_.Set("load", js.FuncOf(load))
-	pot_.Set("loadSync", js.FuncOf(loadSync))
-	pot_.Set("release", js.FuncOf(release))
-	pot_.Set("gc", js.FuncOf(gc))
-
-	// support functions
-	// -------------------------------------------------
-	pot_.Set("hello", js.FuncOf(hello))
-	pot_.Set("log", js.FuncOf(log_))
-	pot_.Set("setOptimization", js.FuncOf(setOptimization))
-	pot_.Set("setVerbosity", js.FuncOf(setVerbosity))
-	pot_.Set("setValueSizeLimit", js.FuncOf(setValueSizeLimit))
-	pot_.Set("NONE", 0)
-	pot_.Set("CRITICAL", 1)
-	pot_.Set("ERROR", 2)
-	pot_.Set("INFO", 3)
-	pot_.Set("DEBUG", 4)
-	pot_.Set("TRACE", 5)
-
-	// test functions
-	// -------------------------------------------------
-	pot_.Set("testMode", js.FuncOf(testMode))
-	pot_.Set("typeEncodedBytes", js.FuncOf(typeEncodedBytesTest))
-	pot_.Set("typeDecodedValue", js.FuncOf(typeDecodedValueTest))
-	pot_.Set("randKey", js.FuncOf(randKey))
-	pot_.Set("randValue", js.FuncOf(randValue))
-	pot_.Set("randBuffer", js.FuncOf(randBuffer))
-	pot_.Set("hangingPromise", js.FuncOf(hangingPromise))
-	pot_.Set("panickingPromise", js.FuncOf(panickingPromise))
-	pot_.Set("setFail", js.FuncOf(setFail))
-	pot_.Set("setPanic", js.FuncOf(setPanic))
-	pot_.Set("setHang", js.FuncOf(setHang))
-	pot_.Set("setDelay", js.FuncOf(setDelay))
-
-	// see defaultFunc declaration
-	defaultFunc = js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
-		log(ERR, "# released function, no effect")
-		return js.Null
-	})
-
-	// see false Func declaration
-	falseFunc = js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
-		log(INFO, "# too late for cancel")
-		return js.ValueOf(false)
-	})
-
-	// These are pre-cooked, re-usable functions for KVS objects that are
-	// never released. This avoids creating new js.Funcs for every new
-	// object. They are held in globals.
-	jsPut = js.FuncOf(put)
-	jsGet = js.FuncOf(get)
-	jsPutRaw = js.FuncOf(putRaw)
-	jsGetRaw = js.FuncOf(getRaw)
-	jsGetBoolean = js.FuncOf(getBoolean)
-	jsGetNumber = js.FuncOf(getNumber)
-	jsGetString = js.FuncOf(getString)
-	jsDelete = js.FuncOf(delete_)
-	jsPutSync = js.FuncOf(putSync)
-	jsGetSync = js.FuncOf(getSync)
-	jsPutRawSync = js.FuncOf(putRawSync)
-	jsGetRawSync = js.FuncOf(getRawSync)
-	jsGetBooleanSync = js.FuncOf(getBooleanSync)
-	jsGetNumberSync = js.FuncOf(getNumberSync)
-	jsGetStringSync = js.FuncOf(getStringSync)
-	jsDeleteSync = js.FuncOf(deleteSync)
-	jsSave = js.FuncOf(save)
-	jsSaveSync = js.FuncOf(saveSync)
-
-	log(INFO, "» init done")
-
-	// signal to pot-*.js that go wasm initialization is done
-	if !js.Global().Get("_onPotInitialized").IsUndefined() {
-		js.Global().Call("_onPotInitialized")
-	}
-
-	log(INFO, "» ready")
-
-	// signal to user-js that go wasm initialization is done
-	// This is separate from _onPot..() for sync-only uses.
-	if !js.Global().Get("onPotInitialized").IsUndefined() {
-		js.Global().Call("onPotInitialized")
-	}
-
-	// make program pause for its above-listed functions to stay available
-	<-make(chan int)
+	return syncWrap(this, parameters, 2, "delete", _delete, TYPED, nil)
 }
+
+
+// -----------------------------------------------------------------------------
+//
+//   Wrapper Functions
+//
+// -----------------------------------------------------------------------------
+//
+// syncWrap and promise are the two functions that turn the 'workhorse'
+// functions (_get, _put, _load, _delete) into either async or sync versions.
 
 // SYNC WRAP -------------------------------------------------------------------
 
@@ -1475,23 +1502,6 @@ func errorPromise(msg string) js.Value {
 	return js.Global().Get("Promise").New(executor)
 }
 
-// -----------------------------------------------------------------------------
-//
-//   Missing Go POT KVS Function
-//
-// -----------------------------------------------------------------------------
-
-// DELETE ----------------------------------------------------------------------
-/*
-// Delete takes the key's key-value pair out of the trie
-func  Delete(ctx context.Context, ps *SwarmKvs, key []byte) error {
-	err := ps.idx.Delete(ctx, key)
-	if err != nil {
-		return fmt.Errorf("failed to delete key-value pair from pot %w", err)
-	}
-	return nil
-}
-*/
 // -----------------------------------------------------------------------------
 //
 //   Support Functions
@@ -1849,9 +1859,9 @@ func jsArrayFromBytes(value []byte) js.Value {
 }
 
 // jsToString returns a Go string for any type js.Value. The function is used
-// exclusively for logging and debugging, thus does error or panic but just
-// returns "[unprintable]" when it fails (does not cover Symbols and Functions
-// types).
+// exclusively for logging and debugging, thus does not error or panic but just
+// returns "[unprintable]" when it fails. It does not cover Symbol and Function
+// types.
 func jsToString(p js.Value) string {
 
 	switch p.Type() {
@@ -1874,8 +1884,12 @@ func jsToString(p js.Value) string {
 			b[i] = byte(p.Index(i).Int())
 		}
 		return bHex(b)
+	case js.TypeSymbol:
+		return "[symbol]"
+	case js.TypeFunction:
+		return "[function]"
 	}
-	return "[unprintable]"
+	return "[unknown type]"
 }
 
 // typeEncodedBytes() encodes values from JS value to a go byte array leading
@@ -1888,6 +1902,7 @@ func jsToString(p js.Value) string {
 //   2   NUMBER    number       float64      8       9
 //   3   STRING    string       string       0+      1+
 //   4   BYTES     Uint8Array   []byte       0+      1+
+//
 func typeEncodedBytes(p js.Value) (result []byte, rerr error) {
 
 	defer func() {
@@ -2100,8 +2115,8 @@ func randValue(this js.Value, parameters []js.Value) interface{} {
 	return result
 }
 
-// JS pot.randBuffer() creates a random byte sequence of any size for use
-// as test value.
+// JS pot.randBuffer() is for testing. It creates a random byte sequence of any
+// size for use as test value.
 func randBuffer(this js.Value, parameters []js.Value) interface{} {
 
 	size := parameters[0].Int()
@@ -2113,10 +2128,10 @@ func randBuffer(this js.Value, parameters []js.Value) interface{} {
 	return result
 }
 
-// JS pot.hangingPromise() is for testing only. It returns a promise that does
-// nothing but sleep for quarter second and then return an error, unless it is
-// cancelled before the second is over, in which case it returns a different
-// error. It never invokes resolve().
+// JS pot.hangingPromise() is for simulation testing only. It returns a promise
+// that does nothing but sleep for quarter second and then return an error,
+// unless it is cancelled before the second is over, in which case it returns a
+// different error. It never invokes resolve().
 func hangingPromise(this js.Value, parameters []js.Value) (result interface{}) {
 
 	// on panic, log, and return a promise that immediately rejects
@@ -2184,8 +2199,8 @@ func hangingPromise(this js.Value, parameters []js.Value) (result interface{}) {
 	return promise
 }
 
-// JS pot.panickingPromise() is for testing only. It returns a promise that does
-// nothing but react to an internal panic. It never invokes resolve().
+// JS pot.panickingPromise() is for simulation testing only. It returns a promise
+// that does nothing but react to an internal panic. It never invokes resolve().
 func panickingPromise(this js.Value, parameters []js.Value) (result interface{}) {
 
 	// on panic, log, and return a promise that immediately rejects

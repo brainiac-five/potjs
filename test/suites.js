@@ -863,13 +863,13 @@ async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
+	T.start("• put random key with size 3000 value")
+
 	try {
 		key2 = pot.randKey()
 		val2 = new Uint8Array(3000)
 		val2[0] = 1
 		val2[2999] = 1
-
-		T.start("• put random key with size 3000 value")
 
 		T.log("• new map")
 		map = pot.newSync(bee_url, batch_id)
@@ -900,14 +900,13 @@ async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
+	T.start("• put random key with 4096 byte size value")
 
 	try {
 		key2 = pot.randKey()
 		val2 = new Uint8Array(4096)
 		val2[0] = 1
 		val2[4095] = 1
-
-		T.start("• put random key with 4096 byte size value")
 
 		T.log("• new map")
 		map = pot.newSync(bee_url, batch_id)
@@ -2076,7 +2075,6 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 		T.assertEqual(t0, T, val, val1)
 	}
 
-
 	if(!(bee_url && !T.NODE))
 	{
 		T.start("Add after save, activate new, re-activate previous")
@@ -2118,6 +2116,86 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 		T.log("• get " + key1 + " from reloaded map")
 		val = map3.getSync(key1)
 		T.assertEqual(t0, T, val, val1)
+	}
+
+	if(!(bee_url && !T.NODE))
+	{
+		T.start("Sync value persistence re-loaded kvs")
+		T.log("Regression test for go pot issue #15")
+
+		T.log("• new map")
+		map = pot.newSync(bee_url, batch_id)
+		T.assertNoError(t0, T, !map)
+
+		key1 = "K1"
+		val1 = "V1"
+		key2 = "K2"
+		val2 = "V2"
+
+		T.log("• put " + key1 + ": " + val1)
+		err = map.putSync(key1, val1)
+		T.assertNoError(t0, T, err)
+
+		T.log("• put " + key2 + ": " + val2)
+		err = map.putSync(key2, val2)
+		T.assertNoError(t0, T, err)
+
+		T.log("• save")
+		save_ref = map.saveSync()
+		T.assertNotAnError(t0, T, save_ref)
+
+		T.log("• retrieve map " + T.hex(save_ref))
+		map3 = pot.loadSync(save_ref, bee_url, batch_id)
+		T.assertNotAnError(t0, T, map3)
+		T.assertNotEqual(t0, T, map3, null)
+
+		T.log("• get " + key1 + " from reloaded map")
+		val = map3.getSync(key1)
+		T.assertEqual(t0, T, val, val1)
+
+		T.log("• get " + key2 + " from reloaded map")
+		val = map3.getSync(key2)
+		T.assertEqual(t0, T, val, val2)
+	}
+
+	if(!(bee_url && !T.NODE))
+	{
+		T.start("Async value persistence re-loaded kvs")
+		T.log("Regression test for go pot issue #15")
+
+		T.log("• new map")
+		map = await pot.new(bee_url, batch_id)
+		T.assertNoError(t0, T, !map)
+
+		key1 = "K1"
+		val1 = "V1"
+		key2 = "K2"
+		val2 = "V2"
+
+		T.log("• put " + key1 + ": " + val1)
+		err = await map.put(key1, val1)
+		T.assertNoError(t0, T, err)
+
+		T.log("• put " + key2 + ": " + val2)
+		err = await map.put(key2, val2)
+		T.assertNoError(t0, T, err)
+
+		T.log("• save")
+		save_ref = await map.save()
+		T.assertNotAnError(t0, T, save_ref)
+
+		T.log("• retrieve map " + T.hex(save_ref))
+		map3 = await pot.load(save_ref, bee_url, batch_id)
+		T.assertNotAnError(t0, T, map3)
+		T.assertNotEqual(t0, T, map3, null)
+
+		T.log("• get " + key1 + " from reloaded map")
+		val = await map3.get(key1)
+		T.assertEqual(t0, T, val, val1)
+
+		T.log("• get " + key2 + " from reloaded map")
+		val = await map3.get(key2)
+		T.assertEqual(t0, T, val, val2)
 	}
 
 }
@@ -5487,7 +5565,7 @@ async function TestPotKvs_InternalErrors(T, bee_url, batch_id) {
 
 }
 
-async function TestPotKvs_MassSequential(T, bee_url, batch_id) {
+async function TestPotKvs_MassSequentialSync(T, bee_url, batch_id) {
 
 	T.head("Mass Access")
 
@@ -5496,7 +5574,7 @@ async function TestPotKvs_MassSequential(T, bee_url, batch_id) {
 		return
 	}
 
-	T.start("store and retrieve "+massmax+" values sequentially")
+	T.start("sync store and retrieve "+massmax+" values sequentially, w/o save")
 
 	T.log("• new map")
 	map = pot.newSync(bee_url, batch_id)
@@ -5514,24 +5592,397 @@ async function TestPotKvs_MassSequential(T, bee_url, batch_id) {
 	}
 	T.attestNoError(t0, T)
 
+	T.log("• retrieve "+massmax+" random values under random keys")
+	for(let i=0; i<massmax; i++) {
+		val = map.getSync(k[i])
+		T.assertEqual(t0, T, val, v[i], true) // suppress ok
+	}
+	T.attestNoError(t0, T)
 
-	T.start("• save")
 
+	T.start("sync store and retrieve "+massmax+" values sequentially, with save")
+
+	T.log("• new map")
+	map = pot.newSync(bee_url, batch_id)
+	T.assertNoError(t0, T, !map)
+
+	k = []
+	v = []
+
+	T.log("• store "+massmax+" random values under random keys")
+	for(let i=0; i<massmax; i++) {
+		k.push(key = pot.randKey())
+		v.push(val = pot.randValue())
+		e = map.putSync(key, val)
+		T.assertNotAnError(t0, T, e, true) // suppress ok
+	}
+	T.attestNoError(t0, T)
+
+	T.log("• save")
 	try {
-		T.log("• save")
 		ref = await map.save()
 		T.assertNotAnError(t0, T, ref)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
-	await T.delay(100)
-
-
 	T.log("• retrieve "+massmax+" random values under random keys")
 	for(let i=0; i<massmax; i++) {
 		val = map.getSync(k[i])
 		T.assertEqual(t0, T, val, v[i], true) // suppress ok
+	}
+	T.attestNoError(t0, T)
+
+
+	T.start("sync store and retrieve "+massmax+" values sequentially, with save & load")
+
+	T.log("• new map")
+	map = pot.newSync(bee_url, batch_id)
+	T.assertNoError(t0, T, !map)
+
+	k = []
+	v = []
+
+	T.log("• store "+massmax+" random values under random keys")
+	for(let i=0; i<massmax; i++) {
+		k.push(key = pot.randKey())
+		v.push(val = pot.randValue())
+		e = map.putSync(key, val)
+		T.assertNotAnError(t0, T, e, true) // suppress ok
+	}
+	T.attestNoError(t0, T)
+
+	T.log("• save")
+	var ref
+	try {
+		ref = await map.save()
+		T.log("ref: " + ref)
+		T.assertNotAnError(t0, T, ref)
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• load " + ref)
+	var map2
+	try {
+		map2 = await pot.load(ref, bee_url, batch_id)
+		T.assertNotAnError(t0, T, map2)
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• retrieve "+massmax+" random values under random keys")
+	for(let i=0; i<massmax; i++) {
+		val = map2.getSync(k[i])
+		T.assertEqual(t0, T, val, v[i], true) // suppress ok
+	}
+	T.attestNoError(t0, T)
+
+	T.start("sync store and retrieve "+massmax+" values sequentially, reverse, with save & load")
+
+	T.log("• new map")
+	map = pot.newSync(bee_url, batch_id)
+	T.assertNoError(t0, T, !map)
+
+	k = []
+	v = []
+
+	T.log("• store "+massmax+" random values under random keys")
+	for(let i=0; i<massmax; i++) {
+		k.push(key = pot.randKey())
+		v.push(val = pot.randValue())
+		e = map.putSync(key, val)
+		T.assertNotAnError(t0, T, e, true) // suppress ok
+	}
+	T.attestNoError(t0, T)
+
+	T.log("• save")
+	var ref
+	try {
+		ref = await map.save()
+		T.assertNotAnError(t0, T, ref)
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• load")
+	var map2
+	try {
+		map2 = await pot.load(ref, bee_url, batch_id)
+		T.assertNotAnError(t0, T, map2)
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• reverse retrieve of "+massmax+" random values under random keys")
+	for(let i=massmax-1; i>=0; i--) {
+		val = map2.getSync(k[i])
+		T.assertEqual(t0, T, val, v[i], true) // suppress ok
+	}
+	T.attestNoError(t0, T)
+
+
+	T.start("sync store and retrieve "+massmax+" values sequentially, random order, with save & load")
+
+	T.log("• new map")
+	map = pot.newSync(bee_url, batch_id)
+	T.assertNoError(t0, T, !map)
+
+	k = []
+	v = []
+
+	T.log("• store "+massmax+" random values under random keys")
+	for(let i=0; i<massmax; i++) {
+		k.push(key = pot.randKey())
+		v.push(val = pot.randValue())
+		e = map.putSync(key, val)
+		T.assertNotAnError(t0, T, e, true) // suppress ok
+	}
+	T.attestNoError(t0, T)
+
+	T.log("• save")
+	var ref
+
+	try {
+		ref = await map.save()
+		T.assertNotAnError(t0, T, ref)
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• load")
+	var map2
+	try {
+		map2 = await pot.load(ref, bee_url, batch_id)
+		T.assertNotAnError(t0, T, map2)
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• random retrieve of "+massmax+" random values under random keys")
+	let plog = ""
+	for(let i=massmax-1; i>=0; i--) {
+		j = Math.floor(Math.random() * (i+1))
+		plog += j + "/" + i + " "
+		if(!(i%10)) {
+			T.log()
+			T.log("⟶   " + plog)
+			T.log()
+			plog = ""
+		}
+		val = map2.getSync(k[j])
+		T.assertEqual(t0, T, val, v[j], true) // suppress ok
+		k.splice(j,1)
+		v.splice(j,1)
+	}
+	T.attestNoError(t0, T)
+
+}
+
+async function TestPotKvs_MassSequentialAsync(T, bee_url, batch_id) {
+
+	T.head("Mass Access / Async")
+
+	T.start("async store and retrieve "+massmax+" values sequentially, w/o save")
+
+	T.log("• new map")
+	map = await pot.new(bee_url, batch_id)
+	T.assertNoError(t0, T, !map)
+
+	k = []
+	v = []
+
+	T.log("• store "+massmax+" random values under random keys")
+	for(let i=0; i<massmax; i++) {
+		k.push(key = pot.randKey())
+		v.push(val = pot.randValue())
+		e = await map.put(key, val)
+		T.assertNotAnError(t0, T, e, true) // suppress ok
+	}
+	T.attestNoError(t0, T)
+
+	T.log("• retrieve "+massmax+" random values under random keys")
+	for(let i=0; i<massmax; i++) {
+		val = await map.get(k[i])
+		T.assertEqual(t0, T, val, v[i], true) // suppress ok
+	}
+	T.attestNoError(t0, T)
+
+
+	T.start("async store and retrieve "+massmax+" values sequentially, with save")
+
+	T.log("• new map")
+	map = await pot.new(bee_url, batch_id)
+	T.assertNoError(t0, T, !map)
+
+	k = []
+	v = []
+
+	T.log("• store "+massmax+" random values under random keys")
+	for(let i=0; i<massmax; i++) {
+		k.push(key = pot.randKey())
+		v.push(val = pot.randValue())
+		e = await map.put(key, val)
+		T.assertNotAnError(t0, T, e, true) // suppress ok
+	}
+	T.attestNoError(t0, T)
+
+	T.log("• save")
+	try {
+		ref = await map.save()
+		T.assertNotAnError(t0, T, ref)
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• retrieve "+massmax+" random values under random keys")
+	for(let i=0; i<massmax; i++) {
+		val = await map.get(k[i])
+		T.assertEqual(t0, T, val, v[i], true) // suppress ok
+	}
+	T.attestNoError(t0, T)
+
+
+	T.start("async store and retrieve "+massmax+" values sequentially, with save & load")
+
+	T.log("• new map")
+	map = await pot.new(bee_url, batch_id)
+	T.assertNoError(t0, T, !map)
+
+	k = []
+	v = []
+
+	T.log("• store "+massmax+" random values under random keys")
+	for(let i=0; i<massmax; i++) {
+		k.push(key = pot.randKey())
+		v.push(val = pot.randValue())
+		e = await map.put(key, val)
+		T.assertNotAnError(t0, T, e, true) // suppress ok
+	}
+	T.attestNoError(t0, T)
+
+	T.log("• save")
+	var ref
+	try {
+		ref = await map.save()
+		T.log("ref: " + ref)
+		T.assertNotAnError(t0, T, ref)
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• load " + ref)
+	var map2
+	try {
+		map2 = await pot.load(ref, bee_url, batch_id)
+		T.assertNotAnError(t0, T, map2)
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• retrieve "+massmax+" random values under random keys")
+	for(let i=0; i<massmax; i++) {
+		val = await map2.get(k[i])
+		T.assertEqual(t0, T, val, v[i], true) // suppress ok
+	}
+	T.attestNoError(t0, T)
+
+	T.start("async store and retrieve "+massmax+" values sequentially, reverse, with save & load")
+
+	T.log("• new map")
+	map = await pot.new(bee_url, batch_id)
+	T.assertNoError(t0, T, !map)
+
+	k = []
+	v = []
+
+	T.log("• store "+massmax+" random values under random keys")
+	for(let i=0; i<massmax; i++) {
+		k.push(key = pot.randKey())
+		v.push(val = pot.randValue())
+		e = await map.put(key, val)
+		T.assertNotAnError(t0, T, e, true) // suppress ok
+	}
+	T.attestNoError(t0, T)
+
+	T.log("• save")
+	var ref
+	try {
+		ref = await map.save()
+		T.assertNotAnError(t0, T, ref)
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• load")
+	var map2
+	try {
+		map2 = await pot.load(ref, bee_url, batch_id)
+		T.assertNotAnError(t0, T, map2)
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• reverse retrieve of "+massmax+" random values under random keys")
+	for(let i=massmax-1; i>=0; i--) {
+		val = await map2.get(k[i])
+		T.assertEqual(t0, T, val, v[i], true) // suppress ok
+	}
+	T.attestNoError(t0, T)
+
+
+	T.start("async store and retrieve "+massmax+" values sequentially, random order, with save & load")
+
+	T.log("• new map")
+	map = await pot.new(bee_url, batch_id)
+	T.assertNoError(t0, T, !map)
+
+	k = []
+	v = []
+
+	T.log("• store "+massmax+" random values under random keys")
+	for(let i=0; i<massmax; i++) {
+		k.push(key = pot.randKey())
+		v.push(val = pot.randValue())
+		e = await map.put(key, val)
+		T.assertNotAnError(t0, T, e, true) // suppress ok
+	}
+	T.attestNoError(t0, T)
+
+	T.log("• save")
+	var ref
+
+	try {
+		ref = await map.save()
+		T.assertNotAnError(t0, T, ref)
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• load")
+	var map2
+	try {
+		map2 = await pot.load(ref, bee_url, batch_id)
+		T.assertNotAnError(t0, T, map2)
+	} catch(err) {
+		T.attestUnexpectedError(t0, T, err)
+	}
+
+	T.log("• random retrieve of "+massmax+" random values under random keys")
+	let plog = ""
+	for(let i=massmax-1; i>=0; i--) {
+		j = Math.floor(Math.random() * (i+1))
+		plog += j + "/" + i + " "
+		if(!(i%10)) {
+			T.log()
+			T.log("⟶   " + plog)
+			T.log()
+			plog = ""
+		}
+		val = await map2.get(k[j])
+		T.assertEqual(t0, T, val, v[j], true) // suppress ok
+		k.splice(j,1)
+		v.splice(j,1)
 	}
 	T.attestNoError(t0, T)
 
@@ -5790,10 +6241,9 @@ async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 
 		await T.completion(null, T, ()=>{return group}, 100, 10000)
 
-		T.start("• save")
+		T.log("• save")
 
 		try {
-			T.log("• save")
 			ref = await map.save()
 			T.assertNotAnError(t0, T, ref)
 		} catch(err) {
@@ -6187,7 +6637,8 @@ if(T.NODE)
 	module.exports = { TestPotKvsSync, TestPotKvsAsync, TestPotKvs_TypeEncoding,
 		TestPotKvs_EdgeValuesSync, TestPotKvs_EdgeValuesAsync,
 		TestPotKvs_TypedAccessSync, TestPotKvs_TypedAccessAsync,
-		TestPotKvs_MassSequential, TestPotKvs_ComplexConcurrent,
-		TestPotKvs_Save, TestPotKvs_ComplexSave, TestPotKvs_Cancellation,
+		TestPotKvs_MassSequentialSync, TestPotKvs_MassSequentialAsync,
+		TestPotKvs_ComplexConcurrent, TestPotKvs_Save,
+		TestPotKvs_ComplexSave, TestPotKvs_Cancellation,
 		TestPotKvs_Failures, TestPotKvs_Stress, TestPotKvs_Release,
 		TestPotKvs_InternalErrors, TestPotKvs_InvalidArguments }

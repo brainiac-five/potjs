@@ -2,8 +2,10 @@ module potjs
 
 go 1.24.5
 
+replace github.com/brainiac-five/pot => github.com/brainiac-five/pot v1.0.6
+
 require (
-	github.com/brainiac-five/pot v1.0.2
+	github.com/brainiac-five/pot v1.0.6
 	github.com/ethersphere/proximity-order-trie v1.0.0
 )
 
