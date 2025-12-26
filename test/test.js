@@ -24,7 +24,7 @@ globalThis.T = {
 	inside:           false,
 	connection_issue: null,
 	time:             null,
-	NODE:		  NODE
+	NODE:             NODE
 }
 
 // Write both to browser consol and, briefer and more formatted, to web page.
@@ -143,7 +143,7 @@ function numcut(msg) {
 function alignpad(add, had, width, sep) {
 	if(!add || !had || !width)
 		return ""
-	const h = had.length 
+	const h = had.length
 	const a = add.length
 	const w = width
 	if(width-a-h < 1) return " " + sep + " " + add
@@ -240,10 +240,7 @@ function suitehead(msg, gray) {
 	if(NODE)
 		T.log(null, head + (T.tag ? alignpad(T.tag.toUpperCase(), head, 80, "|") : ""), gray)
 	else
-		T.log(null,
-		      "••• Test Suite #" + ++(this.suites) + " ••• " + msg.toUpperCase() + " •••"
-			+ (T.tag ? "<div class=righttag>" + T.tag.toUpperCase() + "</div>" : ""), 
-		      gray)
+		T.log(null, head + (T.tag ? "<div class=righttag>" + T.tag.toUpperCase() + "</div>" : ""), gray)
 	T.time = Date.now()
 }
 

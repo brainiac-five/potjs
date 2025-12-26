@@ -68,7 +68,7 @@ func setPanic(_ js.Value, parameters []js.Value) interface{} {
 // setDelay() instructs the next mock POT KVS function called to delay
 // execution, for mS milliseconds, for testing.
 func setDelay(_ js.Value, parameters []js.Value) interface{} {
-	log(INFO, "» set up delay of " + strconv.Itoa(parameters[0].Int()) + " ms")
+	log(INFO, "» set up delay of "+strconv.Itoa(parameters[0].Int())+" ms")
 	delay = parameters[0].Int()
 	return nil
 }
@@ -111,12 +111,12 @@ func mockDelay(ctx context.Context) error {
 		log(INFO, "» mock delay …")
 		select {
 		case <-ctx.Done():
-			then := time.Now().UnixNano() / int64(time.Millisecond) - now
-			log(INFO, "» mock delay done at " + strconv.Itoa(int(then)) + " ms")
+			then := time.Now().UnixNano()/int64(time.Millisecond) - now
+			log(INFO, "» mock delay done at "+strconv.Itoa(int(then))+" ms")
 			return ctx.Err()
 		case <-time.After(d):
-			then := time.Now().UnixNano() / int64(time.Millisecond) - now
-			log(INFO, "» mock delay over after " + strconv.Itoa(int(then)) + " ms")
+			then := time.Now().UnixNano()/int64(time.Millisecond) - now
+			log(INFO, "» mock delay over after "+strconv.Itoa(int(then))+" ms")
 		}
 	}
 	return nil
@@ -133,8 +133,8 @@ func mockHang(ctx context.Context) error {
 		log(INFO, "» mock hanging …")
 		select {
 		case <-ctx.Done():
-			then := time.Now().UnixNano() / int64(time.Millisecond) - now
-			log(INFO, "» mock hanging done at " + strconv.Itoa(int(then)) + " ms")
+			then := time.Now().UnixNano()/int64(time.Millisecond) - now
+			log(INFO, "» mock hanging done at "+strconv.Itoa(int(then))+" ms")
 			return ctx.Err()
 		}
 	}
@@ -311,4 +311,3 @@ func (ps *SwarmKvs) Save(ctx context.Context) (rref []byte, rerr error) {
 
 	return ref32, nil
 }
-

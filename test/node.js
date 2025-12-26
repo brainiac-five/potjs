@@ -1,5 +1,5 @@
 /*
-**    SWARM POT JS API Test Suite / Node
+**    SWARM POT JS Test Suite / Node
 */
 
 const fs = require("fs")
@@ -43,7 +43,7 @@ const screen_batch_id = batch ? batch : "(none)"
 console.log(`
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
-	SWARM POT JS API Test Suite / Node
+	SWARM POT JS Test Suite / Node
 
 	${tag}
 
@@ -51,7 +51,7 @@ console.log(`
 
 	${date}
 
-	This is the test suite for the Javascript API to the Go implementation
+	This is a test suite for POT JS, the Javascript API to the Go implementation
 	of the Proximity-Order-Trie (POT).
 
 	Also see examples/ folder and README.MD.
@@ -72,7 +72,7 @@ console.log(`
 
 
 
-	K V S   T E S T S 
+	K V S   T E S T S
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 `)

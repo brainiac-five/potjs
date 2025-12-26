@@ -1,10 +1,5 @@
 # POT JS
 
-| Simulation | In-Memory | Integration | Stress |
-|------------|-----------|-------------|--------|
-| [![Simulation Tests](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-ubuntu.yml) | [![In-Memory Tests](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-ubuntu.yml) | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests-ubuntu.yml) | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-ubuntu.yml) |
-| [![Simulation Tests](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-macos.yml) | [![In-Memory Tests](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-macos.yml) | | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-macos.yml) |
-
 POT JS allows to effortlessly save mutable key-value maps to an immutable,
 decentralized storage network like Swarm, from node.js or a browser.
 
@@ -19,6 +14,15 @@ layout, including updates and deletions, to a tree of nodes saved to an
 immutable, content-addressed storage.
 
 For more on POT see the [manual](doc/POT_JS_manual.pdf).
+
+## Status
+
+
+| Installation | Simulation | In-Memory | Integration | Stress |
+|--------------|------------|-----------|-------------|--------|
+| [![Installation Tests](https://github.com/brainiac-five/potjs/actions/workflows/inst-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inst-tests-ubuntu.yml) | [![Simulation Tests](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-ubuntu.yml) | [![In-Memory Tests](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-ubuntu.yml) | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests-ubuntu.yml) | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-ubuntu.yml) |
+| [![Installation Tests](https://github.com/brainiac-five/potjs/actions/workflows/inst-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inst-tests-macos.yml) | [![Simulation Tests](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-macos.yml) | [![In-Memory Tests](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-macos.yml) | | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-macos.yml) |
+
 
 
 ## Quick Start
@@ -157,15 +161,15 @@ values controlled by html input.
 
 	POT JS Example 2: Interactive & Integrity
 
-	key    <input id=key>
-	value  <input id=value>
-	       <button onclick="put()"> put </button>
+	key     <input id=key>
+	value   <input id=value>
+		<button onclick="put()"> put </button>
 
 <hr />
 
-	key    <input id=search>
-	       <button onclick="get()"> get </button>
-	value  <input id=result>
+	key     <input id=search>
+		<button onclick="get()"> get </button>
+	value   <input id=result>
 
 	<img src=favicon.ico>
 
@@ -227,8 +231,9 @@ the [function reference](doc/POT_JS_function_reference.pdf).
 
 #### NEW KVS
 
-
+```
 	pot.new([bee node url : string, batch id : string]) ⟶   promise of kvs
+```
 
 Create a new Swarm key-value store.
 
@@ -242,8 +247,9 @@ in-memory. Giving both conects to a Swarm Bee node to store the KVS there
 
 #### LOAD KVS
 
-
+```
 	pot.load(reference : int, [bee node url : string, batch id : string[, timeout : int]]) ⟶   prommise of kvs
+```
 
 Create a new Swarm KVS from a reference that was returned from a previous
 'save()'. The parameters after the first are optional. Leaving them out creates
@@ -257,84 +263,88 @@ unused parameters if you want to use a timeout with in-memory storage.
 
 #### SAVE
 
-
+```
 	kvs.save([timeout : int]) ⟶   promise of reference : int
+```
 
 Store a Swarm KVS, writing it from cache to the network. The bee URL and batch
 ID are taken from the `new()` call. The timeout is optional, and in milliseconds.
 
 ```js
-        ref = kvs.save()
+	ref = kvs.save()
 ```
 
 #### PUT
 
-
+```
 	kvs.put(key, value[, timeout: int]) ⟶   promise of null
 
 	key : string, number, boolean
 	value : string, number, boolean, Uint8Array, null
+```
 
 Write or update a value. Returns a promise that resolves to null when the put
 has happened. Timeout is optional, and in milliseconds.
 
 ```js
-        k = "entry1"
-        v = "The quick brown fox jumps over the lazy dog."
+	k = "entry1"
+	v = "The quick brown fox jumps over the lazy dog."
 
-        kvs = pot.new()
+	kvs = pot.new()
 
-        try {
-                await kvs.put(k, v)
-                result = await kvs.get(k)
+	try {
+		await kvs.put(k, v)
+		result = await kvs.get(k)
 
-        } catch(e) {
-                console.log(e)
-        }
+	} catch(e) {
+		console.log(e)
+	}
 ```
 
 #### GET
 
-
+```
 	kvs.get(key[, timeout : int]) ⟶   promise of value
 
 	key : string, number, boolean
 	value : string, number, boolean, Uint8Array, null
+```
 
 Retrieve a value. Returns a promise for the value to get.  Timeout is optional,
 in milliseconds.
 
 ```js
-        try {
-                r = await kvs.get("entry 1")
-        } catch(e) {
-	        ...
-        }
+	try {
+		r = await kvs.get("entry 1")
+	} catch(e) {
+		...
+	}
 ```
 
 
 When using `.catch`, don’t chain it before recording the promise.
 
 ```js
-        promise = kvs.get("123")
-        promise.catch((err)=>attestExpectedError(T, err, "Error: canceled"))
+	promise = kvs.get("123")
+	promise.catch((err)=>attestExpectedError(T, err, "Error: canceled"))
 ```
 
 #### DELETE
 
-
+```
 	kvs.delete(key[, timeout : int]) ⟶   promise of null
 
 	key : string, number, boolean
+```
 
 Delete a key-value pair. Timeout is optional, in milliseconds.
 
 ```js
-        try {
-                 await kvs.delete("entry X")
-        } catch(e) {
-		     ...
-        }
+	try {
+		await kvs.delete("entry X")
+	} catch(e) {
+		...
+	}
 ```
 
 
@@ -349,11 +359,12 @@ results, or fail, for values that were stored raw, i.e., by `putRaw()`.
 
 #### PUT RAW
 
-
+```
 	kvs.putRaw(key, value) ⟶   promise of null
 
 	key : string, number, boolean
 	value : string, number, boolean, Uint8Array, null
+```
 
 Put a raw Uint8Array, a boolean, number, or string. The bytes as stored are not
 distinguished by type information and have to be retrieved using one of the
@@ -362,24 +373,27 @@ functions below, not `get()` or `getSync()`.
 
 #### GET RAW
 
-
+```
 	kvs.getRaw(key) ⟶   promise of Uint8Array
+```
 
 Get a raw Uint8Bytes array.
 
 
 #### GET BOOLEAN FROM RAW
 
-
+```
 	kvs.getBoolean(key) ⟶   promise of boolean
+```
 
 Get a raw value as Boolean. First byte 0 means false, all else true.
 
 
 #### GET NUMBER FROM RAW
 
-
+```
 	kvs.getNumber(key) ⟶   promise of number
+```
 
 Get a raw value as floating point number. The value must be eight byte.
 Note that Javascript does not have integers.
@@ -387,8 +401,9 @@ Note that Javascript does not have integers.
 
 #### GET STRING FROM RAW
 
-
+```
 	kvs.getString(key) ⟶   promise of string
+```
 
 Get a raw value as string.
 
@@ -430,62 +445,66 @@ or see below.
 ## Files
 
 
-       README.MD             Subset of this manual
+	README.MD             Subset of this manual
 
-        potjs.go              Go JS interface
-        nomock.go             No-op version of test functions
-        mock.go               Monkey patch mock of Go POT for extended testing
-        swarm_nodejs.go       Hybrid Go-Javascript LoadSaver for node.js on Swarm
+	potjs.go              Go JS interface
+	nomock.go             No-op version of test functions
+	mock.go               Monkey patch mock of Go POT for extended testing
+	swarm_nodejs.go       Hybrid Go-Javascript LoadSaver for node.js on Swarm
 
-        mock/                 Replacement of Go POT for extended testing
-         pot.go               mock structures
-         go.mod               Go module locations
-         pkg/persister        Copy of Go POT persisters to satisfy depencies
-           ...
+	mock/                 Replacement of Go POT for extended testing
+	  pot.go              mock structures
+	  go.mod              Go module locations
+	  pkg/persister       Copy of Go POT persisters to satisfy depencies
+	    ...
 
-        lib/
-         pot.wasm             Go POT implementation compiled to WASM
-         wasm_exec.js         Generic Go WASM wrapper (replace w/your Go version’s)
-         wasm_exec.js.sha384  SHA384 checksum for sub-component verification
-         pot-node.js          JS WASM initialization and fetch code
-         pot-web.js           JS WASM initialization
-         pot-web.js.sha384    SHA384 checksum for sub-component verification
+	lib/
+	  pot.wasm            Go POT implementation compiled to WASM
+	  wasm_exec.js        Generic Go WASM wrapper (replace w/your Go version’s)
+	  wasm_exec.js.sha384 SHA384 checksum for sub-component verification
+	  pot-node.js         JS WASM initialization and fetch code
+	  pot-web.js          JS WASM initialization
+	  pot-web.js.sha384   SHA384 checksum for sub-component verification
 
-       doc/                  POT JS documentation
-        POT JS manual.pdf    quick start, instructions, tutorial, examples
-        POT JS manual.odt
-        POT JS function reference.pdf
-        POT JS function reference.odt
+	doc/                  POT JS documentation
+	  POT_JS_manual.pdf   quick start, instructions, tutorial, examples
+	  POT_JS_manual.odt
+	  POT_JS_function_reference.pdf
+	  POT_JS_function_reference.odt
+	  logo.svg
 
-        examples/
-         example1.html        Briefest example, in-browser, in-memory storage
-         example2.html        Interactive example, input fields, integrity
-         example3.html        Example 2 without pot-web.js for more control
-         example4.html        Example 1 but using synchronous functions
-         example5.html        Example 1 but connected to a local Swarm network
-         example6.html        Demonstrating the behavior of the save reference
-         example7.js          Example 1 but running in the terminal with node.js
-         example8.js          Example 2 but as a single-page node.js web server
-         example9.js          Example 8 but connected to a local Swarm network
-         favicon.ico          Swarm logo to suppress browser errors
+	examples/
+	  example1.html       Briefest example, in-browser, in-memory storage
+	  example2.html       Interactive example, input fields, integrity
+	  example3.html       Example 2 without pot-web.js for more control
+	  example4.html       Example 1 but using synchronous functions
+	  example5.html       Example 1 but connected to a local Swarm network
+	  example6.html       Demonstrating the behavior of the save reference
+	  example7.js         Example 1 but running in the terminal with node.js
+	  example8.js         Example 2 but as a single-page node.js web server
+	  example9.js         Example 8 but connected to a local Swarm network
+	  favicon.ico         Swarm logo to suppress browser errors
 
-        tutorial/             Files t0.html – t14.js for tutorial of the manual
-           ...
+	tutorial/             Files t0.html – t14.js for tutorial of the manual
+	   ...
 
-        test/
-         test.html            Test start for in-browser tests
-         node.js              Test start for node.js-based tests
-         suites.js            Test suites
-         test.js              Generic test harness
-         test.css             Generic test optics
-         favicon.ico          Swarm logo to suppress browser errors
+	test/
+	  jest.async.js       Installation test suite for async functions
+	  jest.sync.js        Installation test suite for sync functions
+	  jest.json           Installation test configuration
+	  test.html           Deep test start for in-browser tests
+	  node.js             Deep test start for node.js-based tests
+	  suites.js           Deep test suites
+	  test.js             Generic deep test harness
+	  test.css            Generic deep test optics
+	  favicon.ico         Swarm logo to suppress browser errors
 
-        go.mod                Go module locations
-        go.sum                Go module check sums
+	go.mod                Go module locations
+	go.sum                Go module check sums
 
-        Makefile              Build scripts
+	Makefile              Build scripts
 
-        favicon.ico           Swarm logo to suppress browser errors
+	favicon.ico           Swarm logo
 
 
 
@@ -567,66 +586,48 @@ The connection between Go and Javascript through WASM is based on Go's
 	https://pkg.go.dev/syscall
 
 It is stable since a long time though and functionally sufficiently rich to
-build this API. It's most visible limitation may be that `*Sync()` have to 
+build this API. It's most visible limitation may be that `*Sync()` have to
 return errors objects instead of throwing them.
 
 
 
 ## Tests
 
-The custom test harness in `test.js` and `test.css` is used to run and display
-the results from a suite of 160+ tests in `suites.js` across the available put
-and get functions. Check out the chapter about tests in the
-[manual](doc/POT_JS_manual.pdf).
-
-Make can be used to run tests. Alternatively, serve the main directory, e.g.,
-with with `npx http-server .`, and open `http://127.0.0.1:8080/test/test.html`
-to run the equivalent of the standard test that is also invoked by:
-
-	% make webtest
-
-A standard node.js-based test runs with
+POT JS can be tested with
 
 	% make test
 
-To see more ways of running tests, inspect the make rules. They can be copied
-from the Makefile, replacing $$ with $.
+This runs 170 happy path and edge cases in files `test/jest.sync.js` and
+`test/jest.async.js` to verify a platform. The tests run with node.js and the
+in-memory storage; not in a browser and not with a network connection.
 
-These are the make rules to run tests:
+For more extensive tests, a separate suite can be run in different modes,
+including in the browser and using a local network. The test cases are in
+`test/suites.js`.
 
-    test                explain test modes and run node_inmem_test
-    webtest             explain test modes and run web_inmem_test
-    explain_tests       explain test modes
-    web_inmem_test      test api interaction with go pot in-memory persisting, web
-    web_inmem_stress    stress test with go pot in-memory persisting, web
-    web_sim_test        extended exceptions tests w/out go pot connection, web
-    web_locnet_test     standard tests with a locally installed Swarm network, web
-    web_locnet_quick    like web_locnet_test but re-using the last batch id, web
-    web_locnet_stress   stress test with a locally installed Swarm network, web
-    node_inmem_test     test api interaction with go pot in-memory persisting, node
-    node_inmem_stress   stress test with go pot in-memory persisting, node
-    node_sim_test       extended exceptions tests w/out go pot connection, node
-    node_locnet_test    test with a locally installed Swarm network, node
-    node_locnet_quick   like node_locnet_test but re-using the last batch id, node
-    node_locnet_stress  stress test with a locally installed Swarm network, node
+The make rules to run tests are:
 
-    support & debugging
+	test                explain test modes and run jest installation tests
+	nodetest            explain test modes and run node_inmem_test
+	webtest             explain test modes and run web_inmem_test
+	explain_tests       explain test modes
+	web_inmem_test      test api interaction with go pot in-memory persisting, web
+	web_inmem_stress    stress test with go pot in-memory persisting, web
+	web_sim_test        extended exceptions tests w/out go pot connection, web
+	web_locnet_test     standard tests with a locally installed Swarm network, web
+	web_locnet_quick    like web_locnet_test but re-using the last batch id, web
+	web_locnet_stress   stress test with a locally installed Swarm network, web
+	node_inmem_test     test api interaction with go pot in-memory persisting, node
+	node_inmem_stress   stress test with go pot in-memory persisting, node
+	node_sim_test       extended exceptions tests w/out go pot connection, node
+	node_locnet_test    test with a locally installed Swarm network, node
+	node_locnet_quick   like node_locnet_test but re-using the last batch id, node
+	node_locnet_stress  stress test with a locally installed Swarm network, node
 
-    mock                prepare for extended exception tests
-    unmock              reset for production or non-extended tests
-    stop                stop local http server(s) and local Swarm network
-    http_serve          start local http server serving current directory
-    http_stop           stop local http server. Ctrl-c does not
-    locnet_install      install the local test network
-    locnet_start        start the local test network on docker
-    locnet_batch        buy stamp batch (free)
-    locnet_tests        run test suites on local test network
-    locnet_stop         shut local test network down
-    locnet_logs         show the entire log of the queen node
+Check out the chapter about tests in the [manual](doc/POT_JS_manual.pdf).
 
-
-The test page and test framework are designed to bridge the language divide and
-allow for the emulation of exceptions in one degree of separation (caused in
+The deep test output and framework are designed to bridge the language divide
+and allow for the emulation of exceptions in one degree of separation (caused in
 Go, caught from JS). The major relevance of the test harness is to help surface
 any friction between JS's and Go's resource release mechanisms (JS promises and
 Go channels) to detect possible leaks. Go's channels can deadlock, and the
@@ -640,7 +641,7 @@ emulation, promisses, and connectivity as well as induced error conditions
 are used to test the reality of an unreliable network as ultimate storage
 layer.
 
-Note that `make web_sim_test` (and also specifically, `make mock`) change the
+Note that `make *_sim_test` (and also specifically, `make mock`) change the
 project configuration and build WASM executable (`pot.wasm`) that will not
 work in production. (It will appear to work but it then sidesteps Go POT.)
 Use `make unmock`, `make test`, or `make build` to restore to the production
@@ -657,16 +658,21 @@ package `pot` in `mock/`.
 
 Files governing the testing are:
 
-	test.html
-	node.js
-	suites.js
-	test.js
+	jest.json         installation tests config
+	jest.sync.js      suite 1
+	jest.async.js     suite 2
+
+	test.html         deep test, in-browser
+	node.js           deep test, node.js
+	suites.js         deep test suite
+	test.js           generic test framework
 	test.css
-	Makefile (optional)
+	Makefile
 
-Both in-browser and node.js tests use `test.js` and the `suites.js` suite.
+Both in-browser and for node.js tests use `test.js` and the `suites.js` suite.
 
-For extended simulation tests, these files are dropped in to replace Go POT:
+For extended simulation tests, these files are used to replace
+[Go POT](https://github/ethersphere/proximity-order-trie):
 
 	mock.go
 	mock/pot.go
@@ -720,9 +726,10 @@ This (re-)creates `pot.wasm`.
 	go: creating new go.mod: module potjs
 	go: to add module requirements and sums:
 		go mod tidy
-	go mod edit -replace github.com/ethersphere/proximity-order-trie=github.com/ethersphere/proximity-order-trie@v1.0.0
+	go mod edit -replace github.com/brainiac-five/pot=github.com/brainiac-five/pot@v1.0.6
 	go get
 	go: added github.com/beorn7/perks v1.0.1
+	go: added github.com/brainiac-five/pot v1.0.6
 	go: added github.com/cespare/xxhash/v2 v2.2.0
 	go: added github.com/ethersphere/bee/v2 v2.5.0
 	go: added github.com/ethersphere/proximity-order-trie v1.0.0
@@ -742,7 +749,7 @@ This (re-)creates `pot.wasm`.
 ```
 
 
-### What You Should See: Standard Test / Node.js
+### What You Should See: Installation Test
 
 	% make test
 
@@ -750,43 +757,135 @@ This (re-)creates `pot.wasm`.
 **Terminal**
 
 
-```sh
-	#  Tests can run in 2x3x2 modes:
+```
 	#
-	#  browser / node | in-memory / simulated / network | standard / stress.
+	#  The jest installation test suite is run by:
 	#
-	#  browser    web     |  Javascript running in the browser
-	#  node       node    |  Javascript running in the terminal using node.js
-	#  -------------------+--------------------------------------------------
-	#  in-memory  inmem   |  non-persistent, in-memory storage
-	#  simulated  sim     |  simulated storage for testing exceptions
-	#  network    locnet  |  local Swarm network storage
-	#  -------------------+--------------------------------------------------
-	#  standard   test    |  153 test suites of various flavors
-	#             quick   |  like *_locnet_test but re-using the batch id
-	#  stress     stress  |  4 longer-running suites; mass & concurrent access
+	#    % make test
 	#
-	#  The following are the make rules (for other rules use % make help):
+	#  Deep regression tests can be run in 2x3x2 combinable deep test modes:
 	#
-	#  test               |  explain test modes and run node_inmem_test
-	#  webtest            |  explain test modes and run web_inmem_test
-	#  web_inmem_test     |  test api interaction with go pot in-memory persisting, web
-	#  web_inmem_stress   |  stress test with go pot in-memory persisting, web
-	#  web_sim_test       |  extended exceptions tests w/out go pot connection, web
-	#  web_locnet_test    |  standard tests with a locally installed Swarm network, web
-	#  web_locnet_quick   |  like web_locnet_test but re-using the last batch id, web
-	#  web_locnet_stress  |  stress test with a locally installed Swarm network, web
-	#  node_inmem_test    |  test api interaction with go pot in-memory persisting, node
-	#  node_inmem_stress  |  stress test with go pot in-memory persisting, node
-	#  node_sim_test      |  extended exceptions tests w/out go pot connection, node
-	#  node_locnet_test   |  test with a locally installed Swarm network, node
-	#  node_locnet_quick  |  like node_locnet_test but re-using the last batch id, node
-	#  node_locnet_stress |  stress test with a locally installed Swarm network, node
+	#    browser / node + in-memory / simulated / network + standard / stress.
+	#
+	#  The deep test rules are composed from three tags. For example:
+	#
+	#    % make node_inmem_stress
+	#
+	#  Meaning     Tag     |  Description
+	#  --------------------+----------------------------------------------------------
+	#  browser     web     |  Javascript running in the browser
+	#  node node           |  Javascript running in the terminal using node.js
+	#  --------------------+----------------------------------------------------------
+	#  in-memory   inmem   |  non-persistent, in-memory storage
+	#  simulated   sim     |  simulated storage for testing exceptions
+	#  network     locnet  |  local Swarm network storage
+	#  --------------------+----------------------------------------------------------
+	#  standard    test    |  31 test suites of various flavors
+	#  recycle id  quick   |  like *_locnet_test but re-using the batch id
+	#  stress      stress  |  4 longer-running suites; mass & concurrent access
+	#
+	#  The following are the test make rules (for other rules use % make help):
+	#
+	#  Rule                |  Description
+	#  --------------------+----------------------------------------------------------
+	#  test                |  explain test modes and run jest test suite
+	#  nodetest            |  explain test modes and run node_inmem_test
+	#  webtest             |  explain test modes and run web_inmem_test
+	#  jest                |  jest test suite
+	#  --------------------+----------------------------------------------------------
+	#  web_inmem_test      |  test api interaction with go pot in-memory persisting, web
+	#  web_inmem_stress    |  stress test with go pot in-memory persisting, web
+	#  web_sim_test        |  extended exceptions tests w/out go pot connection, web
+	#  web_locnet_test     |  standard tests with a locally installed Swarm network, web
+	#  web_locnet_quick    |  like web_locnet_test but re-using the last batch id, web
+	#  web_locnet_stress   |  stress test with a locally installed Swarm network, web
+	#  node_inmem_test     |  test api interaction with go pot in-memory persisting, node
+	#  node_inmem_stress   |  stress test with go pot in-memory persisting, node
+	#  node_sim_test       |  extended exceptions tests w/out go pot connection, node
+	#  node_locnet_test    |  test with a locally installed Swarm network, node
+	#  node_locnet_quick   |  like node_locnet_test but re-using the last batch id, node
+	#  node_locnet_stress  |  stress test with a locally installed Swarm network, node
 	#
 	#  All node_* tests are run on push by github CI workloads, except *_quick.
 	#  CI runs all those tests for ubuntu-latest, and all non-locnet for MacOS.
 	#
+	#
 	GOOS=js GOARCH=wasm go build -o lib/pot.wasm potjs.go swarm_nodejs.go nomock.go
+	⬢ √ pot.wasm built for production
+
+	⬢  Jest Tests
+
+	npx jest --config test/jest.json --runInBand --testRegex jest.a\?sync.js$
+	PASS  test/jest.async.js
+	PASS  test/jest.sync.js
+
+	Test Suites: 2 passed, 2 total
+	Tests:       172 passed, 172 total
+	Snapshots:   0 total
+	Time:        2.591 s, estimated 3 s
+	Ran all test suites.
+```
+
+### What You Should See: Standard Deep Test / Node.js
+
+	% make nodetest
+
+
+**Terminal**
+
+
+```
+	#
+	#  The jest installation test suite is run by:
+	#
+	#    % make test
+	#
+	#  Deep regression tests can be run in 2x3x2 combinable deep test modes:
+	#
+	#    browser / node + in-memory / simulated / network + standard / stress.
+	#
+	#  The deep test rules are composed from three tags. For example:
+	#
+	#    % make node_inmem_stress
+	#
+	#  Meaning     Tag     |  Description
+	#  --------------------+----------------------------------------------------------
+	#  browser     web     |  Javascript running in the browser
+	#  node node           |  Javascript running in the terminal using node.js
+	#  --------------------+----------------------------------------------------------
+	#  in-memory   inmem   |  non-persistent, in-memory storage
+	#  simulated   sim     |  simulated storage for testing exceptions
+	#  network     locnet  |  local Swarm network storage
+	#  --------------------+----------------------------------------------------------
+	#  standard    test    |  31 test suites of various flavors
+	#  recycle id  quick   |  like *_locnet_test but re-using the batch id
+	#  stress      stress  |  4 longer-running suites; mass & concurrent access
+	#
+	#  The following are the test make rules (for other rules use % make help):
+	#
+	#  Rule                |  Description
+	#  --------------------+----------------------------------------------------------
+	#  test                |  explain test modes and run jest test suite
+	#  nodetest            |  explain test modes and run node_inmem_test
+	#  webtest             |  explain test modes and run web_inmem_test
+	#  jest                |  jest test suite
+	#  --------------------+----------------------------------------------------------
+	#  web_inmem_test      |  test api interaction with go pot in-memory persisting, web
+	#  web_inmem_stress    |  stress test with go pot in-memory persisting, web
+	#  web_sim_test        |  extended exceptions tests w/out go pot connection, web
+	#  web_locnet_test     |  standard tests with a locally installed Swarm network, web
+	#  web_locnet_quick    |  like web_locnet_test but re-using the last batch id, web
+	#  web_locnet_stress   |  stress test with a locally installed Swarm network, web
+	#  node_inmem_test     |  test api interaction with go pot in-memory persisting, node
+	#  node_inmem_stress   |  stress test with go pot in-memory persisting, node
+	#  node_sim_test       |  extended exceptions tests w/out go pot connection, node
+	#  node_locnet_test    |  test with a locally installed Swarm network, node
+	#  node_locnet_quick   |  like node_locnet_test but re-using the last batch id, node
+	#  node_locnet_stress  |  stress test with a locally installed Swarm network, node
+	#
+	#  All node_* tests are run on push by github CI workloads, except *_quick.
+	#  CI runs all those tests for ubuntu-latest, and all non-locnet for MacOS.
+	#
 	⬢ √ pot.wasm built for production
 	node test/node.js in-mem
 
@@ -804,7 +903,7 @@ This (re-)creates `pot.wasm`.
 
 	-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
-		Thu Oct 30 2025 02:27:10 GMT+0100 (Central European Standard Time)
+		Sun Dec 21 2025 16:38:31 GMT+0100 (Central European Standard Time)
 
 		This is the test suite for the Javascript API to the Go implementation
 		of the Proximity-Order-Trie (POT).
@@ -827,7 +926,7 @@ This (re-)creates `pot.wasm`.
 
 
 
-		K V S   T E S T S 
+		K V S   T E S T S
 
 	-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
@@ -836,79 +935,82 @@ This (re-)creates `pot.wasm`.
 	pot:  » node.js detected
 	pot:  » init done
 	pot:  » ready
-	pot:  
-	pot:  
-	pot:  ================================================================================
+	pot:
+	pot:
+	pot:  ════════════════════════════════════════════════════════════════════════════════
 	pot:  ••• Test Suite #1 ••• EXAMPLE TEST •••                                    IN-MEM
-	pot:  ================================================================================
+	pot:  ════════════════════════════════════════════════════════════════════════════════
 	pot:  Test setup test outside of main test files.
-	pot:  
-	pot:  --------------------------------------------------------------------------------
+	pot:
+	pot:  ————————————————————————————————————————————————————————————————————————————————
 	pot:  ✦ case #1 » script inline                                                     --
-	pot:  --------------------------------------------------------------------------------
-	pot:  
+	pot:  ————————————————————————————————————————————————————————————————————————————————
+	pot:
 	pot:  • put and get K: V
-	pot:  » (re)-using in-memory persister
+	pot:  » created new in-memory persister
 	pot:  » initialize new P.O.T. - slot 1
 	pot:  » put  K: V
 	pot:  » get  K: V
 	pot:  √ as expected, ‹V›.                                                         6 ms
-	pot:  
-	pot:  
-	pot:  ================================================================================
+	pot:
+	pot:
+	pot:  ════════════════════════════════════════════════════════════════════════════════
 	pot:  ••• Test Suite #2 ••• SIMPLE GETS AND PUTS OF KVS, SYNCHRONOUS •••        IN-MEM
-	pot:  ================================================================================
-	pot:  
-	pot:  
-	pot:  --- b o o l e a n --------------------------------------------------------------
-	pot:  
-	pot:  --------------------------------------------------------------------------------
-	pot:  ✦ case #2 » • put K1: false                                         suites.js:58
-	pot:  --------------------------------------------------------------------------------
-	pot:  
+	pot:  ════════════════════════════════════════════════════════════════════════════════
+	pot:
+	pot:
+	pot:  ··· b o o l e a n ······························································
+	pot:
+	pot:  ————————————————————————————————————————————————————————————————————————————————
+	pot:  ✦ case #2 » • put K1: false                                         suites.js:66
+	pot:  ————————————————————————————————————————————————————————————————————————————————
+	pot:
 	pot:  • new map
-	pot:  » (re)-using in-memory persister
+	pot:  » reusing in-memory persister
 	pot:  » initialize new P.O.T. - slot 2
-	pot:  √ no error raised.                                                        ⩽ 1 ms
-	pot:  
+	pot:  √ no error raised.                                                          1 ms
+	pot:
 	pot:  • put K1: false
 	pot:  » put  K1: false
-	pot:  √ no error raised.
-
+	pot:  √ no error raised.                                                          1 ms
+	pot:
+	pot:  • getBooleanSync K1
+	pot:  » get  K1: false
+	pot:  √ as expected, ‹false›.
 	...
 
-	pot:  --------------------------------------------------------------------------------
-	pot:  ✦ case #157 » Oversize Value                                      suites.js:4576
-	pot:  --------------------------------------------------------------------------------
+	pot:  ————————————————————————————————————————————————————————————————————————————————
+	pot:  ✦ case #161 » Oversize Value                                      suites.js:6614
+	pot:  ————————————————————————————————————————————————————————————————————————————————
 	pot:  max value size is 100000. Storing the maximal value is part of the stress test
 	pot:  batch
 	pot:
 	pot:  • 100000+1 byte sized value should be stopped (async)
-	pot:  » (re)-using in-memory persister
-	pot:  » initialize new P.O.T. - slot 121
-	pot:  √ no error raised.                                                         12 ms
+	pot:  » reusing in-memory persister
+	pot:  » initialize new P.O.T. - slot 139
+	pot:  √ no error raised.                                                          1 ms
 	pot:
 	pot:  • put 100001 byte buffer raw B
 	pot:  ### put error: value too large (> 100000 bytes)
-	pot:  √ expected error: ‹Error: ### put error: value too large (> 100000 bytes)›. |
-	pot:    20 ms
+	pot:  √ expected error: ‹Error: ### put error: value too large (> 100000 bytes)›.
+	pot:                                                                             17 ms
 	pot:
 	pot:
-	pot:  ================================================================================
-	pot:  ••• Test Suite #16 ••• FAILURES •••                                       IN-MEM
-	pot:  ================================================================================
+	pot:  ════════════════════════════════════════════════════════════════════════════════
+	pot:  ••• Test Suite #18 ••• FAILURES •••                                       IN-MEM
+	pot:  ════════════════════════════════════════════════════════════════════════════════
 	pot:  Failure tests are available in `simulation` test mode. Use `make web_sim_test`
 	pot:  or `make node_sim_test`
 	pot:
 	pot:
-	pot:  ================================================================================
-	pot:  ••• tests cases run: 157 • assertions: 1355  •••
-	pot:  ================================================================================
+	pot:  ════════════════════════════════════════════════════════════════════════════════
+	pot:  ••• tests cases run: 161 • assertions: 3214  •••
+	pot:  ════════════════════════════════════════════════════════════════════════════════
 	pot:  no errors
 ```
 
 
-### What You Should See: Standard Test / Browser
+### What You Should See: Standard Deep Test / Browser
 
 	% make webtest
 
@@ -920,50 +1022,93 @@ A web page should open and after some seconds (potentially first showing
 
 ```sh
 	% make webtest
-
 	#
-	#  Tests can run in 2x3x2 modes:
+	#  The jest installation test suite is run by:
 	#
-	#  browser / node | in-memory / simulated / network | standard / stress.
+	#    % make test
 	#
-	#  browser    web     |  Javascript running in the browser
-	#  node       node    |  Javascript running in the terminal using node.js
-	#  -------------------+--------------------------------------------------
-	#  in-memory  inmem   |  non-persistent, in-memory storage
-	#  simulated  sim     |  simulated storage for testing exceptions
-	#  network    locnet  |  local Swarm network storage
-	#  -------------------+--------------------------------------------------
-	#  standard   test    |  153 test suites of various flavors
-	#             quick   |  like *_locnet_test but re-using the batch id
-	#  stress     stress  |  4 longer-running suites; mass & concurrent access
+	#  Deep regression tests can be run in 2x3x2 combinable deep test modes:
 	#
-	#  The following are the make rules (for other rules use % make help):
+	#    browser / node + in-memory / simulated / network + standard / stress.
 	#
-	#  test               |  explain test modes and run node_inmem_test
-	#  webtest            |  explain test modes and run web_inmem_test
-	#  web_inmem_test     |  test api interaction with go pot in-memory persisting, web
-	#  web_inmem_stress   |  stress test with go pot in-memory persisting, web
-	#  web_sim_test       |  extended exceptions tests w/out go pot connection, web
-	#  web_locnet_test    |  standard tests with a locally installed Swarm network, web
-	#  web_locnet_quick   |  like web_locnet_test but re-using the last batch id, web
-	#  web_locnet_stress  |  stress test with a locally installed Swarm network, web
-	#  node_inmem_test    |  test api interaction with go pot in-memory persisting, node
-	#  node_inmem_stress  |  stress test with go pot in-memory persisting, node
-	#  node_sim_test      |  extended exceptions tests w/out go pot connection, node
-	#  node_locnet_test   |  test with a locally installed Swarm network, node
-	#  node_locnet_quick  |  like node_locnet_test but re-using the last batch id, node
-	#  node_locnet_stress |  stress test with a locally installed Swarm network, node
+	#  The deep test rules are composed from three tags. For example:
+	#
+	#    % make node_inmem_stress
+	#
+	#  Meaning     Tag     |  Description
+	#  --------------------+----------------------------------------------------------
+	#  browser     web     |  Javascript running in the browser
+	#  node node           |  Javascript running in the terminal using node.js
+	#  --------------------+----------------------------------------------------------
+	#  in-memory   inmem   |  non-persistent, in-memory storage
+	#  simulated   sim     |  simulated storage for testing exceptions
+	#  network     locnet  |  local Swarm network storage
+	#  --------------------+----------------------------------------------------------
+	#  standard    test    |  31 test suites of various flavors
+	#  recycle id  quick   |  like *_locnet_test but re-using the batch id
+	#  stress      stress  |  4 longer-running suites; mass & concurrent access
+	#
+	#  The following are the test make rules (for other rules use % make help):
+	#
+	#  Rule                |  Description
+	#  --------------------+----------------------------------------------------------
+	#  test                |  explain test modes and run jest test suite
+	#  nodetest            |  explain test modes and run node_inmem_test
+	#  webtest             |  explain test modes and run web_inmem_test
+	#  jest                |  jest test suite
+	#  --------------------+----------------------------------------------------------
+	#  web_inmem_test      |  test api interaction with go pot in-memory persisting, web
+	#  web_inmem_stress    |  stress test with go pot in-memory persisting, web
+	#  web_sim_test        |  extended exceptions tests w/out go pot connection, web
+	#  web_locnet_test     |  standard tests with a locally installed Swarm network, web
+	#  web_locnet_quick    |  like web_locnet_test but re-using the last batch id, web
+	#  web_locnet_stress   |  stress test with a locally installed Swarm network, web
+	#  node_inmem_test     |  test api interaction with go pot in-memory persisting, node
+	#  node_inmem_stress   |  stress test with go pot in-memory persisting, node
+	#  node_sim_test       |  extended exceptions tests w/out go pot connection, node
+	#  node_locnet_test    |  test with a locally installed Swarm network, node
+	#  node_locnet_quick   |  like node_locnet_test but re-using the last batch id, node
+	#  node_locnet_stress  |  stress test with a locally installed Swarm network, node
 	#
 	#  All node_* tests are run on push by github CI workloads, except *_quick.
 	#  CI runs all those tests for ubuntu-latest, and all non-locnet for MacOS.
 	#
 	GOOS=js GOARCH=wasm go build -o lib/pot.wasm potjs.go swarm_nodejs.go nomock.go
 	⬢ √ pot.wasm built for production
-	server still running
+	⬡ start http server (stop with 'make stop')
+	(npx http-server -c1 . &)
 
 	⬢ Test in-browser, in-memory, standard suites
 
 	open "http://127.0.0.1:8080/test/test.html?tag=in-mem"
+	Starting up http-server, serving .
+
+	http-server version: 14.1.1
+
+	http-server settings:
+	CORS: disabled
+	Cache: 1 seconds
+	Connection Timeout: 120 seconds
+	Directory Listings: visible
+	AutoIndex: visible
+	Serve GZIP Files: false
+	Serve Brotli Files: false
+	Default File Extension: none
+
+	Available on:
+	http://127.0.0.1:8080
+	http://192.168.178.192:8080
+	Hit CTRL-C to stop the server
+
+	[2025-12-21T15:07:53.769Z]  "GET /test/test.html?tag=in-mem" ...
+	(node:8107) [DEP0066] DeprecationWarning: OutgoingMessage.prototype._headers is deprecated
+	(Use `node --trace-deprecation ...` to show where the warning was created)
+	... "GET /test/test.css" ...
+	... "GET /test/favicon.ico" ...
+	... "GET /lib/wasm_exec.js" ...
+	... "GET /test/test.js" ...
+	... "GET /test/suites.js" ...
+	... "GET /lib/pot.wasm" ...
 ```
 
 **Web Page**
@@ -976,21 +1121,25 @@ A web page should open and after some seconds (potentially first showing
 
 	Also see: example 1   example 2   example 3   example 4   read me
 
-	Notes
+
+	NOTES
 
 	The test suite runs in-memory of the Go POT implementation.
 
 	Tests are using different random byte sequences for keys and values every run.
 
-	Network
+
+	NETWORK
 
 	Bee node URL : (in-memory)
 
 	Batch ID     : (none)
 
-	KVS Tests
 
-	14 suites • 148 cases • 1321 assertions • passed with no errors.
+	KVS TESTS
+
+	18 suites • 161 cases • 3214 assertions • passed with no errors.
+
 
 	Test Suite #1 ••• EXAMPLE TEST •••IN-MEM
 
@@ -998,20 +1147,30 @@ A web page should open and after some seconds (potentially first showing
 
 	✦ case #1 » html-inline                                               --
 	• put and get K: V                                                    --
-	√ as expected, ‹V›.
+	√ as expected, ‹V›.                                                  2ms
 
 	...
 
-	✦ case #148 » Immediate Cancel IIsuites.js:3741
-	create hanging test promise and cancel it immediately (chain .catch)
-	                                                        suites.js:3743
-	√ expected error: ‹Error: canceled›                                  1ms
+	✦ case #161 » Oversize Value                              suites.js:6614
 
-	Test Suite #14 ••• FAILURES •••IN-MEM
+	max value size is 100000. Storing the maximal value is part of the
+	stress test batch.                                        suites.js:6616
 
-	Failure tests are available in extended API test mode. Use `make web_ext_test` and `make node_ext_test`.
+	• 100000+1 byte sized value should be stopped (async)     suites.js:6618
+	√ no error raised.6ms
 
-	tests cases run: 148 • assertions: 1321
+	• put 100001 byte buffer raw B                            suites.js:6625
+	√ expected error: ‹Error: ### put error: value too large
+	(> 100000 bytes)›.                                                22ms
+
+
+	Test Suite #18 ••• FAILURES •••IN-MEM
+
+	Failure tests are available in `simulation` test mode.
+	Use `make web_sim_test` or `make node_sim_test`.
+
+	tests cases run: 161 • assertions: 3214
+
 	no errors
 
 
@@ -1023,7 +1182,7 @@ Check out the example code in [examples/example1.html]().
 **Console**
 
 
-```sh
+```
 	% make example1
 
 	GOOS=js GOARCH=wasm go build -o lib/pot.wasm potjs.go swarm_nodejs.go nomock.go
@@ -1046,8 +1205,8 @@ Check out the example code in [examples/example1.html]().
 	Default File Extension: none
 
 	Available on:
-	  http://127.0.0.1:8080
-	  http://192.168.178.192:8080
+	http://127.0.0.1:8080
+	http://192.168.178.192:8080
 	Hit CTRL-C to stop the server
 
 	...  "GET /examples/example1.html"  ...
@@ -1085,7 +1244,7 @@ Check out the example code in [examples/example1.html]().
 
 ### What You Should See: Local Network Test
 
-This is the standard local Swarm network test 
+This is the standard local Swarm network test
 
 ```sh
 	% make node_locnet_test
@@ -1093,16 +1252,16 @@ This is the standard local Swarm network test
 
 **Terminal**
 
-```sh
+```
 	% make node_locnet_test
 
 	GOOS=js GOARCH=wasm go build -o lib/pot.wasm potjs.go swarm_nodejs.go nomock.go
 	⬢ √ pot.wasm built for production
-	 -----------------------------------------------------------------------------------
-	|                                                                                   |
-	|   This test takes some minutes to set up, results are shown in the terminal.      |
-	|                                                                                   |
-	 -----------------------------------------------------------------------------------
+	------------------------------------------------------------------------------------
+	|                                                                                  |
+	|   This test takes some minutes to set up, results are shown in the terminal.     |
+	|                                                                                  |
+	------------------------------------------------------------------------------------
 	⬢ Local Swarm Network Test
 	⬡ starting five local swarm nodes
 	fdp-play start --detach
@@ -1160,7 +1319,7 @@ This is the standard local Swarm network test
 
 
 
-		K V S   T E S T S 
+		K V S   T E S T S
 
 	-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
@@ -1169,55 +1328,55 @@ This is the standard local Swarm network test
 	pot:  » node.js detected
 	pot:  » init done
 	pot:  » ready
-	pot:  
-	pot:  
+	pot:
+	pot:
 	pot:  ================================================================================
 	pot:  ••• Test Suite #1 ••• EXAMPLE TEST •••                                   LOC-NET
 	pot:  ================================================================================
 	pot:  Test setup test outside of main test files.
-	pot:  
+	pot:
 	pot:  --------------------------------------------------------------------------------
 	pot:  ✦ case #1 » script inline                                                     --
 	pot:  --------------------------------------------------------------------------------
-	pot:  
+	pot:
 	pot:  • put and get K: V
 	pot:  » created new hybrid swarm network loader
 	pot:  » initialize new P.O.T. - slot 1
 	pot:  » put  K: V
 	pot:  » get  K: V
 	pot:  √ as expected, ‹V›.                                                       859 ms
-	pot:  
-	pot:  
+	pot:
+	pot:
 	pot:  ================================================================================
 	pot:  ••• Test Suite #2 ••• SIMPLE GETS AND PUTS OF KVS, SYNCHRONOUS •••       LOC-NET
 	pot:  ================================================================================
-	pot:  
-	pot:  
+	pot:
+	pot:
 	pot:  --- b o o l e a n --------------------------------------------------------------
-	pot:  
+	pot:
 	pot:  --------------------------------------------------------------------------------
 	pot:  ✦ case #2 » • put K1: false                                         suites.js:58
 	pot:  --------------------------------------------------------------------------------
-	pot:  
+	pot:
 	pot:  • new map
 	pot:  » created new hybrid swarm network loader
 	pot:  » initialize new P.O.T. - slot 2
 	pot:  √ no error raised.                                                          1 ms
-	pot:  
+	pot:
 	pot:  • put K1: false
 	pot:  » put  K1: false
 	pot:  √ no error raised.                                                        295 ms
-	pot:  
+	pot:
 	pot:  • getBooleanSync K1
 	pot:  » get  K1: false
 	pot:  √ as expected, ‹false›.                                                     1 ms
-	pot:  
+	pot:
 
 
 	...
 
 
-	pot:  
+	pot:
 	pot:  ================================================================================
 	pot:  ••• tests cases run: 157 • assertions: 1355  •••
 	pot:  ================================================================================
@@ -1238,7 +1397,7 @@ This is the standard local Swarm network test
 		      \ (     ) /
 	   ____________(%%%%%%%)____________
 	  (     /   /  )%%%%%%%(  \   \     )
-	  (___/___/__/           \__\___\___)
+	  (___/___/__/	   \__\___\___)
 	     (     /  /(%%%%%%%)\  \     )
 	      (__/___/ (%%%%%%%) \___\__)
 		      /(       )\
@@ -1294,7 +1453,6 @@ This is the standard local Swarm network test
 Possible future improvements:
 
 	•  npm package
-	•  function cancelling
 	•  javascript module mode
 	•  higher limit of node.js value size
 	•  higher coverage of parameter tests

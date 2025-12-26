@@ -14,11 +14,11 @@
 
 	What those make rules do is essentially:
 
-	  fdp-play start --detach
-	  swarm-cli stamp buy --yes --verbose --depth 20 --amount 1b > .batch_creation
-	  grep "Stamp ID:" .batch_creation | cut -c11-74 > .batch_id
-	  npx http-server -c1 . &
-	  open "http://127.0.0.1:8080/example6.html?bee=http://127.0.0.1:1633&batch=$(cat .batch_id)"
+		fdp-play start --detach
+		swarm-cli stamp buy --yes --verbose --depth 20 --amount 1b > .batch_creation
+		grep "Stamp ID:" .batch_creation | cut -c11-74 > .batch_id
+		npx http-server -c1 . &
+		open "http://127.0.0.1:8080/example6.html?bee=http://127.0.0.1:1633&batch=$(cat .batch_id)"
 
 	If the batch id file exists, or the http server is already running, the
 	make rules will skip the respective lines.

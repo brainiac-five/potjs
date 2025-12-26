@@ -6,8 +6,8 @@
 package main
 
 import (
-	"syscall/js"
 	"context"
+	"syscall/js"
 )
 
 func testMode(_ js.Value, _ []js.Value) interface{} {
@@ -45,4 +45,3 @@ func mockHang(_ context.Context) {
 
 func mockTrigger(_ context.Context, _ string) {
 }
-

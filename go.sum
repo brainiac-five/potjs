@@ -1,9 +1,5 @@
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
-github.com/brainiac-five/pot v1.0.4 h1:Vo1DrsS5NKhKNME390so9AD//jJ6si/8rwFIoDZ645U=
-github.com/brainiac-five/pot v1.0.4/go.mod h1:3eOJ/t0+YOVyi1vAeCepHC2wV4fbpSyR1J5mTb/Gh5Q=
-github.com/brainiac-five/pot v1.0.5 h1:Vhy2Dsk5y5jMD1m72/tB/FlZiq6f9XblCHPWsTh2Twk=
-github.com/brainiac-five/pot v1.0.5/go.mod h1:3eOJ/t0+YOVyi1vAeCepHC2wV4fbpSyR1J5mTb/Gh5Q=
 github.com/brainiac-five/pot v1.0.6 h1:DIfpyu2DIUtntaSrn0Y+1pBYz82Ql6hssjq56+5FF6o=
 github.com/brainiac-five/pot v1.0.6/go.mod h1:3eOJ/t0+YOVyi1vAeCepHC2wV4fbpSyR1J5mTb/Gh5Q=
 github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj44=

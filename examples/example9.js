@@ -24,21 +24,21 @@ const form = `<pre>
 
 		<form method=post action="http://localhost:3000">
 
-		key    <input name=key>
+		key     <input name=key>
 
-		value  <input name=value>
+		value   <input name=value>
 
-		       <input type=submit name=button value=put>
+			<input type=submit name=button value=put>
 
 
 	<hr />
 
 
-		key    <input name=search>
+		key     <input name=search>
 
-		       <input type=submit name=button value=get>
+			<input type=submit name=button value=get>
 
-		value  <input name=result>
+		value   <input name=result>
 
 		</form>
 
@@ -89,7 +89,7 @@ const server = http.createServer((request, response) => {
 	var body = ''
 
 	request.on('data', (data) => body += data)
-	       .on('end', () => {
+		.on('end', () => {
 			const { button, key, value, search } = qs.parse(body)
 			switch(button) {
 			case 'put': log = put(key, value) ; break

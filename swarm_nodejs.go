@@ -16,12 +16,12 @@ package main
 
 import (
 	"context"
-	"strings"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"syscall/js"
 )
 
@@ -44,7 +44,7 @@ func NewSwarmNodeJsLoadSaver(beeAPIURL string, postageID []byte, verbosity int) 
 // get beeapirul with error handling
 func (sls *SwarmNodeJsLoadSaver) getBeeAPIURL() (*url.URL, error) {
 
-	if sls.verbosity >= 5 { fmt.Printf("snp:  ∙ swarm persister: parsing url %s\n", sls.beeAPIURL) }
+	trace(sls, "swarm persister: parsing url %s", sls.beeAPIURL)
 
 	u, err := url.Parse(sls.beeAPIURL)
 	if err != nil {
@@ -61,7 +61,7 @@ func (sls *SwarmNodeJsLoadSaver) getBeeAPIURL() (*url.URL, error) {
 
 func (sls *SwarmNodeJsLoadSaver) Load(ctx context.Context, reference []byte) ([]byte, error) {
 
-	if sls.verbosity >= 5 { fmt.Printf("snp:  ∙ swarm node.js persister load: reference %x\n", reference) }
+	trace(sls, "swarm node.js persister load: reference %x", reference)
 
 	if len(reference) != 32 {
 		return nil, fmt.Errorf("reference must be 32 bytes, got %d", len(reference))
@@ -74,16 +74,16 @@ func (sls *SwarmNodeJsLoadSaver) Load(ctx context.Context, reference []byte) ([]
 	}
 	u.Path = fmt.Sprintf("/bytes/%s", refHex)
 
-	if sls.verbosity >= 5 { fmt.Printf("snp:  ∙ swarm node.js persister load: path %s\n", u.Path) }
+	trace(sls, "swarm node.js persister load: path %s", u.Path)
 
-	if sls.verbosity >= 5 { fmt.Printf("snp:  ∙ swarm node.js persister load: getting js fetch function\n") }
+	trace(sls, "swarm node.js persister load: getting js fetch function", nil)
 
 	jsFetchSync := js.Global().Get("jsFetchSync")
 	if jsFetchSync.Type() == js.TypeUndefined {
 		return nil, fmt.Errorf("in swarm persister load, missing or can't locate jsFetchSync()")
 	}
 
-	if sls.verbosity >= 5 { fmt.Printf("snp:  ∙ swarm node.js persister load: fetch call\n") }
+	trace(sls, "swarm node.js persister load: fetch call", nil)
 
 	got := jsFetchSync.Invoke("GET", js.ValueOf(u.String()), "", nil, js.ValueOf(sls.verbosity))
 
@@ -96,21 +96,21 @@ func (sls *SwarmNodeJsLoadSaver) Load(ctx context.Context, reference []byte) ([]
 		len := got.Get("length").Int()
 		data = make([]byte, len)
 		js.CopyBytesToGo(data, got)
-		if sls.verbosity >= 5 { fmt.Printf("snp:  ∙ swarm node.js persister load: fetch call response ‹%x∙\n", data) }
+		trace(sls, "swarm node.js persister load: fetch call response ‹%x›", data)
 	} else if got.Type() == js.TypeString {
 		return nil, fmt.Errorf("failed to retrieve data from swarm, wrong response type from js fetch, string ‹%s∙", got.String())
 	} else {
 		return nil, fmt.Errorf("failed to retrieve data from swarm, wrong response type from js fetch")
 	}
 
-	if sls.verbosity >= 5 { fmt.Printf("snp:  ∙ swarm node.js persister load: data %x\n", data) }
+	trace(sls, "swarm node.js persister load: data %x", data)
 
 	return data, nil
 }
 
 func (sls *SwarmNodeJsLoadSaver) Save(ctx context.Context, data []byte) ([]byte, error) {
 
-	if sls.verbosity >= 5 { fmt.Printf("snp:  ∙ swarm node.js persister save: %x\n", data) }
+	trace(sls, "swarm node.js persister save: %x", data)
 
 	if len(sls.postageID) != 32 {
 		return nil, fmt.Errorf("postage ID is not correct. Its length is %d", len(sls.postageID))
@@ -122,36 +122,36 @@ func (sls *SwarmNodeJsLoadSaver) Save(ctx context.Context, data []byte) ([]byte,
 	}
 	u.Path = "/bytes"
 
-	if sls.verbosity >= 5 { fmt.Printf("snp:  ∙ swarm node.js persister save: getting js fetch function\n") }
+	trace(sls, "swarm node.js persister save: getting js fetch function", nil)
 
 	jsFetchSync := js.Global().Get("jsFetchSync")
 	if jsFetchSync.Type() == js.TypeUndefined {
 		return nil, fmt.Errorf("missing or can't locate jsFetchSync()")
 	}
 
-	if sls.verbosity >= 5 { fmt.Printf("snp:  ∙ swarm node.js persister save: fetch call\n") }
+	trace(sls, "swarm node.js persister save: fetch call", nil)
 
 	got := jsFetchSync.Invoke("POST",
 		js.ValueOf(u.String()),
 		js.ValueOf(hex.EncodeToString(data)),
 		js.ValueOf(
 			map[string]interface{}{"Content-Type": "application/octet-stream",
-			"Swarm-Postage-Batch-Id" : fmt.Sprintf("%x", sls.postageID)}),
+				"Swarm-Postage-Batch-Id": fmt.Sprintf("%x", sls.postageID)}),
 		js.ValueOf(sls.verbosity))
 
-	if got.Type() == js.TypeUndefined {
+		if got.Type() == js.TypeUndefined {
 		return nil, fmt.Errorf("failed to store data to swarm, fetch call failed")
 	}
 
 	if got.Type() == js.TypeString {
-		if sls.verbosity >= 5 { fmt.Printf("snp:  ∙ swarm node.js persister save: fetch call response ‹%s∙\n", strings.Replace(got.String(), "\n", "\\n", -1)) }
+		trace(sls, "swarm node.js persister save: fetch call response ‹%s›", strings.Replace(got.String(), "\n", "\\n", -1))
 	} else {
 		return nil, fmt.Errorf("failed to store data to swarm, wrong response type from js fetch")
 	}
 
 	respBody := ([]byte)(got.String())
 
-	if sls.verbosity >= 5 { fmt.Printf("snp:  ∙ swarm node.js persister save: json unmarshal\n") }
+	trace(sls, "swarm node.js persister save: json unmarshal", nil)
 	var response struct {
 		Reference string `json:"reference"`
 	}
@@ -159,7 +159,7 @@ func (sls *SwarmNodeJsLoadSaver) Save(ctx context.Context, data []byte) ([]byte,
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
-	if sls.verbosity >= 5 { fmt.Printf("snp:  ∙ swarm node.js persister save: json unmarshal done\n") }
+	trace(sls, "swarm node.js persister save: json unmarshal done", nil)
 
 	refHex := response.Reference
 	if len(refHex) != 64 {
@@ -170,7 +170,18 @@ func (sls *SwarmNodeJsLoadSaver) Save(ctx context.Context, data []byte) ([]byte,
 		return nil, fmt.Errorf("failed to decode reference hex: %w", err)
 	}
 
-	if sls.verbosity >= 5 { fmt.Printf("snp:  ∙ swarm node.js persister save received reference: %x\n", reference) }
+	trace(sls, "swarm node.js persister save received reference: %x", reference)
 
 	return reference, nil
+}
+
+func trace(sls *SwarmNodeJsLoadSaver, format string, value any) {
+
+	if sls.verbosity >= 5 {
+		if value == nil {
+			fmt.Print("snp:  ∙ "+format+"\n")
+		} else {
+			fmt.Print("snp:  ∙ "+format+"\n", value)
+		}
+	}
 }

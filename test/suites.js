@@ -1,42 +1,68 @@
 /*
 **  SWARM POT JS API Test Suite
 **
-**  This suite is called in six different test modes, different ways of
+**  This suite is called in twelve different test modes, different ways of
 **  mocking real operation, as well as from the browser and from node
-**  respectively.
-** ///// update:
-** test              explain test modes and run web_inmem_test
-** web_inmem_test    test api interaction with go pot in-memory persisting, web
-** web_inmem_stress  stress test with go pot in-memory persisting, web
-** web_sim_test      extended exceptions tests w/out go pot connection, web
-** web_locnet_test   standard tests with a locally installed Swarm network, web
-** web_locnet_stress stress test with a locally installed Swarm network, web
-** node_inmem_test   test api interaction with go pot in-memory persisting, node
-** node_sim_test     extended exceptions tests w/out go pot connection, node
-** node_locnet_test  test with a locally installed Swarm network, node [currently broken]
+**  respectively:
+**
+**  browser / node | in-memory / simulated / network | standard / stress.
+**
+**  browser    web        Javascript running in the browser
+**  node       node       Javascript running in the terminal using node.js
+**  ----------------------------------------------------------------------
+**  in-memory  inmem      non-persistent, in-memory storage
+**  simulated  sim        simulated storage for testing exceptions
+**  network    locnet     local Swarm network storage
+**  ----------------------------------------------------------------------
+**  standard   test       153 test suites of various flavors
+**             quick      like *_locnet_test but re-using the batch id
+**  stress     stress     4 longer-running suites; mass & concurrent access
+**
+**  The following are the make rules for tests:
+**
+**  test                  explain test modes and run node_inmem_test
+**  webtest               explain test modes and run web_inmem_test
+**  web_inmem_test        test api interaction with go pot in-memory persisting, web
+**  web_inmem_stress      stress test with go pot in-memory persisting, web
+**  web_sim_test          extended exceptions tests w/out go pot connection, web
+**  web_locnet_test       standard tests with a locally installed Swarm network, web
+**  web_locnet_quick      like web_locnet_test but re-using the last batch id, web
+**  web_locnet_stress     stress test with a locally installed Swarm network, web
+**  node_inmem_test       test api interaction with go pot in-memory persisting, node
+**  node_inmem_stress     stress test with go pot in-memory persisting, node
+**  node_sim_test         extended exceptions tests w/out go pot connection, node
+**  node_locnet_test      test with a locally installed Swarm network, node
+**  node_locnet_quick     like node_locnet_test but re-using the last batch id, node
+**  node_locnet_stress    stress test with a locally installed Swarm network, node
+**
+**  All node_* tests are run on push by github CI workloads, except *_quick.
+**  CI runs all those tests for ubuntu-latest, and all non-locnet for MacOS.
 **
 **  Some tests are skipped in some modes, e.g., special failure cases that
 **  are relevant only in the context of the mode that was created to test
 **  them.
 **
-**  This suite is called via test.html for browsers tests, and node.js for
+**  This suite is called via test.html for browsers tests, and from node.js for
 **  node tests. It comprises standard functionality tests covering all
 **  POT JS API functions. It uses some functions that were added to the API
 **  for testing.
 **
 **  All tests are self-contained and consist only of the block of code that
 **  is headed by a T.start() call. But some tests are asynchronous and can
-**  overlap with succeeding tests when they are failing unexpectedly.
+**  overlap with succeeding tests when they are failing unexpectedly or take
+**  too long.
 **
-**  Note that case numbers are dynamically assigned while running the tests,
-**  they cannot be found in the source. Error and Success assertions come
-**  with line numbers in the logs and on screen though.
+**  Note that suite and case numbers are dynamically assigned while running the
+**  tests, they are not be found in the source; use the line number that are
+**  shown in the right margin.
 **
 **  Tests log approximate response times. They are crudely taken as diff from
 **  the previous case head or last assertion.
 */
+
 const t0 = null
-const massmax = 100 // iterations for mass concurrent tests
+const massmax = 20 // lower iteration count for concurrent tests
+const massmax2 = 100 // higher iteration count for concurrent tests
 
 var map
 var map1
@@ -48,10 +74,12 @@ var map5
 // ·····································································
 let noUncaughtRejectionExpected = "[ not expecting unhandled rejections ]"
 let expectedUncaughtRejection = noUncaughtRejectionExpected
-process.on("unhandledRejection", (err) => {
-	T.log("◊◊◊ unhandled rejection :" + err.message)
-	T.attestExpectedError(t0, T, err, expectedUncaughtRejection ? expectedUncaughtRejection : noUncaughtRejectionExpected ) 
-})
+if(typeof window === 'undefined') {
+	process.on("unhandledRejection", (err) => {
+		T.log("◊◊◊ unhandled rejection :" + err.message)
+		T.attestExpectedError(t0, T, err, expectedUncaughtRejection ? expectedUncaughtRejection : noUncaughtRejectionExpected )
+	})
+}
 // ·····································································
 
 function TestPotKvsSync(T, bee_url, batch_id) {
@@ -543,7 +571,7 @@ function TestPotKvs_EdgeValuesSync(T, bee_url, batch_id) {
 	T.assertEqual(t0, T, T.hex(val), T.hex(val2)) // no direct equality check for uint8arrays
 
 
-	key2 = pot.randKey() 
+	key2 = pot.randKey()
 	val2 = new Uint8Array([])
 
 	T.start("• put random key and empty value")
@@ -556,7 +584,7 @@ function TestPotKvs_EdgeValuesSync(T, bee_url, batch_id) {
 	val = map.getRawSync(key2)
 	T.assertEqual(t0, T, T.hex(val), T.hex(val2)) // no direct equality check for uint8arrays
 
-	key2 = pot.randKey() 
+	key2 = pot.randKey()
 	val2 = new Uint8Array([0])
 
 	T.start("• put random key and binary zero")
@@ -569,7 +597,7 @@ function TestPotKvs_EdgeValuesSync(T, bee_url, batch_id) {
 	val = map.getRawSync(key2)
 	T.assertEqual(t0, T, T.hex(val), T.hex(val2)) // No direct equality check for Uint8Arrays
 
-	key2 = pot.randKey() 
+	key2 = pot.randKey()
 	val2 = new Uint8Array([1])
 
 	T.start("• put random key and binary 1")
@@ -582,7 +610,7 @@ function TestPotKvs_EdgeValuesSync(T, bee_url, batch_id) {
 	val = map.getRawSync(key2)
 	T.assertEqual(t0, T, T.hex(val), T.hex(val2)) // No direct equality check for Uint8Arrays
 
-	key2 = pot.randKey() 
+	key2 = pot.randKey()
 	val2 = new Uint8Array([255,0])
 
 	T.start("• put random key and binary ff00")
@@ -618,7 +646,7 @@ async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
 
 		T.log("• putRaw " + key1 + ": " + val1)
 
-		err = await map.putRaw(key1, val1) 
+		err = await map.putRaw(key1, val1)
 		T.assertNoError(t0, T, err)
 
 		T.log("• get " + key1)
@@ -641,7 +669,7 @@ async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
 
 		T.log("• put " + key1 + ": " + val1)
 
-		err = await map.put(key1, val1) 
+		err = await map.put(key1, val1)
 		T.assertNoError(t0, T, err)
 
 		T.log("• get " + key1)
@@ -775,10 +803,10 @@ async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
 	T.log("--- r a w")
 
 	try {
-		key2 = pot.randKey() 
+		key2 = pot.randKey()
 		val2 = new Uint8Array([])
 
-		T.start("• put random key§ and empty byte array")
+		T.start("• put random key and empty byte array")
 
 		T.log("• new map")
 		map = pot.newSync(bee_url, batch_id)
@@ -797,7 +825,7 @@ async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
 	}
 
 	try {
-		key2 = pot.randKey() 
+		key2 = pot.randKey()
 		val2 = new Uint8Array([0])
 
 		T.start("• put random key and " + T.hex(val2))
@@ -820,7 +848,7 @@ async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
 	}
 
 	try {
-		key2 = pot.randKey() 
+		key2 = pot.randKey()
 		val2 = new Uint8Array([1])
 
 		T.start("• put random key and " + T.hex(val2))
@@ -1971,7 +1999,7 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 	T.head("Saving and Loading")
 
 
-	T.start("Save empty KVS, return error")
+	T.start("Save empty KVS, return error (sync)")
 
 	T.log("• new map")
 	map = pot.newSync(bee_url, batch_id)
@@ -1980,6 +2008,21 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 	T.log("• save")
 	ref = map.saveSync()
 	T.assertIsError(t0, T, ref)
+
+
+	T.start("Save empty KVS, catch error (async)")
+
+	try {
+		T.log("• new map")
+		map = await pot.new(bee_url, batch_id)
+		T.assertNoError(t0, T, !map)
+
+		T.log("• save")
+		ref = await map.save()
+		T.attestMissingError(t0, T)
+	} catch(err) {
+		T.attestExpectedError(t0, T, err)
+	}
 
 	if(T.NODE || !bee_url && !batch_id) {
 
@@ -1993,15 +2036,11 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 		val1 = "V1"
 
 		T.log("• put " + key1 + ": " + val1)
-		try {
-			err = await map.put(key1, val1)
-			T.attestNoError(t0, T)
-		} catch(e) {
-			T.attestUnexpectedError(t0, T, e)
-		}
+		err = map.putSync(key1, val1)
+		T.attestNoError(t0, T)
 
 		T.log("• get " + key1)
-		val = await map.get(key1)
+		val = map.getSync(key1)
 		T.assertEqual(t0, T, val, val1)
 
 		T.log("• save")
@@ -2418,7 +2457,7 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	T.log("• third new map")
 	try {
 		// called map4 because map3 is the retrieved first
-		map4 = await pot.new(bee_url, batch_id) 
+		map4 = await pot.new(bee_url, batch_id)
 		T.assertNoError(t0, T, !map4)
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
@@ -2926,7 +2965,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 		for(let i=0; i<massmax; i++) {
 			; (async() => {
 				let t = i+1
-				let box = T.box 
+				let box = T.box
 				try {
 					group++
 					let key = pot.randKey()
@@ -3612,7 +3651,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 			T.log(t, "• third new map")
 			try {
 				// called map4 because map3 is the retrieved first
-				map4 = await pot.new(bee_url, batch_id) 
+				map4 = await pot.new(bee_url, batch_id)
 				T.assertNoError(t, T, !map4)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
@@ -3820,7 +3859,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 			T.log(t, "• third new map")
 			try {
-				map3 = await pot.new(bee_url, batch_id) 
+				map3 = await pot.new(bee_url, batch_id)
 				T.assertNoError(t, T, !map3)
 			} catch(err) {
 				T.attestUnexpectedError(t, T, err)
@@ -3905,7 +3944,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	val = pot.randValue()
 
 	if(T.NODE || !bee_url && !batch_id) {
-		kvs = await pot.new(bee_url, batch_id) 
+		kvs = await pot.new(bee_url, batch_id)
 		T.assertNoError(t0, T, !kvs)
 		pot.setHang(true)
 		ret = kvs.putSync(key, val, 100)
@@ -3920,7 +3959,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	val = pot.randValue()
 
 	try {
-		kvs = await pot.new(bee_url, batch_id) 
+		kvs = await pot.new(bee_url, batch_id)
 		T.assertNoError(t0, T, !kvs)
 		pot.setHang(true)
 		await kvs.put(key, val, 100)
@@ -3931,7 +3970,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 
 	T.start("Timeout of async Put (chained .catch())")
 
-	kvs = await pot.new(bee_url, batch_id) 
+	kvs = await pot.new(bee_url, batch_id)
 	T.assertNoError(t0, T, !kvs)
 	err = await kvs.put(key, val)
 	T.assertNoError(t0, T, err)
@@ -3977,7 +4016,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 
 	T.start("Timeout of async Get (chained .catch)")
 
-	kvs = await pot.new(bee_url, batch_id) 
+	kvs = await pot.new(bee_url, batch_id)
 	T.assertNoError(t0, T, !kvs)
 	err = await kvs.put(key, val)
 	T.assertNoError(t0, T, err)
@@ -3993,7 +4032,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	val = pot.randValue()
 
 	if(T.NODE || !bee_url && !batch_id) {
-		kvs = await pot.new(bee_url, batch_id) 
+		kvs = await pot.new(bee_url, batch_id)
 		T.assertNoError(t0, T, !kvs)
 		err = await kvs.putRaw(key, val)
 		T.assertNoError(t0, T, err)
@@ -4010,7 +4049,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	val = true
 
 	try {
-		kvs = await pot.new(bee_url, batch_id) 
+		kvs = await pot.new(bee_url, batch_id)
 		T.assertNoError(t0, T, !kvs)
 		err = await kvs.putRaw(key, val)
 		T.assertNoError(t0, T, err)
@@ -4023,7 +4062,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 
 	T.start("Timeout of async Get Boolean (chained .catch)")
 
-	kvs = await pot.new(bee_url, batch_id) 
+	kvs = await pot.new(bee_url, batch_id)
 	T.assertNoError(t0, T, !kvs)
 	err = await kvs.putRaw(key, val)
 	T.assertNoError(t0, T, err)
@@ -4039,7 +4078,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	val = pot.randValue()
 
 	if(T.NODE || !bee_url && !batch_id) {
-		kvs = await pot.new(bee_url, batch_id) 
+		kvs = await pot.new(bee_url, batch_id)
 		T.assertNoError(t0, T, !kvs)
 		err = await kvs.putRaw(key, val)
 		T.assertNoError(t0, T, err)
@@ -4056,7 +4095,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	val = 2137
 
 	try {
-		kvs = await pot.new(bee_url, batch_id) 
+		kvs = await pot.new(bee_url, batch_id)
 		T.assertNoError(t0, T, !kvs)
 		err = await kvs.putRaw(key, val)
 		T.assertNoError(t0, T, err)
@@ -4069,7 +4108,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 
 	T.start("Timeout of async Get Number (chained .catch)")
 
-	kvs = await pot.new(bee_url, batch_id) 
+	kvs = await pot.new(bee_url, batch_id)
 	T.assertNoError(t0, T, !kvs)
 	err = await kvs.putRaw(key, val)
 	T.assertNoError(t0, T, err)
@@ -4085,7 +4124,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	val = pot.randValue()
 
 	if(T.NODE || !bee_url && !batch_id) {
-		kvs = await pot.new(bee_url, batch_id) 
+		kvs = await pot.new(bee_url, batch_id)
 		T.assertNoError(t0, T, !kvs)
 		err = await kvs.putRaw(key, val)
 		T.assertNoError(t0, T, err)
@@ -4102,7 +4141,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	val = "abc"
 
 	try {
-		kvs = await pot.new(bee_url, batch_id) 
+		kvs = await pot.new(bee_url, batch_id)
 		T.assertNoError(t0, T, !kvs)
 		err = await kvs.putRaw(key, val)
 		T.assertNoError(t0, T, err)
@@ -4115,7 +4154,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 
 	T.start("Timeout of async Get String (chained .catch)")
 
-	kvs = await pot.new(bee_url, batch_id) 
+	kvs = await pot.new(bee_url, batch_id)
 	T.assertNoError(t0, T, !kvs)
 	err = await kvs.putRaw(key, val)
 	T.assertNoError(t0, T, err)
@@ -4131,7 +4170,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	val = pot.randValue()
 
 	if(T.NODE || !bee_url && !batch_id) {
-		kvs = await pot.new(bee_url, batch_id) 
+		kvs = await pot.new(bee_url, batch_id)
 		T.assertNoError(t0, T, !kvs)
 		err = await kvs.put(key, val)
 		T.assertNoError(t0, T, err)
@@ -4148,7 +4187,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	val = "abc"
 
 	try {
-		kvs = await pot.new(bee_url, batch_id) 
+		kvs = await pot.new(bee_url, batch_id)
 		T.assertNoError(t0, T, !kvs)
 		err = await kvs.put(key, val)
 		T.assertNoError(t0, T, err)
@@ -4161,7 +4200,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 
 	T.start("Timeout of async Delete (chained .catch)")
 
-	kvs = await pot.new(bee_url, batch_id) 
+	kvs = await pot.new(bee_url, batch_id)
 	T.assertNoError(t0, T, !kvs)
 	err = await kvs.put(key, val)
 	T.assertNoError(t0, T, err)
@@ -4207,7 +4246,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 
 	T.start("Timeout of async Save (chained .catch)")
 
-	kvs = await pot.new(bee_url, batch_id) 
+	kvs = await pot.new(bee_url, batch_id)
 	T.assertNoError(t0, T, !kvs)
 	err = await kvs.put(key, val)
 	T.assertNoError(t0, T, err)
@@ -4257,7 +4296,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 
 	T.start("Timeout of async Load (chained .catch)")
 
-	kvs = await pot.new(bee_url, batch_id) 
+	kvs = await pot.new(bee_url, batch_id)
 	T.assertNoError(t0, T, !kvs)
 	err = await kvs.put(key, val)
 	T.assertNoError(t0, T, err)
@@ -5887,6 +5926,7 @@ async function TestPotKvs_MassSequentialAsync(T, bee_url, batch_id) {
 	}
 	T.attestNoError(t0, T)
 
+
 	T.start("async store and retrieve "+massmax+" values sequentially, reverse, with save & load")
 
 	T.log("• new map")
@@ -5931,7 +5971,7 @@ async function TestPotKvs_MassSequentialAsync(T, bee_url, batch_id) {
 	T.attestNoError(t0, T)
 
 
-	T.start("async store and retrieve "+massmax+" values sequentially, random order, with save & load")
+	T.start("async store and retrieve "+massmax2+" values sequentially, random order, with save & load")
 
 	T.log("• new map")
 	map = await pot.new(bee_url, batch_id)
@@ -5940,8 +5980,8 @@ async function TestPotKvs_MassSequentialAsync(T, bee_url, batch_id) {
 	k = []
 	v = []
 
-	T.log("• store "+massmax+" random values under random keys")
-	for(let i=0; i<massmax; i++) {
+	T.log("• store "+massmax2+" random values under random keys")
+	for(let i=0; i<massmax2; i++) {
 		k.push(key = pot.randKey())
 		v.push(val = pot.randValue())
 		e = await map.put(key, val)
@@ -5968,9 +6008,9 @@ async function TestPotKvs_MassSequentialAsync(T, bee_url, batch_id) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
-	T.log("• random retrieve of "+massmax+" random values under random keys")
+	T.log("• random retrieve of "+massmax2+" random values under random keys")
 	let plog = ""
-	for(let i=massmax-1; i>=0; i--) {
+	for(let i=massmax2-1; i>=0; i--) {
 		j = Math.floor(Math.random() * (i+1))
 		plog += j + "/" + i + " "
 		if(!(i%10)) {
@@ -6303,7 +6343,7 @@ async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 		for(let i=0; i<iterations; i++) {
 			; (async() => {
 				let t = i+1
-				let box = T.box 
+				let box = T.box
 				try {
 					group++
 					let key = pot.randKey()
@@ -6340,7 +6380,7 @@ async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 		for(let i=0; i<iterations; i++) {
 			; (async() => {
 				let t = i+1
-				let box = T.box 
+				let box = T.box
 				try {
 					group++
 					let key = new Uint8Array([i % 256, Math.floor(i / 256) % 256, Math.floor(i / 256 / 256) % 256, Math.floor(i / 256 / 256 / 256)])
@@ -6401,7 +6441,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations) {
 
 			if (stop || beaconCollected) return;
 
-			pot.gc() // Go GC, otherwise the KVS won't be collected. 
+			pot.gc() // Go GC, otherwise the KVS won't be collected
 
 			// Use setTimeout to make each allocateMemory a different job
 			setTimeout(allocateMemory);

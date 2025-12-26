@@ -1,8 +1,8 @@
 ### Examples
 
-Examples can be made with 
+Examples can be made with
 
-    make example1
+	make example1
 
 etc.
 

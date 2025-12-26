@@ -49,11 +49,11 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"regexp"
+	"runtime"
 	"strconv"
 	"syscall/js"
-	"runtime"
 	"time"
-	"regexp"
 
 	. "github.com/brainiac-five/pot" // . helps mocking
 	"github.com/ethersphere/proximity-order-trie/pkg/persister"
@@ -158,10 +158,11 @@ const (
 	INFO  = 3
 	DEB   = 4
 	TRACE = 5
-	MEM   = 5
+	MEM   = 6
+	NOCUT = 4096
 )
 
-// default log level: second highest detail level
+// default log level
 var verbosity = DEB
 
 // pre-cooked, recyclable methods of all js KVS objects
@@ -199,16 +200,16 @@ func main() {
 	v := js.Global().Get("potjs_verbosity")
 	if v.Type() == js.TypeNumber {
 		verbosity = v.Int()
-		log(CRIT, "verbosity set " + jsToString(v))
+		log(CRIT, "verbosity set "+jsToString(v))
 	}
 	if v.Type() == js.TypeString {
 		var err error
 		intVer, err := strconv.ParseInt(v.String(), 0, 0)
 		if err != nil {
-			log(CRIT, "verbosity setting invalid: " + v.String())
+			log(CRIT, "verbosity setting invalid: "+v.String())
 		} else {
 			verbosity = int(intVer)
-			log(DEB, "verbosity set " + v.String())
+			log(DEB, "verbosity set "+v.String())
 		}
 	}
 
@@ -223,7 +224,7 @@ func main() {
 	// detect node.js or browser
 	w := js.Global().Get("window")
 	inBrowser = w.Type() == js.TypeObject
-	if(inBrowser) {
+	if inBrowser {
 		log(INFO, "» browser detected")
 	} else {
 		log(INFO, "» node.js detected")
@@ -252,14 +253,19 @@ func main() {
 	pot_.Set("hello", js.FuncOf(hello))
 	pot_.Set("log", js.FuncOf(log_))
 	pot_.Set("setOptimization", js.FuncOf(setOptimization))
+	pot_.Set("getOptimization", js.FuncOf(getOptimization))
 	pot_.Set("setVerbosity", js.FuncOf(setVerbosity))
+	pot_.Set("getVerbosity", js.FuncOf(getVerbosity))
 	pot_.Set("setValueSizeLimit", js.FuncOf(setValueSizeLimit))
+	pot_.Set("getValueSizeLimit", js.FuncOf(getValueSizeLimit))
 	pot_.Set("NONE", 0)
 	pot_.Set("CRITICAL", 1)
 	pot_.Set("ERROR", 2)
 	pot_.Set("INFO", 3)
 	pot_.Set("DEBUG", 4)
 	pot_.Set("TRACE", 5)
+	pot_.Set("MEMORY", 6)
+	pot_.Set("NOCUT", 4096)
 
 	// test functions
 	// -------------------------------------------------
@@ -329,7 +335,6 @@ func main() {
 	<-make(chan int)
 }
 
-
 // -----------------------------------------------------------------------------
 //
 //   Core Functionality
@@ -383,7 +388,7 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 
 	// allow-raw parameter first to not create loadsavers in vain.
 	allowRaw := false
-	if len(parameters) >=4 {
+	if len(parameters) >= 4 {
 		jsAllowRaw := parameters[3]
 		if jsAllowRaw.Type() == js.TypeBoolean {
 			allowRaw = jsAllowRaw.Bool()
@@ -397,7 +402,7 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 
 	// no parameters beyond reference: in-memory
 	if len(parameters) == 0 || len(parameters) >= 2 && (parameters[0].IsNull() || parameters[0].IsUndefined()) && (parameters[1].IsNull() || parameters[1].IsUndefined()) {
-		// the in-memory persister is shared between KVS instances. It 
+		// the in-memory persister is shared between KVS instances. It
 		// has to be to allow for certain tests to work as if it was a
 		// network persister.
 		if inMemoryPersister == nil {
@@ -411,12 +416,13 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 		ls = inMemoryPersister
 		allowSync = true
 
-
-	// network parameters bee url and batch id. Both null is checked above.
 	} else if len(parameters) == 1 || len(parameters) >= 2 && (parameters[0].IsNull() || parameters[0].IsUndefined() != parameters[1].IsNull() || parameters[1].IsUndefined()) {
-			msg := "### error in new*(), undefined or null bee url or batch id"
-			log(ERR, msg)
-			return jsError(msg), false
+
+		// network parameters bee url and batch id. Both null is checked above.
+
+		msg := "### error in new*(), undefined or null bee url or batch id"
+		log(ERR, msg)
+		return jsError(msg), false
 
 	} else if len(parameters) >= 2 {
 
@@ -453,8 +459,8 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 			return jsError(msg), false
 		}
 
-		log(DEB, "› using bee url : ‹" + beeAPIURL + "›")
-		log(DEB, "› using batch id: ‹" + bHex(postageIDBytes) + "›")
+		log(DEB, "› using bee url : ‹"+beeAPIURL+"›")
+		log(DEB, "› using batch id: ‹"+bHex(postageIDBytes)+"›")
 
 		// browser and node.js must use different persisters. The one
 		// for node.js has to be a Go/JS hybrid to deal with
@@ -474,7 +480,7 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 		}
 	}
 
-	log(INFO, "» initialize new P.O.T. - slot " + colorMid + strconv.Itoa(len(Slots) + 1) + colorOff)
+	log(INFO, "» initialize new P.O.T. - slot "+colorMid+strconv.Itoa(len(Slots)+1)+colorOff)
 
 	// --------------------------------------------------------------
 	kvs, err := NewSwarmKvs(ls)
@@ -489,7 +495,7 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 	slot_ref := len(Slots) + 1 // = starting on 1.
 	Slots = append(Slots, Slot{Ctx: ctx, Kvs: kvs, Ref: slot_ref, Ls: ls, allowRaw: allowRaw, allowSync: allowSync})
 
-	log(DEB, "› slot ref: " + strconv.Itoa(slot_ref))
+	log(DEB, "› slot ref: "+strconv.Itoa(slot_ref))
 
 	return createMapObject(slot_ref), true
 }
@@ -557,7 +563,7 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 
 	jsRef := parameters[0].String()
 
-	log(DEB, "› reference: " + jsRef)
+	log(DEB, "› reference: "+jsRef)
 
 	ref32, err := hex.DecodeString(jsRef)
 	if err != nil {
@@ -570,7 +576,7 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 
 	// no parameters beyond reference: in-memory
 	if len(parameters) == 1 || len(parameters) >= 3 && (parameters[1].IsNull() || parameters[1].IsUndefined()) && (parameters[2].IsNull() || parameters[2].IsUndefined()) {
-		// the in-memory persister is shared between KVS instances. It 
+		// the in-memory persister is shared between KVS instances. It
 		// has to be to allow for certain tests to work as if it was a
 		// network persister.
 		if inMemoryPersister == nil {
@@ -584,11 +590,13 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 		ls = inMemoryPersister
 		allowSync = true
 
-	// network parameters bee url and batch id. Both null is checked above.
 	} else if len(parameters) == 2 || len(parameters) >= 3 && (parameters[1].IsNull() || parameters[1].IsUndefined() != parameters[2].IsNull() || parameters[2].IsUndefined()) {
-			msg := "### error in load*(), undefined or null bee url or batch id"
-			log(ERR, msg)
-			return jsError(msg), false
+
+		// network parameters bee url and batch id. Both null is checked above.
+
+		msg := "### error in load*(), undefined or null bee url or batch id"
+		log(ERR, msg)
+		return jsError(msg), false
 
 	} else if len(parameters) >= 3 {
 
@@ -625,8 +633,8 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 			return jsError(msg), false
 		}
 
-		log(DEB, "› using bee url : ‹" + beeAPIURL + "›")
-		log(DEB, "› using batch id: ‹" + bHex(postageIDBytes) + "›")
+		log(DEB, "› using bee url : ‹"+beeAPIURL+"›")
+		log(DEB, "› using batch id: ‹"+bHex(postageIDBytes)+"›")
 
 		// browser and node.js must use different persisters. The one
 		// for node.js has to be a Go/JS hybrid to deal with
@@ -707,7 +715,7 @@ func createMapObject(slot_ref int) js.Value {
 	jsMap.Set("saveSync", jsSaveSync)
 
 	runtime.AddCleanup(&jsMap, func(slot_ref int) {
-		log(MEM, colorMid + "⦿ KVS on slot " + strconv.Itoa(slot_ref) + " cleaning up" + colorOff)
+		log(MEM, colorMid+"⦿ KVS on slot "+strconv.Itoa(slot_ref)+" cleaning up"+colorOff)
 	}, slot_ref)
 
 	// protect against garbage collection
@@ -728,7 +736,7 @@ func release(this js.Value, parameters []js.Value) (result interface{}) {
 		log(CRIT, "Go release call slot ref parameter type error, need int")
 	} else {
 		slot_ref := parameters[0].Int()
-		releaseMapObject(slot_ref) 
+		releaseMapObject(slot_ref)
 	}
 
 	return js.Null()
@@ -738,7 +746,7 @@ func release(this js.Value, parameters []js.Value) (result interface{}) {
 // on the Go side for a KVS. Noop stub.
 func releaseMapObject(slot_ref int) {
 
-	log(NONE, "map release, slot " + strconv.Itoa(slot_ref))
+	log(NONE, "map release, slot "+strconv.Itoa(slot_ref))
 }
 
 // JS gc() triggers the Go garbage collector. Empirically, KVS objects are
@@ -914,8 +922,9 @@ func _put(ctx context.Context, this js.Value, parameters []js.Value, raw bool, _
 	var bValue []byte
 	jsValue := parameters[1]
 
-	// non-type coded
 	if raw {
+
+		// non-type coded
 		bValue, err = jsToBytes(jsValue)
 
 		if err != nil {
@@ -924,8 +933,9 @@ func _put(ctx context.Context, this js.Value, parameters []js.Value, raw bool, _
 			return jsError(msg), false
 		}
 
-	// type-coded
 	} else {
+
+		// type-coded
 		bValue, err = typeEncodedBytes(jsValue)
 
 		if err != nil {
@@ -1187,16 +1197,17 @@ func _get(ctx context.Context, this js.Value, parameters []js.Value, raw bool, c
 
 			jsValue = js.Undefined()
 
-		// propagate error
 		} else {
+
+			// propagate error
 			msg := wrap(err)
 			log(ERR, msg)
 			return jsError(msg), false
 		}
 
-	// no error
 	} else {
 
+		// no error:
 		// raw value handling
 		if raw {
 			if caster != nil {
@@ -1210,8 +1221,9 @@ func _get(ctx context.Context, this js.Value, parameters []js.Value, raw bool, c
 				jsValue = jsArrayFromBytes(bValue)
 			}
 
-		// type-coded value
 		} else {
+
+			// type-coded value
 			jsValue, err = typeDecodedValue(bValue)
 			if err != nil {
 				msg := wrap(err)
@@ -1257,7 +1269,7 @@ func _delete(ctx context.Context, this js.Value, parameters []js.Value, _ bool, 
 
 	// check of parameter count
 	if len(parameters) < 1 {
-		msg := "### parameter count error: delete*() requires 1, got none" 
+		msg := "### parameter count error: delete*() requires 1, got none"
 		log(ERR, msg)
 		return jsError(msg), false
 	}
@@ -1305,35 +1317,15 @@ func _delete(ctx context.Context, this js.Value, parameters []js.Value, _ bool, 
 
 	if err != nil {
 
-		// legit unset value, no error
-		// if err.Error() == "not found" {
-		//	jsValue = js.Undefined()
-
-		// propagate error
-		//} else {
-			msg := wrap(err)
-			log(ERR, msg)
-			return jsError(msg), false
-		//}
+		msg := wrap(err)
+		log(ERR, msg)
+		return jsError(msg), false
 	}
 
 	log(INFO, "» delete "+debug+" "+jsToString(key))
 
 	return js.Null(), true // success
 }
-
-// -----------------------------------------------------------------------------
-//
-//   Cryptographic Proof
-//
-// -----------------------------------------------------------------------------
-//
-
-func CreateForkPathProof(this js.Value, parameters []js.Value) (result interface{}) {
-
-	return syncWrap(this, parameters, 2, "delete", _delete, TYPED, nil)
-}
-
 
 // -----------------------------------------------------------------------------
 //
@@ -1446,7 +1438,7 @@ func promise(this js.Value, parameters []js.Value, timeOutPos int, name string, 
 		// cancellation downwards to the Go POT functions.
 		ctxCancel()
 
-		log(INFO, "𐄂 " + name + " canceled")
+		log(INFO, "𐄂 "+name+" canceled")
 
 		// signals that the cancel happened. The entire function is
 		// replaced by a function returning only false, once it is
@@ -1530,28 +1522,109 @@ func jsError(msg string) js.Value {
 	return js.Global().Get("Error").New(msg)
 }
 
+var colorLow = "\033[90m"
+var colorMid = "\033[38;5;214m"
+var colorOff = "\033[0m"
+var logrex = regexp.MustCompile(`([0-9a-fA-Fx]{32})([0-9a-fA-Fx]+)`)
+
 // log() makes a standardized log message to browser console or terminal,
 // respecting the verbosity setting as set through setVerbosity(). The default
 // is that almost all messages are logged. Messages whose level is too low, are
 // ignored. NONE, CRITICAL and ERROR are logged to stderr, higher to stdout.
-var logrex = regexp.MustCompile(`([0-9a-fA-F]{32})([0-9a-fA-F]+)`)
-var colorLow  = "\033[90m"
-var colorMid = "\033[38;5;214m"
-var colorOff  = "\033[0m"
 func log(level int, msg string) {
+
+	noCut := verbosity & NOCUT
+
 	// log only of set verbosity level is matched or exceeded
-	if verbosity >= level {
-		// abbreviate long (hex) numbers unless TRACE level is on
-		if verbosity < TRACE {
+	if verbosity%NOCUT >= level {
+		// abbreviate long strings and hex numbers unless TRACE level is on
+		if (noCut == 0) && (verbosity%NOCUT < TRACE) {
 			msg = logrex.ReplaceAllString(msg, "$1…")
 		}
 		if level <= ERR {
-			fmt.Fprintln(os.Stderr, "pot:  " + msg)
+			fmt.Fprintln(os.Stderr, "pot:  "+msg)
 		} else {
 			fmt.Println("pot:  " + msg)
 		}
 	}
 }
+
+// JS pot.log_() can be called from Javascript to test the log() function that,
+// with a prefixed "pot: ", writes directly to stdout. This can be used to
+// confirm that the connection to the WASM executable is operational. The
+// function is called as pot.log() from Javascript (see main()).
+// TEST second parameter
+func log_(this js.Value, parameters []js.Value) interface{} {
+
+	msg := "" // note empty log() allowed for line break
+	if len(parameters) >= 1 {
+		msg = parameters[0].String()
+	}
+
+	// optional log level
+	var level = INFO
+	if len(parameters) >= 2 {
+		if parameters[1].Type() == js.TypeNumber {
+			level = parameters[1].Int()
+		}
+	}
+
+	// optional cut flag
+	var dontCut = 0
+	if len(parameters) >= 3 {
+		if parameters[2].Type() == js.TypeBoolean {
+			if parameters[2].Bool() {
+				dontCut = 4096
+			}
+		}
+	}
+
+	log(level|dontCut, msg)
+
+	return nil
+}
+
+// JS pot.setVerbosity() can be called from Javascript to control which log()
+// calls should be suppressed. It returns the previoius setting. Levels are:
+//
+// 0  NONE	no logging
+// 1  CRITICAL	logs only errors that appear to arise from a POT JS malfunction.
+// 2  ERROR	programming and runtime errors are also logged.
+// 3  INFO	general runtime information is logged.
+// 4  DEBUG	specific data, like put and get keys and values are logged.
+// 5  TRACE	certain steps through the program and full numbers.
+//
+// Note that the log prints to screen when running POT JS with node.js. In the
+// browser, it logs into the browser console.
+// Because the default level is 4 = DEBUG, a production program will always use
+// setVerbosity() to change that. DEBUG is set for testing and learning. /// TEST
+func setVerbosity(_ js.Value, parameters []js.Value) interface{} {
+
+	before := verbosity
+
+	if len(parameters) > 0 {
+		p := parameters[0]
+		if p.Type() != js.TypeNumber {
+			return jsError("parameter type error. Number expected.")
+		}
+		if p.Int() < 0 || p.Int()%NOCUT > TRACE {
+			return jsError("parameter range error. 0-5 are valid.")
+		}
+
+		// set
+		verbosity = p.Int()
+	}
+
+	return before
+}
+
+// JS pot.getVerbosity() can be called to learn the current verbosity level.
+func getVerbosity(_ js.Value, _ []js.Value) interface{} {
+
+	return verbosity
+}
+
+// VALUE SIZE ------------------------------------------------------------------
 
 // JS setValueSizeLimit() sets the limit beyond which a value is rejected with an
 // error. This function sets an arbitrary value to protect an application. The
@@ -1579,63 +1652,10 @@ func setValueSizeLimit(_ js.Value, parameters []js.Value) interface{} {
 	return before
 }
 
-// JS pot.setVerbosity() can be called from Javascript to control which log()
-// calls should be suppressed. It returns the previoius setting. Levels are:
-//
-// 0  NONE	no logging
-// 1  CRITICAL	logs only errors that appear to arise from a POT JS malfunction.
-// 2  ERROR	programming and runtime errors are also logged.
-// 3  INFO	general runtime information is logged.
-// 4  DEBUG	specific data, like put and get keys and values are logged.
-// 5  TRACE	certain steps through the program and full numbers.
-//
-// Note that the log prints to screen when running POT JS with node.js. In the
-// browser, it logs into the browser console.
-// Because the default level is 4 = DEBUG, a production program will always use
-// setVerbosity() to change that. DEBUG is set for testing and learning. /// TEST
-func setVerbosity(_ js.Value, parameters []js.Value) interface{} {
+// JS getValueSizeLimit() returns the size limit beyond which a value is rejected.
+func getValueSizeLimit(_ js.Value, _ []js.Value) interface{} {
 
-	before := verbosity
-
-	if len(parameters) > 0 {
-		p := parameters[0]
-		if p.Type() != js.TypeNumber {
-			return jsError("parameter type error. Number expected.")
-		}
-		if p.Int() < 0 || p.Int() > TRACE {
-			return jsError("parameter range error. 0-5 are valid.")
-		}
-
-		// set
-		verbosity = p.Int()
-	}
-
-	return before
-}
-
-// JS pot.log_() can be called from Javascript to test the log() function that,
-// with a prefixed "pot: ", writes directly to stdout. This can be used to
-// confirm that the connection to the WASM executable is operational. The
-// function is called as pot.log() from Javascript (see main()).
-// TEST second parameter
-func log_(this js.Value, parameters []js.Value) interface{} {
-
-	msg := "" // note empty log() allowed for line break
-	if len(parameters) >= 1 {
-		msg = parameters[0].String()
-	}
-
-	// optional log level
-	var level = CRIT
-	if len(parameters) >= 2 {
-		if parameters[1].Type() == js.TypeNumber {
-			level = parameters[1].Int()
-		}
-	}
-
-	log(level, msg)
-
-	return nil
+	return maxValueSize
 }
 
 // OPTIMIZATION ----------------------------------------------------------------
@@ -1665,6 +1685,12 @@ func setOptimization(_ js.Value, parameters []js.Value) interface{} {
 	}
 
 	return before
+}
+
+// JS pot.getOptimization() returns the current setting of resource release.
+func getOptimization(_ js.Value, _ []js.Value) interface{} {
+
+	return optimization
 }
 
 // SLOTS AND CONTEXT -----------------------------------------------------------
@@ -1707,7 +1733,7 @@ func createContext(position int, parameters []js.Value, sync bool) (ctx context.
 		if p.Type() == js.TypeNumber {
 			timeout := p.Int()
 			if timeout > 0 {
-				log(TRACE, "∙ create timing out context of " + strconv.Itoa(timeout)  + " ms")
+				log(TRACE, "∙ create timing out context of "+strconv.Itoa(timeout)+" ms")
 				ctx, cancel = context.WithTimeout(context.Background(), time.Duration(timeout)*time.Millisecond)
 			}
 		} else if !p.IsNull() && !p.IsUndefined() {
@@ -1895,14 +1921,14 @@ func jsToString(p js.Value) string {
 // typeEncodedBytes() encodes values from JS value to a go byte array leading
 // in with a type byte. The code is:
 //
-// byte  const     Javascript   Go          excl.   incl. type byte
-//
-//   0   NULL      null         nil          0+      1+
-//   1   BOOLEAN   boolean      bool         1+      2+
-//   2   NUMBER    number       float64      8       9
-//   3   STRING    string       string       0+      1+
-//   4   BYTES     Uint8Array   []byte       0+      1+
-//
+// |  byte  const     Javascript   Go          excl.   incl. type byte
+// |
+// |    0   NULL      null         nil          0+      1+
+// |    1   BOOLEAN   boolean      bool         1+      2+
+// |    2   NUMBER    number       float64      8       9
+// |    3   STRING    string       string       0+      1+
+// |    4   BYTES     Uint8Array   []byte       0+      1+
+// |
 func typeEncodedBytes(p js.Value) (result []byte, rerr error) {
 
 	defer func() {
@@ -1956,6 +1982,7 @@ func typeEncodedBytes(p js.Value) (result []byte, rerr error) {
 // one value. It does not get parameter checks because it is only ever called
 // by test suites.
 var ixx interface{}
+
 func typeEncodedBytesTest(this js.Value, parameters []js.Value) interface{} {
 
 	v := parameters[0]
@@ -2103,7 +2130,7 @@ func randKey(this js.Value, parameters []js.Value) interface{} {
 
 // JS pot.randValue() creates a random byte sequence of 79 to 101 bytes for use
 // as test value. Analog to pot test's keyValuePair() in suites.go.
-/// TEST: long and overlong content
+// / TEST: long and overlong content
 func randValue(this js.Value, parameters []js.Value) interface{} {
 
 	size := rand.Intn(79) + 22 // taken from native go pot tests, why this lenght?
@@ -2235,4 +2262,3 @@ func panickingPromise(this js.Value, parameters []js.Value) (result interface{})
 
 	return promise
 }
-

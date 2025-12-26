@@ -11,15 +11,15 @@
 #
 # To run an example, have 'make' installed and execute from the command line:
 #
-#	make example1
+#	% make example1
 #
 # To build WITHOUT using make and this Makefile, do:
 #
-#	GOOS=js GOARCH=wasm go build -o lib/pot.wasm potjs.go swarm_nodejs.go nomock.go
+#	% GOOS=js GOARCH=wasm go build -o lib/pot.wasm potjs.go swarm_nodejs.go nomock.go
 #
 # To build the same with make, do:
 #
-#	make
+#	% make
 #
 # The rules below can help to build from scratch, run tests, and as a convenient
 # way to run the more involved examples.
@@ -59,8 +59,10 @@ help:
 	#
 	#  build               build executables
 	#  example<n>          start server and run example <n>. n = 1-9
-	#  test                explain test modes and run node_inmem_test
+	#  test                explain test modes and run jest installation test
+	#  nodetest            explain test modes and run node_inmem_test
 	#  webtest             explain test modes and run web_inmem_test
+	#  jest                run jest installation test
 	#  explain_tests       explain test modes
 	#  web_inmem_test      test api interaction with go pot in-memory persisting, web
 	#  web_inmem_stress    stress test with go pot in-memory persisting, web
@@ -119,7 +121,7 @@ example1 example2 example3 example4: build examples/lib integrity http_serve
 	open http://127.0.0.1:8080/examples/$@.html
 
 # simplify path for example sources: allows for lib/* instead of ../lib/*
-# this serves to take a possible irritation for the reader out and make 
+# this serves to take a possible irritation for the reader out and make
 # files work the same in the examples/ folder as in the project root.
 examples/lib:
 	ln -s ../lib examples/lib
@@ -130,7 +132,7 @@ example5: examples/lib build http_serve
 	$(MAKE) locnet_start
 	rm -f .batch_id
 	$(MAKE) .batch_id
-	sed -i.bak -e "s/\(pot\.new.*\)\"[0-9a-fA-F]*\")/\1\"$$(cat .batch_id)\")/" examples/$@.html ; rm -f examples/$@.html.bak 
+	sed -i.bak -e "s/\(pot\.new.*\)\"[0-9a-fA-F]*\")/\1\"$$(cat .batch_id)\")/" examples/$@.html ; rm -f examples/$@.html.bak
 	open http://127.0.0.1:8080/examples/$@.html
 
 # example 6 - meaning of the save reference
@@ -191,52 +193,81 @@ go.mod:
 	go get
 
 
-# the test picked as standard test: in-memory (not network), using the real
+# the standard Jest test: in-memory (not network), using the real
 # Go pot implementation (not the exception simulation), with node.js.
-test: explain_tests node_inmem_test
+test: explain_tests jest_test
 
 # the test picked as 2nd standard test: in-memory (not network), using the real
+# Go pot implementation (not the exception simulation), in the terminal.
+nodetest: explain_tests node_inmem_test
+
+# the test picked as 3rd standard test: in-memory (not network), using the real
 # Go pot implementation (not the exception simulation), in the browser.
 webtest: explain_tests web_inmem_test
 
 # print available test rules.
 explain_tests:
 	#
-	#  Tests can run in 2x3x2 combinable modes:
+	#  The jest installation test suite is run by:
 	#
-	#  browser / node | in-memory / simulated / network | standard / stress.
+	#    % make test
 	#
-	#  browser    web     |  Javascript running in the browser
-	#  node       node    |  Javascript running in the terminal using node.js
-	#  -------------------+--------------------------------------------------
-	#  in-memory  inmem   |  non-persistent, in-memory storage
-	#  simulated  sim     |  simulated storage for testing exceptions
-	#  network    locnet  |  local Swarm network storage
-	#  -------------------+--------------------------------------------------
-	#  standard   test    |  153 test suites of various flavors
-	#             quick   |  like *_locnet_test but re-using the batch id
-	#  stress     stress  |  4 longer-running suites; mass & concurrent access
+	#  Deep regression tests can be run in 2x3x2 combinable deep test modes:
 	#
-	#  The following are the make rules (for other rules use % make help):
+	#    browser / node + in-memory / simulated / network + standard / stress.
 	#
-	#  test               |  explain test modes and run node_inmem_test
-	#  webtest            |  explain test modes and run web_inmem_test
-	#  web_inmem_test     |  test api interaction with go pot in-memory persisting, web
-	#  web_inmem_stress   |  stress test with go pot in-memory persisting, web
-	#  web_sim_test       |  extended exceptions tests w/out go pot connection, web
-	#  web_locnet_test    |  standard tests with a locally installed Swarm network, web
-	#  web_locnet_quick   |  like web_locnet_test but re-using the last batch id, web
-	#  web_locnet_stress  |  stress test with a locally installed Swarm network, web
-	#  node_inmem_test    |  test api interaction with go pot in-memory persisting, node
-	#  node_inmem_stress  |  stress test with go pot in-memory persisting, node
-	#  node_sim_test      |  extended exceptions tests w/out go pot connection, node
-	#  node_locnet_test   |  test with a locally installed Swarm network, node
-	#  node_locnet_quick  |  like node_locnet_test but re-using the last batch id, node
-	#  node_locnet_stress |  stress test with a locally installed Swarm network, node
+	#  The deep test rules are composed from three tags. For example:
+	#
+	#    % make node_inmem_stress
+	#
+	#  Meaning     Tag     |  Description
+	#  --------------------+----------------------------------------------------------
+	#  browser     web     |  Javascript running in the browser
+	#  node        node    |  Javascript running in the terminal using node.js
+	#  --------------------+----------------------------------------------------------
+	#  in-memory   inmem   |  non-persistent, in-memory storage
+	#  simulated   sim     |  simulated storage for testing exceptions
+	#  network     locnet  |  local Swarm network storage
+	#  --------------------+----------------------------------------------------------
+	#  standard    test    |  31 test suites of various flavors
+	#  recycle id  quick   |  like *_locnet_test but re-using the batch id
+	#  stress      stress  |  4 longer-running suites; mass & concurrent access
+	#
+	#
+	#  The following are all test make rules (for other rules use % make help):
+	#
+	#  Rule                |  Description
+	#  --------------------+----------------------------------------------------------
+	#  test                |  explain test modes and run jest test suite
+	#  jest                |  run installation test suite
+	#  nodetest            |  explain test modes and run node_inmem_test
+	#  webtest             |  explain test modes and run web_inmem_test
+	#  --------------------+----------------------------------------------------------
+	#  web_inmem_test      |  test api interaction with go pot in-memory persisting, web
+	#  web_inmem_stress    |  stress test with go pot in-memory persisting, web
+	#  web_sim_test        |  extended exceptions tests w/out go pot connection, web
+	#  web_locnet_test     |  standard tests with a locally installed Swarm network, web
+	#  web_locnet_quick    |  like web_locnet_test but re-using the last batch id, web
+	#  web_locnet_stress   |  stress test with a locally installed Swarm network, web
+	#  node_inmem_test     |  test api interaction with go pot in-memory persisting, node
+	#  node_inmem_stress   |  stress test with go pot in-memory persisting, node
+	#  node_sim_test       |  extended exceptions tests w/out go pot connection, node
+	#  node_locnet_test    |  test with a locally installed Swarm network, node
+	#  node_locnet_quick   |  like node_locnet_test but re-using the last batch id, node
+	#  node_locnet_stress  |  stress test with a locally installed Swarm network, node
 	#
 	#  All node_* tests are run on push by github CI workloads, except *_quick.
 	#  CI runs all those tests for ubuntu-latest, and all non-locnet for MacOS.
 	#
+
+# jest integration tests
+jest: jest_test
+
+jest_test: build
+	@echo
+	@printf "$(hi)⬢  Jest Tests $(off)\n"
+	@echo
+	npx jest --config test/jest.json --runInBand --testRegex jest.a\?sync.js$$
 
 # browser-based test using in-memory persister of Go POT implementation
 web_inmem_test: build http_serve
@@ -255,7 +286,7 @@ web_sim_test: lib/wasm_exec.js go.mod mockbuild http_serve
 # browser-based test using in-memory persister of Go POT implementation
 web_inmem_stress: build http_serve
 	@echo
-	@echo ⬢  Test in-browser, in-memory, stress test suite 
+	@echo ⬢  Test in-browser, in-memory, stress test suite
 	@echo
 	open "http://127.0.0.1:8080/test/test.html?tag=in-mem&group=stress&iterations=100000"
 
@@ -425,7 +456,7 @@ locnet_log:
 
 # show that status of http server and  all docker containers
 locnet_status:
-	ps ax | grep 'npm exec http-server' | grep -v grep 
+	ps ax | grep 'npm exec http-server' | grep -v grep
 	docker ps -a
 
 # delete the batch id and the log of its creation.
@@ -458,7 +489,7 @@ stop: http_stop locnet_stop
 
 # switch the meaning of package 'pot' to the test stub in mock/pot.go. The go
 # pot implementation is then ignored and the api tested stand-alone. This
-# allows for cancellation, time out and resource leak tests. It builds its 
+# allows for cancellation, time out and resource leak tests. It builds its
 # special version of pot.wasm though which behaves very similar to the real
 # one and can trip up the building.
 mock: go.mod
@@ -495,6 +526,8 @@ clean:
 	rm -f lib/wasm_exec.js
 	rm -f lib/potjs.js.sha384 lib/wasm_exec.js.sha384
 	rm -f .batch_creation .batch_id
+	rm -f package.json package-lock.json
+	rm -fr node_modules
 
 # prepare for repository. The repo is pushed with relevant core files built
 # because .js and .wasm files are portable and can be used without having to
@@ -504,5 +537,5 @@ distclean:
 	$(MAKE) clean unmock build
 
 # this is a list of all rules that are not a file name and thus always trigger ///
-.PHONY: all help build mockbuild example1 example2 example3 example4 example5 example6 example7 example8 example9 example10 clean test webtest explain_tests web_inmem_test web_sim_test web_inmem_stress web_local_test web_local_quick web_local_stress node_inmem_test node_sim_test node_inmem_stress node_inmem_ressources node_locnet_test node_locnet_quick node_locnet_stress locnet_start locnet_stop locnet_batch locnet_tests locnet_log locnet_clean locnet_install http_serve http_stop stop mock unmock vet lint clean distclean
+.PHONY: all help build mockbuild example1 example2 example3 example4 example5 example6 example7 example8 example9 example10 clean test nodetest webtest explain_tests jest jest_test web_inmem_test web_sim_test web_inmem_stress web_local_test web_local_quick web_local_stress node_inmem_test node_sim_test node_inmem_stress node_inmem_ressources node_locnet_test node_locnet_quick node_locnet_stress locnet_start locnet_stop locnet_batch locnet_tests locnet_log locnet_clean locnet_install http_serve http_stop stop mock unmock vet lint clean distclean
 

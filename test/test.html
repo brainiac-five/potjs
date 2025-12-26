@@ -1,77 +1,77 @@
 <!-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
-  Swarm Pot JS Tests Page
+	Swarm Pot JS Tests Page
 
-  This page displays progress and results in four different test modi.
+	This page displays progress and results in four different test modi.
 
 !-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -->
 
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+		<meta http-equiv="Pragma" content="no-cache" />
+		<meta http-equiv="Expires" content="0" />
 
-    <title>SWARM POT JS API Test</title>
+		<title>SWARM POT JS Test Suite</title>
 
-    <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="test.css">
-  </head>
+		<link rel="icon" href="data:,">
+		<link rel="stylesheet" href="test.css">
+	</head>
 
-  <!-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -->
+	<!-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -->
 
-  <body onload="modecolor()">
-
-
-    <h1> <img src=favicon.ico> SWARM POT JS API Test Suite
-    	<div class=modetag id=modetag>---</div>
-    	<div class=grouptag id=grouptag>std<div></h1>
+	<body onload="modecolor()">
 
 
-    <p id=date></p>
-
-    <p>  This is the test suite for the Javascript API to the Go implementation of the Proximity-Order-Trie (POT). </p>
-
-
-    <p>  Also see:
-      <a href=../examples/example1.html class=see> example 1 </a> &nbsp;
-      <a href=../examples/example2.html class=see> example 2 </a> &nbsp;
-      <a href=../examples/example3.html class=see> example 3 </a> &nbsp;
-      <a href=../examples/example4.html class=see> example 4 </a> &nbsp;
-      <a href=../README.MD class=see>     read me   </a>
-    </p>
+		<h1> <img src=favicon.ico> SWARM POT JS Test Suite
+			<div class=modetag id=modetag>---</div> &nbsp;
+			<div class=grouptag id=grouptag>std<div></h1>
 
 
-    <h2> Notes </h2>
+		<p id=date></p>
 
-    <p id=modenote></p>
-
-    <p>  Tests are using different random byte sequences for keys and values every run.</p>
+		<p>  This is a test suite for POT JS, the Javascript API to the Go implementation of the Proximity-Order-Trie (POT). </p>
 
 
-    <h2> Network </h2>
+		<p>  Also see:
+			<a href=../examples/example1.html class=see> example 1 </a> &nbsp;
+			<a href=../examples/example2.html class=see> example 2 </a> &nbsp;
+			<a href=../examples/example3.html class=see> example 3 </a> &nbsp;
+			<a href=../examples/example4.html class=see> example 4 </a> &nbsp;
+			<a href=../README.MD class=see>     read me   </a>
+		</p>
 
-    <table>
-    <tr><td><p> Bee node URL </p></td><td><p>:</p></td><td><p> <span id=bee></span> </p></td></tr>
-    <tr><td><p> Batch ID     </p></td><td><p>:</p></td><td><p> <span id=batch></span> </p></td></tr>
-    </table>
+
+		<h2> Notes </h2>
+
+		<p id=modenote></p>
+
+		<p>  Tests are using different random byte sequences for keys and values every run.</p>
 
 
-    <h2> KVS Tests </h2>
+		<h2> Network </h2>
 
-    <h4 id=status style="border-left: 3px solid black"> Assertions: <span id=counter></span></h4>
+		<table>
+		<tr><td><p> Bee node URL </p></td><td><p>:</p></td><td><p> <span id=bee></span> </p></td></tr>
+		<tr><td><p> Batch ID     </p></td><td><p>:</p></td><td><p> <span id=batch></span> </p></td></tr>
+		</table>
 
-    <h4 id=errorlinks></h4>
 
-    <!-- -- -- -- -- -- -- -- -- -- -- -- ---- -- -- -- -- -- -- -- -- -- -- -->
+		<h2> KVS Tests </h2>
 
-    <script src="../lib/wasm_exec.js"></script>
-    <script src="test.js"></script>
-    <script src="suites.js"></script>
+		<h4 id=status style="border-left: 3px solid black"> Assertions: <span id=counter></span></h4>
 
-    <script>
+		<h4 id=errorlinks></h4>
+
+		<!-- -- -- -- -- -- -- -- -- -- -- -- ---- -- -- -- -- -- -- -- -- -- -- -->
+
+		<script src="../lib/wasm_exec.js"></script>
+		<script src="test.js"></script>
+		<script src="suites.js"></script>
+
+		<script>
 
 	(async () => {
 
@@ -106,6 +106,7 @@
 
 		const go = new Go()
 
+		// globalThis.potjs_verbosity = 6 // = TRACE = unabbrev. values
 		result = await WebAssembly.instantiateStreaming(
 				fetch("../lib/pot.wasm"), go.importObject)
 
@@ -229,7 +230,7 @@
 		}
 	}
 
-    </script>
+</script>
 
 </body>
 </html>
