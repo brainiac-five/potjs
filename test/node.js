@@ -3,7 +3,8 @@
 */
 
 const fs = require("fs")
-potjs_verbosity = 6
+//potjs_verbosity = 3 // memory stats: + 2048
+potjs_verbosity = 3 + 2048
 require("../lib/pot-node.js")
 require("./test")
 const tests = require("./suites")
@@ -77,15 +78,14 @@ console.log(`
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 `)
 
-
 ; (async () => {
 
 	await pot.ready()
-	pot.setVerbosity(pot.INFO)
+	pot.setVerbosity(pot.INFO | pot.MEMORY)
 
 	/* Test Test */
 
-	if (branch != "ressources") {
+	if (branch != "resources") {
 
 		T.head("Example Test")
 		T.log("Test setup test outside of main test files.")
@@ -136,7 +136,7 @@ console.log(`
 
 			await tests.TestPotKvs_Stress(T, bee, batch, iter)
 
-		} else if (branch == "ressources") {
+		} else if (branch == "resources") {
 
 			await tests.TestPotKvs_Release(T, bee, batch, iter)
 		}

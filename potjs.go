@@ -52,10 +52,12 @@ import (
 	"regexp"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall/js"
 	"time"
+	"unicode/utf8"
 
-	. "github.com/brainiac-five/pot" // . helps mocking
+	. "github.com/ethersphere/proximity-order-trie" // . helps mocking
 	"github.com/ethersphere/proximity-order-trie/pkg/persister"
 )
 
@@ -82,7 +84,8 @@ var inBrowser bool
 // destiny to be branched into a tree. This is not impeded by the Slot struct,
 // which holds roots of contexts.
 type Slot struct {
-	Ref       int // double-link: index+1 in slots array
+	Ref       int // double-check: index+1 in slots array
+	Ref32     string
 	Ctx       context.Context
 	Ls        persister.LoadSaver
 	allowRaw  bool
@@ -91,15 +94,25 @@ type Slot struct {
 }
 
 // maximal byte size of a value. This number is arbitrary to protect the system
-// from failing in cryptic ways choking on oversize payload.
-var maxValueSize = 100000
+// from failing in cryptic ways choking on oversize payload. It can be changed
+// which affects only the threshold of an error message, not a system capacity.
+var maxValueSize = 100000 // in byte including potential leading type byte.
+
+// maximal size of a key. This is really the fix internal binary size of keys,
+// which are 0-padded to 32 byte when needed. Keys do not have a type-coding
+// first byte. But being a byte length, an UTF-8 string character count can
+// be misleading. Both Go and Javascript use UTF-8 by default but Javascript
+// considers the character count the string length, Go, the byte size.
+const maxKeySize = 32 // in byte
 
 // array of all slots
 var Slots = []Slot{}
+var SlotMap = make(map[string]int)
 
-var Maps = []js.Value{}
+// JS-side GC callback registry
+var jsRegistry js.Value
 
-// re-used in-memory storage. Must be for state consistency across calls.
+// POT re-used in-memory storage. Must be for state consistency across calls.
 var inMemoryPersister persister.LoadSaver
 
 // the payload function for the Go-created generic promise-creator function
@@ -158,7 +171,7 @@ const (
 	INFO  = 3
 	DEB   = 4
 	TRACE = 5
-	MEM   = 6
+	MEM   = 2048
 	NOCUT = 4096
 )
 
@@ -196,7 +209,7 @@ var jsSaveSync js.Func
 // as the intended way how to run a Go WASM module for JS.
 func main() {
 
-	// handle verbosity setting per variable
+	// verbosity setting per variable
 	v := js.Global().Get("potjs_verbosity")
 	if v.Type() == js.TypeNumber {
 		verbosity = v.Int()
@@ -215,7 +228,7 @@ func main() {
 
 	log(INFO, "» POTWASM")
 
-	// handle optimization setting per variable
+	// optimization setting per variable
 	o := js.Global().Get("potjs_optimization")
 	if o.Type() == js.TypeNumber {
 		optimization = o.Int()
@@ -235,6 +248,40 @@ func main() {
 		js.Global().Set("pot", js.ValueOf(make(map[string]interface{})))
 	}
 	pot_ := js.Global().Get("pot")
+
+	// Start JS per-object, weak-referenced GC release callback registry.
+	// registry = new FinalizationRegistry((heldValue) => { .. })
+	// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/FinalizationRegistry
+	// CleanUps may never be called. This mechanism is to signal back to Go.
+	jsRegistry = js.Global().Get("FinalizationRegistry").New(js.FuncOf(func(_ js.Value, p []js.Value) interface{} {
+
+		/// check type for abundance
+
+		slotRef := p[0].Int()
+		log(MEM, colorMid+"⦿ release of slot "+strconv.Itoa(slotRef)+colorOff+"  "+profile())
+		// -------------------------------------------------------------
+
+		slot := Slots[slotRef-1]
+		slotRef32 := slot.Ref32
+
+		// sanity check of internal linking
+		if slot.Ref != slotRef {
+			return errors.New("### crtical error: slot double link broken, slot ‹" + strconv.Itoa(slotRef) + "› has ‹" + strconv.Itoa(slot.Ref) + "›")
+		}
+		if slot.Ref != SlotMap[slotRef32] {
+			return errors.New("### crtical error: slot32 double link broken, slot32 ‹" + slotRef32 + "› has ‹" + strconv.Itoa(SlotMap[slotRef32]) + "› instead of ‹" + strconv.Itoa(slot.Ref) + "›")
+		}
+
+		// stop mutex
+		slot.Kvs.Close()
+
+		// take resources offline
+		Slots[slotRef-1] = Slot{}
+		SlotMap[slotRef32] = 0
+
+		// -------------------------------------------------------------
+		return nil
+	}))
 
 	// The following js.Funcs are created once and not released for the
 	// lifetime of the executable.
@@ -258,13 +305,15 @@ func main() {
 	pot_.Set("getVerbosity", js.FuncOf(getVerbosity))
 	pot_.Set("setValueSizeLimit", js.FuncOf(setValueSizeLimit))
 	pot_.Set("getValueSizeLimit", js.FuncOf(getValueSizeLimit))
+	pot_.Set("byteSize", js.FuncOf(byteSize))
+	pot_.Set("truncString", js.FuncOf(truncString))
 	pot_.Set("NONE", 0)
 	pot_.Set("CRITICAL", 1)
 	pot_.Set("ERROR", 2)
 	pot_.Set("INFO", 3)
 	pot_.Set("DEBUG", 4)
 	pot_.Set("TRACE", 5)
-	pot_.Set("MEMORY", 6)
+	pot_.Set("MEMORY", 2048)
 	pot_.Set("NOCUT", 4096)
 
 	// test functions
@@ -480,7 +529,7 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 		}
 	}
 
-	log(INFO, "» initialize new P.O.T. - slot "+colorMid+strconv.Itoa(len(Slots)+1)+colorOff)
+	log(INFO, "» initialize new P.O.T. - slot "+colorMid+strconv.Itoa(len(Slots)+1)+colorOff+"  "+profile())
 
 	// --------------------------------------------------------------
 	kvs, err := NewSwarmKvs(ls)
@@ -492,12 +541,26 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 	}
 
 	// register context and kvs handle, take numerical index as handle
+	slot_ref, ref32 := newID()
+	Slots = append(Slots, Slot{Ctx: ctx, Kvs: kvs, Ref: slot_ref, Ref32: ref32, Ls: ls, allowRaw: allowRaw, allowSync: allowSync})
+
+	log(INFO, "› slot ref: "+strconv.Itoa(slot_ref)+" "+ref32)
+
+	return createMapObject(slot_ref, ref32), true
+}
+
+func newID() (int, string) {
+
 	slot_ref := len(Slots) + 1 // = starting on 1.
-	Slots = append(Slots, Slot{Ctx: ctx, Kvs: kvs, Ref: slot_ref, Ls: ls, allowRaw: allowRaw, allowSync: allowSync})
 
-	log(DEB, "› slot ref: "+strconv.Itoa(slot_ref))
+	bytes := make([]byte, 32)
+	rand.Read(bytes)
+	ref32 := bHex(bytes)
+	log(TRACE, "∙ created 32 byte reference ‹"+ref32+"›")
 
-	return createMapObject(slot_ref), true
+	SlotMap[ref32] = slot_ref
+
+	return slot_ref, ref32
 }
 
 // LOAD ------------------------------------------------------------------------
@@ -675,24 +738,27 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 	}
 
 	// register context and kvs handle, take numerical index as handle
-	slot_ref := len(Slots) + 1 // = starting on 1.
-	Slots = append(Slots, Slot{Ctx: ctx, Kvs: kvs, Ref: slot_ref, Ls: ls, allowSync: allowSync})
+	slot_ref, sref32 := newID()
+	Slots = append(Slots, Slot{Ctx: ctx, Kvs: kvs, Ref: slot_ref, Ref32: sref32, Ls: ls, allowSync: allowSync})
 
 	log(DEB, "› slot ref: "+debug+" "+strconv.Itoa(slot_ref))
-	return createMapObject(slot_ref), true
+	log(DEB, "›    ref32: "+sref32)
+
+	return createMapObject(slot_ref, sref32), true
 }
 
 // createMapObject() creates the JS KVS object that new*() and load*()
 // return - directly or by promise -  and all put and get functions are members
 // of.  Go context and persister are stored this side in a Slot array that
 // slot_ref is an index to.
-func createMapObject(slot_ref int) js.Value {
+func createMapObject(slot_ref int, ref32 string) js.Value {
 
 	// create Javascript handle object
 	jsMap := js.ValueOf(make(map[string]interface{}))
 
 	// the numeric handle bridges preserved ctx and persister to JS.
 	jsMap.Set("slot_ref", slot_ref)
+	jsMap.Set("ref32", ref32)
 
 	// add standard methods
 	jsMap.Set("put", jsPut)
@@ -714,12 +780,13 @@ func createMapObject(slot_ref int) js.Value {
 	jsMap.Set("save", jsSave)
 	jsMap.Set("saveSync", jsSaveSync)
 
-	runtime.AddCleanup(&jsMap, func(slot_ref int) {
-		log(MEM, colorMid+"⦿ KVS on slot "+strconv.Itoa(slot_ref)+" cleaning up"+colorOff)
-	}, slot_ref)
+	// this closure is called when GC finds the jsMap object unreachable
+	// runtime.AddCleanup(&jsMap, func(slot_ref int) {
+	//	log(MEM, colorMid+"⦿ Go-side KVS slot "+strconv.Itoa(slot_ref)+" reference clean up"+colorOff+"  "+profile())
+	// }, slot_ref)
 
-	// protect against garbage collection
-	Maps = append(Maps, jsMap)
+	// this registers a clean up call when the JS GC finds the jsMap unreachable
+	jsRegistry.Call("register", jsMap, slot_ref)
 
 	return jsMap
 }
@@ -756,7 +823,9 @@ func releaseMapObject(slot_ref int) {
 // triggers that.
 func gc(this js.Value, parameters []js.Value) (result interface{}) {
 
+	log(MEM, colorMid+"⦿ Go GC forced"+colorOff+"       "+profile())
 	runtime.GC()
+	log(MEM, "              "+"       "+profile())
 
 	return js.Null()
 }
@@ -1524,6 +1593,7 @@ func jsError(msg string) js.Value {
 
 var colorLow = "\033[90m"
 var colorMid = "\033[38;5;214m"
+var colorMem = "\033[36m" // cyan
 var colorOff = "\033[0m"
 var logrex = regexp.MustCompile(`([0-9a-fA-Fx]{32})([0-9a-fA-Fx]+)`)
 
@@ -1533,19 +1603,31 @@ var logrex = regexp.MustCompile(`([0-9a-fA-Fx]{32})([0-9a-fA-Fx]+)`)
 // ignored. NONE, CRITICAL and ERROR are logged to stderr, higher to stdout.
 func log(level int, msg string) {
 
-	noCut := verbosity & NOCUT
+	cut := verbosity&level&NOCUT == 0
 
-	// log only of set verbosity level is matched or exceeded
-	if verbosity%NOCUT >= level {
-		// abbreviate long strings and hex numbers unless TRACE level is on
-		if (noCut == 0) && (verbosity%NOCUT < TRACE) {
-			msg = logrex.ReplaceAllString(msg, "$1…")
-		}
-		if level <= ERR {
-			fmt.Fprintln(os.Stderr, "pot:  "+msg)
-		} else {
-			fmt.Println("pot:  " + msg)
-		}
+	// log if set verbosity level is matched or exceeded
+	log := verbosity%MEM >= level
+
+	// or, log if it is a MEM and MEMORY is set in the verbosity level
+	log = log || (verbosity&level&MEM == MEM)
+
+	if !log {
+		return
+	}
+
+	t0 := strconv.Itoa(int(time.Now().UnixMilli() % 1000))
+	t := strings.Repeat("0", 3-len(t0)) + t0
+
+	// abbreviate long strings and hex numbers unless TRACE level is on
+	if cut {
+		msg = logrex.ReplaceAllString(msg, "$1…")
+	}
+
+	// log to stderr for CRITICAL and ERROR, else to stdout
+	if level <= ERR {
+		fmt.Fprintln(os.Stderr, "pot:  "+t+"  "+msg)
+	} else {
+		fmt.Println("pot:  " + t + "  " + msg)
 	}
 }
 
@@ -1569,17 +1651,7 @@ func log_(this js.Value, parameters []js.Value) interface{} {
 		}
 	}
 
-	// optional cut flag
-	var dontCut = 0
-	if len(parameters) >= 3 {
-		if parameters[2].Type() == js.TypeBoolean {
-			if parameters[2].Bool() {
-				dontCut = 4096
-			}
-		}
-	}
-
-	log(level|dontCut, msg)
+	log(level, msg)
 
 	return nil
 }
@@ -1624,7 +1696,7 @@ func getVerbosity(_ js.Value, _ []js.Value) interface{} {
 	return verbosity
 }
 
-// VALUE SIZE ------------------------------------------------------------------
+// SIZE LIMITS -----------------------------------------------------------------
 
 // JS setValueSizeLimit() sets the limit beyond which a value is rejected with an
 // error. This function sets an arbitrary value to protect an application. The
@@ -1656,6 +1728,116 @@ func setValueSizeLimit(_ js.Value, parameters []js.Value) interface{} {
 func getValueSizeLimit(_ js.Value, _ []js.Value) interface{} {
 
 	return maxValueSize
+}
+
+// JS byteSize() returns the byte size of a string. It is redundant to JS
+// Textencoder use that can likewise return the UTF-8 byte size but is provided
+// for safety to reduce error potential and required learning about internals.
+// With this support function, it is unambiguous whether a key or value will
+// fit. The function returns parameter errors as error objects.
+func byteSize(_ js.Value, parameters []js.Value) interface{} {
+
+	if len(parameters) > 0 {
+		p := parameters[0]
+		if p.Type() != js.TypeString {
+			return jsError("parameter type error. String expected.")
+		}
+
+		return len(p.String()) // len() returns byte size
+	}
+	return jsError("missing string parameter.")
+}
+
+// JS byteSize() returns the byte size of a string. It is redundant to JS
+// Textencoder use that can likewise return the UTF-8 byte size but is provided
+// for safety to reduce error potential and required learning about internals.
+// The function returns parameter errors as error objects.
+func truncString(_ js.Value, parameters []js.Value) interface{} {
+
+	log(TRACE, "∙ truncString() started ")
+	t0 := time.Now().UnixMilli()
+
+	if len(parameters) < 2 {
+		log(TRACE, "∙ truncString() fails")
+		return jsError("missing parameter. String and size expected.")
+	}
+
+	jsStr := parameters[0]
+	jsMax := parameters[1]
+
+	if jsStr.Type() != js.TypeString {
+		log(TRACE, "∙ truncString() fails")
+		return jsError("parameter type error. String expected as first argument.")
+	}
+
+	if jsMax.Type() != js.TypeNumber {
+		log(TRACE, "∙ truncString() fails")
+		return jsError("parameter type error. Number expected as second argument.")
+	}
+
+	str := jsStr.String()
+	max := jsMax.Int()
+
+	if len(str) <= max {
+		t := time.Now().UnixMilli() - t0
+		log(TRACE, "∙ truncString() done ("+strconv.Itoa(int(t))+"ms)")
+		return str
+	}
+
+	i := max
+	for ; i > 0; i-- {
+		cut := str[:i]
+		if utf8.ValidString(cut) {
+			t := time.Now().UnixMilli() - t0
+			log(TRACE, "∙ truncString() done ("+strconv.Itoa(int(t))+"ms)")
+			return cut
+		}
+	}
+	t := time.Now().UnixMilli() - t0
+	log(TRACE, "∙ truncString() fails ("+strconv.Itoa(int(t))+"ms)")
+	return jsError("no valid utf-8 slice found within given length")
+}
+
+// MEMORY PROFILING ------------------------------------------------------------
+
+func profile() string {
+
+	// Go memory stats
+	var goMem runtime.MemStats
+	runtime.ReadMemStats(&goMem)
+	p := "Go heap " + strconv.Itoa(int(goMem.Alloc/1024)) + "K " + bar(int(goMem.Alloc))
+
+	// JS memory stats / node.js
+	process := js.Global().Get("process")
+	if !process.IsUndefined() {
+		memUse := process.Get("memoryUsage")
+		if !memUse.IsUndefined() {
+			mem := process.Call("memoryUsage").Get("heapUsed").Int()
+			p = p + " JS heap " + strconv.Itoa(int(mem/1024)) + "K " + bar(mem)
+		}
+	}
+
+	// JS memory stats / Chrome - avoiding promise of measureUserAgentSpecificMemory
+	performance := js.Global().Get("performance")
+	if !performance.IsUndefined() {
+		memory := performance.Get("memory")
+		if !memory.IsUndefined() {
+			mem := memory.Get("usedJSHeapSize").Int()
+			p = p + " JS heap " + strconv.Itoa(int(mem/1024)) + "K " + bar(mem)
+		}
+	}
+
+	return colorMem + p + colorOff
+}
+
+func bar(n int) string {
+	n = n / 1000
+	if n > 10000 {
+		return strings.Repeat("᠁ ", n/1000000) +
+			strings.Repeat("❚", n%1000000/10000) +
+			strings.Repeat("❘", (n%10000)/1000)
+	}
+	return strings.Repeat("❘", n/1000)
 }
 
 // OPTIMIZATION ----------------------------------------------------------------
@@ -1701,12 +1883,22 @@ func getOptimization(_ js.Value, _ []js.Value) interface{} {
 func getSlot(this js.Value) (Slot, error) {
 
 	jsSlotRef := this.Get("slot_ref")
+	jsSlotRef32 := this.Get("ref32")
 
 	if jsSlotRef.Type() != js.TypeNumber {
 		return Slot{}, errors.New("### critical error: slot_ref member missing or altered")
 	}
-
 	slotRef := jsSlotRef.Int()
+
+	if jsSlotRef32.Type() != js.TypeString {
+		return Slot{}, errors.New("### critical error: ref32 member missing or altered")
+	}
+	ref32 := jsSlotRef32.String()
+
+	alternate := SlotMap[ref32]
+	if alternate != slotRef {
+		return Slot{}, errors.New("### critical error: references altered")
+	}
 
 	if slotRef < 1 || slotRef > len(Slots) { // sic, bec shifted by 1
 		return Slot{}, errors.New("### critical error: slot_ref member invalid")

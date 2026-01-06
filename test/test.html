@@ -61,7 +61,7 @@
 
 		<h2> KVS Tests </h2>
 
-		<h4 id=status style="border-left: 3px solid black"> Assertions: <span id=counter></span></h4>
+		<h4 id=status> Assertions: <span id=counter></span></h4>
 
 		<h4 id=errorlinks></h4>
 
@@ -106,7 +106,7 @@
 
 		const go = new Go()
 
-		// globalThis.potjs_verbosity = 6 // = TRACE = unabbrev. values
+		globalThis.potjs_verbosity = 3 + 2048
 		result = await WebAssembly.instantiateStreaming(
 				fetch("../lib/pot.wasm"), go.importObject)
 

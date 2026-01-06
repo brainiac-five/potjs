@@ -139,7 +139,7 @@ func (sls *SwarmNodeJsLoadSaver) Save(ctx context.Context, data []byte) ([]byte,
 				"Swarm-Postage-Batch-Id": fmt.Sprintf("%x", sls.postageID)}),
 		js.ValueOf(sls.verbosity))
 
-		if got.Type() == js.TypeUndefined {
+	if got.Type() == js.TypeUndefined {
 		return nil, fmt.Errorf("failed to store data to swarm, fetch call failed")
 	}
 
@@ -177,11 +177,11 @@ func (sls *SwarmNodeJsLoadSaver) Save(ctx context.Context, data []byte) ([]byte,
 
 func trace(sls *SwarmNodeJsLoadSaver, format string, value any) {
 
-	if sls.verbosity >= 5 {
+	if sls.verbosity%1024 >= 5 {
 		if value == nil {
-			fmt.Print("snp:  ∙ "+format+"\n")
+			fmt.Print("snp:  ∙ " + format + "\n")
 		} else {
-			fmt.Print("snp:  ∙ "+format+"\n", value)
+			fmt.Printf("snp:  ∙ "+format+"\n", value)
 		}
 	}
 }

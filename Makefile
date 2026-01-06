@@ -189,7 +189,7 @@ lib/wasm_exec.js.sh384: lib/wasm_exec.js
 # as opposed to the simulation (below).
 go.mod:
 	go mod init potjs
-	go mod edit -replace github.com/brainiac-five/pot=github.com/brainiac-five/pot@v1.0.6
+	go mod edit -replace github.com/ethersphere/proximity-order-trie=github.com/ethersphere/proximity-order-trie@v1.0.2-alpha.1
 	go get
 
 
@@ -267,7 +267,7 @@ jest_test: build
 	@echo
 	@printf "$(hi)⬢  Jest Tests $(off)\n"
 	@echo
-	npx jest --config test/jest.json --runInBand --testRegex jest.a\?sync.js$$
+	npx jest --config test/jest.json --runInBand --testRegex jest..\*.js$$
 
 # browser-based test using in-memory persister of Go POT implementation
 web_inmem_test: build http_serve
@@ -368,9 +368,9 @@ node_sim_test: lib/wasm_exec.js go.mod mockbuild
 node_inmem_stress: build
 	node test/node.js in-mem - - stress 100000
 
-# node.js-based ressource test using in-memory persister of Go POT implementation
-node_inmem_ressources: build
-	node test/node.js in-mem - - ressources
+# node.js-based resource test using in-memory persister of Go POT implementation
+node_inmem_memory: build
+	node test/node.js in-mem - - resources
 
 # node.js-based test using a local swarm network of five nodes
 node_locnet_test: unmock build
@@ -493,9 +493,9 @@ stop: http_stop locnet_stop
 # special version of pot.wasm though which behaves very similar to the real
 # one and can trip up the building.
 mock: go.mod
-	go mod edit -dropreplace github.com/brainiac-five/pot
-	go mod edit -replace github.com/brainiac-five/pot=./mock
-	go get github.com/brainiac-five/pot/pkg/persister
+	go mod edit -dropreplace github.com/ethersphere/proximity-order-trie
+	go mod edit -replace github.com/ethersphere/proximity-order-trie=./mock
+	go get github.com/ethersphere/proximity-order-trie/pkg/persister
 
 # revert the changes that `mock` effects, namely the replacing of the go
 # pot implementation with the mock stub in mock/. This reverts to the normal
@@ -503,7 +503,7 @@ mock: go.mod
 unmock: go.mod
 ifneq ($(MOCKED),)
 	@echo "⬡ undoing simulation build settings"
-	go mod edit -dropreplace github.com/brainiac-five/pot
+	go mod edit -dropreplace github.com/ethersphere/proximity-order-trie
 	go mod tidy
 endif
 
@@ -537,5 +537,5 @@ distclean:
 	$(MAKE) clean unmock build
 
 # this is a list of all rules that are not a file name and thus always trigger ///
-.PHONY: all help build mockbuild example1 example2 example3 example4 example5 example6 example7 example8 example9 example10 clean test nodetest webtest explain_tests jest jest_test web_inmem_test web_sim_test web_inmem_stress web_local_test web_local_quick web_local_stress node_inmem_test node_sim_test node_inmem_stress node_inmem_ressources node_locnet_test node_locnet_quick node_locnet_stress locnet_start locnet_stop locnet_batch locnet_tests locnet_log locnet_clean locnet_install http_serve http_stop stop mock unmock vet lint clean distclean
+.PHONY: all help build mockbuild example1 example2 example3 example4 example5 example6 example7 example8 example9 example10 clean test nodetest webtest explain_tests jest jest_test web_inmem_test web_sim_test web_inmem_stress web_local_test web_local_quick web_local_stress node_inmem_test node_sim_test node_inmem_stress node_inmem_resources node_locnet_test node_locnet_quick node_locnet_stress locnet_start locnet_stop locnet_batch locnet_tests locnet_log locnet_clean locnet_install http_serve http_stop stop mock unmock vet lint clean distclean
 

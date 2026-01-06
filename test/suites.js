@@ -1,5 +1,5 @@
 /*
-**  SWARM POT JS API Test Suite
+**  SWARM POT JS Test Suite 1 / Deep Tests
 **
 **  This suite is called in twelve different test modes, different ways of
 **  mocking real operation, as well as from the browser and from node
@@ -14,13 +14,13 @@
 **  simulated  sim        simulated storage for testing exceptions
 **  network    locnet     local Swarm network storage
 **  ----------------------------------------------------------------------
-**  standard   test       153 test suites of various flavors
+**  standard   test       172 test suites of various flavors
 **             quick      like *_locnet_test but re-using the batch id
 **  stress     stress     4 longer-running suites; mass & concurrent access
 **
-**  The following are the make rules for tests:
+**  The following are the make rules for deep tests:
 **
-**  test                  explain test modes and run node_inmem_test
+**  nodetest              explain test modes and run node_inmem_test
 **  webtest               explain test modes and run web_inmem_test
 **  web_inmem_test        test api interaction with go pot in-memory persisting, web
 **  web_inmem_stress      stress test with go pot in-memory persisting, web
@@ -61,8 +61,8 @@
 */
 
 const t0 = null
-const massmax = 20 // lower iteration count for concurrent tests
-const massmax2 = 100 // higher iteration count for concurrent tests
+const massmax = 20 // a lower iteration count for concurrent tests
+const massmax2 = 100 // a higher iteration count for concurrent tests
 
 var map
 var map1
@@ -72,6 +72,8 @@ var map4
 var map5
 
 // ·····································································
+// Browser-only, catch for uncaught promise rejections.
+// ·····································································
 let noUncaughtRejectionExpected = "[ not expecting unhandled rejections ]"
 let expectedUncaughtRejection = noUncaughtRejectionExpected
 if(typeof window === 'undefined') {
@@ -80,8 +82,10 @@ if(typeof window === 'undefined') {
 		T.attestExpectedError(t0, T, err, expectedUncaughtRejection ? expectedUncaughtRejection : noUncaughtRejectionExpected )
 	})
 }
-// ·····································································
 
+// ·····································································
+// Start of Tests
+// ·····································································
 function TestPotKvsSync(T, bee_url, batch_id) {
 
 	T.head("Simple gets and puts of KVS, synchronous", bee_url)
@@ -622,7 +626,6 @@ function TestPotKvs_EdgeValuesSync(T, bee_url, batch_id) {
 	T.log("• get " + T.hex(key2))
 	val = map.getRawSync(key2)
 	T.assertEqual(t0, T, T.hex(val), T.hex(val2)) // No direct equality check for Uint8Arrays
-
 }
 
 async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
@@ -1189,7 +1192,6 @@ function TestPotKvs_TypeEncoding(T, bee_url, batch_id) {
 	r = pot.typeDecodedValue(e)
 	if(r instanceof Error) T.attestExpectedError(t0, T, r.message)
 	else T.attestMissingError(t, T)
-
 }
 
 function TestPotKvs_TypedAccessSync(T, bee_url, batch_id) {
@@ -2236,7 +2238,6 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 		val = await map3.get(key2)
 		T.assertEqual(t0, T, val, val2)
 	}
-
 }
 
 async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
@@ -2893,7 +2894,6 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 	} catch(err) {
 		T.attestUnexpectedError(t0, T, err)
 	}
-
 }
 
 
@@ -5570,7 +5570,6 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	}
 
 	await T.delay(10)
-
 }
 
 async function TestPotKvs_InternalErrors(T, bee_url, batch_id) {
@@ -5600,8 +5599,6 @@ async function TestPotKvs_InternalErrors(T, bee_url, batch_id) {
 	} catch(err) {
 		T.attestExpectedError(t0, T, err, "### panic in panickingPromise executor: test panic of panickingPromise")
 	}
-
-
 }
 
 async function TestPotKvs_MassSequentialSync(T, bee_url, batch_id) {
@@ -5815,7 +5812,6 @@ async function TestPotKvs_MassSequentialSync(T, bee_url, batch_id) {
 		v.splice(j,1)
 	}
 	T.attestNoError(t0, T)
-
 }
 
 async function TestPotKvs_MassSequentialAsync(T, bee_url, batch_id) {
@@ -6025,7 +6021,6 @@ async function TestPotKvs_MassSequentialAsync(T, bee_url, batch_id) {
 		v.splice(j,1)
 	}
 	T.attestNoError(t0, T)
-
 }
 
 // Testing failure modes: internal error (returned), and Go panic.
@@ -6195,7 +6190,6 @@ async function TestPotKvs_Failures(T, bee_url, batch_id) {
 	} catch(err) {
 		T.assertError(t0, T, err, /mock panic/)
 	}
-
 }
 
 
@@ -6415,29 +6409,26 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations) {
 		let cannary = pot.newSync(bee_url, batch_id)
 		let cannary2 = pot.newSync(bee_url, batch_id)
 		let stack = new Array()
-		let beaconCollected = false;
-		let stop = false;
-		let counter = 0;
+		let beaconCollected = false
+		let stop = false
+		let counter = 0
 		const registry = new FinalizationRegistry(() => {
-			T.log(`  iterations: ${counter} - beacon garbage collected`)
+			T.log(`  iterations: ${counter} - beacon garbage collected`, pot.INFO | pot.MEMORY)
 			beaconCollected = true;
 		});
 		//registry.register(["garbage collection beacon"])
 		//registry.register({foo:"foo"});
 		//registry.register(pot.newSync(bee_url, batch_id));
-		registry.register(pot.newSync());
+		registry.register(pot.newSync())
 
-		// T.start("Allocate new KVSs until one is garbage collected and released")
+		T.log("Allocate memory until the KVS is garbage collected and released")
 
-		(function allocateMemory() {
+		;(function allocateMemory() {
 
 			// allocate memory
-			Array.from({ length: 1000000 }, () => () => {});
+			Array.from({ length: 10000000 }, () => () => {});
 
-			// stack.push(pot.newSync());
-
-			// T.log("allocated memory chunk #" + counter++)
-			counter++
+			T.log("allocated memory chunk #" + counter++)
 
 			if (stop || beaconCollected) return;
 
@@ -6449,7 +6440,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations) {
 
 		T.log("• main job complete")
 
-		await T.completion2(null, T, ()=>{return beaconCollected}, ()=>{return counter}, 1000, 4000)
+		await T.completion2(null, T, ()=>beaconCollected, ()=>counter, 1000, 3000)
 		stop = true
 		T.log(cannary.slot_ref)
 		T.log(cannary2.slot_ref)

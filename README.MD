@@ -491,6 +491,7 @@ or see below.
 	test/
 	  jest.async.js       Installation test suite for async functions
 	  jest.sync.js        Installation test suite for sync functions
+	  jest.util.js        Installation test suite for utility functions
 	  jest.json           Installation test configuration
 	  test.html           Deep test start for in-browser tests
 	  node.js             Deep test start for node.js-based tests
@@ -597,9 +598,10 @@ POT JS can be tested with
 
 	% make test
 
-This runs 170 happy path and edge cases in files `test/jest.sync.js` and
-`test/jest.async.js` to verify a platform. The tests run with node.js and the
-in-memory storage; not in a browser and not with a network connection.
+This runs 176 happy path and edge cases in files `test/jest.sync.js`,
+`test/jest.async.js`, and `test/jest.util.js` to verify a platform. The tests
+run with node.js and the in-memory storage; not in a browser and not with a
+network connection.
 
 For more extensive tests, a separate suite can be run in different modes,
 including in the browser and using a local network. The test cases are in
@@ -726,13 +728,12 @@ This (re-)creates `pot.wasm`.
 	go: creating new go.mod: module potjs
 	go: to add module requirements and sums:
 		go mod tidy
-	go mod edit -replace github.com/brainiac-five/pot=github.com/brainiac-five/pot@v1.0.6
+	go mod edit -replace github.com/ethersphere/proximity-order-trie=github.com/ethersphere/proximity-order-trie@v1.0.2-alpha.1
 	go get
 	go: added github.com/beorn7/perks v1.0.1
-	go: added github.com/brainiac-five/pot v1.0.6
+	go: added github.com/ethersphere/proximity-order-trie v1.0.2-alpha.1
 	go: added github.com/cespare/xxhash/v2 v2.2.0
 	go: added github.com/ethersphere/bee/v2 v2.5.0
-	go: added github.com/ethersphere/proximity-order-trie v1.0.0
 	go: added github.com/hashicorp/errwrap v1.0.0
 	go: added github.com/hashicorp/go-multierror v1.1.1
 	go: added github.com/prometheus/client_golang v1.18.0
@@ -1458,7 +1459,6 @@ Possible future improvements:
 	•  higher coverage of parameter tests
 	•  js-side garbage collection triggers
 	•  memory leak tests
-	•  hashes for internal slot references
 	•  proof retrieval function
 	•  tree walk functions
 	•  js-native persisters

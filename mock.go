@@ -311,3 +311,7 @@ func (ps *SwarmKvs) Save(ctx context.Context) (rref []byte, rerr error) {
 
 	return ref32, nil
 }
+
+func (ps *SwarmKvs) Close() error {
+	return nil
+}

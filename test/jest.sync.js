@@ -1,5 +1,5 @@
 /*
-**    SWARM POT JS API Test Suite 2 / Node Jest
+**    SWARM POT JS Test Suite 3 / Node Jest, Synchronous Calls
 */
 
 const config = require('./jest.json');
