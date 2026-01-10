@@ -24,7 +24,11 @@ globalThis.T = {
 	inside:           false,
 	connection_issue: null,
 	time:             null,
-	NODE:             NODE
+	NODE:             NODE,
+	hi:		  hi,
+	mid:		  mid,
+	low:		  low,
+	off:		  off
 }
 
 // Write both to browser consol and, briefer and more formatted, to web page.

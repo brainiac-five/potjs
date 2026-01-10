@@ -6399,12 +6399,55 @@ async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 
 async function TestPotKvs_Release(T, bee_url, batch_id, iterations) {
 
-	T.head("Resource Release Tests")
+	T.head("Resource Release / Memory Leak Tests")
 
-	T.log("")
+	T.log("Tests show at best tendencies due to the intentionally fuzzy nature of garbage collectors.")
 
 	{
-		T.start("Garbage Collector Test")
+		T.start("Pure JS Garbage Collector Test")
+
+		T.log("Testing the Javacsript garbage collector with dummy data.")
+		T.log("A KVS may be not freed if reachable on the Go side. See POT JS docs.")
+
+		let beaconCollected = false
+		let stop = false
+		let counter = 0
+
+		const registry = new FinalizationRegistry(() => {
+			T.log(`  iterations: ${counter} - beacon garbage collected`)
+			beaconCollected = true
+		})
+
+		registry.register(["garbage collection beacon"]) // the dummy
+
+		T.log("Allocate new empty function arrays until a dummy string is collected and released")
+
+		// CPS style loop
+		;(function allocateMemory() {
+
+			// allocate a chunk of memory: Arrays of empty functions.
+			Array.from({ length: 100000 }, () => () => {})
+
+			counter++
+
+			if (stop || beaconCollected) return
+
+			// Use setTimeout to make each allocateMemory a different
+			// job, else GC won't fire.
+			setTimeout(allocateMemory)
+		})()
+
+		T.log("√ main job complete")
+
+		// wait until beacon is collected. Show counter every second.
+		// Time out after 10 seconds.
+		await T.completion2(null, T, ()=>beaconCollected, ()=>counter, 1000, 10000)
+		stop = true
+	}
+
+	{
+		T.start("KVS Garbage Collector Test")
+		T.log("This will time out if the KVS is reachable on the Go side.")
 
 		let cannary = pot.newSync(bee_url, batch_id)
 		let cannary2 = pot.newSync(bee_url, batch_id)
@@ -6412,112 +6455,178 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations) {
 		let beaconCollected = false
 		let stop = false
 		let counter = 0
+
 		const registry = new FinalizationRegistry(() => {
 			T.log(`  iterations: ${counter} - beacon garbage collected`, pot.INFO | pot.MEMORY)
 			beaconCollected = true;
 		});
-		//registry.register(["garbage collection beacon"])
-		//registry.register({foo:"foo"});
-		//registry.register(pot.newSync(bee_url, batch_id));
-		registry.register(pot.newSync())
+
+		registry.register(pot.newSync()) // the KVS to be collected
 
 		T.log("Allocate memory until the KVS is garbage collected and released")
 
 		;(function allocateMemory() {
 
-			// allocate memory
+			// allocate memory. A bigger chunk than in the previous
+			// test.
 			Array.from({ length: 10000000 }, () => () => {});
 
 			T.log("allocated memory chunk #" + counter++)
 
 			if (stop || beaconCollected) return;
 
-			pot.gc() // Go GC, otherwise the KVS won't be collected
+			pot.gc() // Trigger the Go GC, otherwise the KVS won't be collected /// true?
 
-			// Use setTimeout to make each allocateMemory a different job
+			// Use setTimeout to make each allocateMemory a different
+			// job, else GC won't fire.
 			setTimeout(allocateMemory);
 		})();
 
 		T.log("• main job complete")
 
+		// wait until beacon is collected. Show counter every second.
+		// Time out after 3 seconds.
 		await T.completion2(null, T, ()=>beaconCollected, ()=>counter, 1000, 3000)
 		stop = true
+
+		// These should not have been collected.
 		T.log(cannary.slot_ref)
 		T.log(cannary2.slot_ref)
 		for(const map of stack) console.log(map.slot_ref)
 	}
 
 	{
-		T.start("Garbage Collector Test")
+		T.start("Memory Leak Test")
 
-		let beaconCollected = false;
-		let stop = false;
-		let counter = 0;
-		const registry = new FinalizationRegistry(() => {
-			T.log(`  iterations: ${counter} - beacon garbage collected`);
-			beaconCollected = true;
-		});
-		registry.register(["garbage collection beacon"]);
-		// registry.register(pot.newSync(bee_url, batch_id));
+		T.log("• trigger JS GC to start from a JS heap size nadir")
 
-		// T.start("Allocate new KVSs until one is garbage collected and released")
+		{
+			let stack = new Array()
+			let stop = false
+			let heapShrunk = false
+			let heapSize0 = pot.getJSHeapSize()
+			let heapSize1
+			let counter = 0
 
-		(function allocateMemory() {
+			;(function allocateMemory3() {
 
-			// allocate memory
-			Array.from({ length: 100000 }, () => () => {});
+				lap = () => { return ("Pressuring heap. JS heap size: " + heapSize0) }
 
-			// T.log("allocated memory chunk #" + counter++)
-			counter++
+				// allocate memory.
+				Array.from({ length: 100000 }, () => () => {})
 
-			if (stop || beaconCollected) return;
+				// JS heap size decreased?
+				heapSize1 = pot.getJSHeapSize()
+				heapShrunk ||= (heapSize0 > heapSize1 && heapSize1 < 10000000)
+				heapSize0 = heapSize1
 
-			// Use setTimeout to make each allocateMemory a different job
-			setTimeout(allocateMemory);
+				counter++
+
+				if (stop || heapShrunk) return;
+
+				// Use setTimeout to make each allocateMemory a different
+				// job, else GC won't fire.
+				setTimeout(allocateMemory3);
+			})();
+
+			// wait until beacon is collected or the heapsize decreased.
+			// Show counter every second. Time out after 10 seconds.
+			await T.completion2(null, T, ()=>{ return heapShrunk } , lap, 1000, 10000)
+			stop = true
+		}
+
+		T.log("• trigger Go GC to start from a Go heap size nadir")
+
+		pot.gc()
+
+
+		T.log("• leak test")
+
+		let max = 1000000
+		let counter = 0
+
+		T.log("Allocate and release KVSs, check memory")
+
+		let jsHeap0 = 1
+		let goHeap0 = 1
+		let jsMinima = new Array()
+		let jsLocalMinima = 0
+		let jsFirstMinimum = 0
+		let jsLowestMinimum = 0
+		let jsLastMinimum = 0
+		let goMinima = new Array()
+		let goLocalMinima = 0
+		let goFirstMinimum = 0
+		let goLowestMinimum = 0
+		let goLastMinimum = 0
+
+		T.log("Go heap: " + goHeap0 + " • JS heap: " + jsHeap0)
+
+		// let verb = pot.setVerbosity(pot.ERROR)
+
+		;(function allocate() {
+
+			kvs = pot.newSync()
+
+			// T.log("created KVS #" + counter++)
+			if (counter % 1000 == 0)
+				pot.gc()
+
+			if (counter++ >= max) return;
+
+			goHeap = pot.getGoHeapSize()
+			jsHeap = pot.getJSHeapSize()
+
+			if (jsHeap < jsHeap0) {
+				jsMinima.push(jsHeap)
+				jsLocalMinima++
+				if (jsFirstMinimum == 0) jsFirstMinimum = jsHeap
+				if (jsLowestMinimum == 0 || jsLowestMinimum > jsHeap) jsLowestMinimum = jsHeap
+				jsLastMinimum = jsHeap
+			}
+
+			if (goHeap < goHeap0) {
+				goMinima.push(goHeap)
+				goLocalMinima++
+				if (goFirstMinimum == 0) goFirstMinimum = goHeap
+				if (goLowestMinimum == 0 || goLowestMinimum > goHeap) goLowestMinimum = goHeap
+				goLastMinimum = goHeap
+			}
+
+			jsHeap0 = jsHeap
+			goHeap0 = goHeap
+
+			// Use setTimeout to make each allocate a different job
+			setTimeout(allocate);
 		})();
 
-		T.log("√ main job complete")
+		// pot.setVerbosity(7)
 
-		await T.completion2(null, T, ()=>{return beaconCollected}, ()=>{return counter}, 1000, 10000)
-		stop = true
+		T.log("• main job complete")
+
+		await T.completion2(null, T, ()=>{ return counter >= max }, ()=>counter, 1000, 3600000)
+
+		goHeap1 = pot.getGoHeapSize()
+		jsHeap1 = pot.getJSHeapSize()
+
+		T.log("Before — Go heap: " + goHeap0 + " • JS heap: " + jsHeap0)
+		T.log("After  — Go heap: " + goHeap1 + " • JS heap: " + jsHeap1)
+
+		T.log("JS Minima: " + jsLocalMinima + " — first minimum: " + jsFirstMinimum + " — lowest minimum: " + jsLowestMinimum + " — last minimum: " + jsLastMinimum + "  " + (Math.floor(jsLastMinimum / jsLowestMinimum * 100)-100) + "\% potential leak")
+		T.log("Go Minima: " + goLocalMinima + " — first minimum: " + goFirstMinimum + " — lowest minimum: " + goLowestMinimum + " — last minimum: " + goLastMinimum + "  " + (Math.floor(goLastMinimum / goLowestMinimum * 100)-100) + "\% potential leak")
+
+		T.log()
+		T.log("JS")
+		T.log("--")
+		jsMinima.forEach((v) => T.log(v.toString().padStart(10," ") + "  " + T.mid + pot.bar(v)) + T.off+" ")
+
+		T.log()
+		T.log("Go")
+		T.log("--")
+		goMinima.forEach((v) => T.log(v.toString().padStart(10," ") + "  " + T.mid + pot.bar(v)) + T.off+" ")
+
 	}
 
-	{
-		T.start("Map Release")
-
-		let beaconCollected = false;
-		let stop = false;
-		let counter = 0;
-		const registry = new FinalizationRegistry(() => {
-			T.log(`  iterations: ${counter} - map released`);
-			beaconCollected = true;
-		});
-
-		// allocate KVS and register for on-garbage collection callback
-		// registry.register(pot.newSync(bee_url, batch_id));
-		registry.register(["garbage collection beacon 2"]);
-
-		// T.start("Allocate new KVSs until one is garbage collected and released")
-
-		(function allocateMemory() {
-
-			// allocate memory
-			Array.from({ length: 100000 }, () => () => {});
-
-			// T.log("allocated memory chunk #" + counter++)
-			counter++
-
-			if (stop || beaconCollected) return;
-
-			// Use setTimeout to make each allocateMemory a different job
-			setTimeout(allocateMemory);
-		})();
-
-		T.log("√ main job complete")
-
-		await T.completion2(null, T, ()=>{return beaconCollected}, ()=>{return counter}, 1000, 10000)
-		stop = true
-	}
 }
 
 // Testing failure modes: function call arguments that should be caught and trigger an error

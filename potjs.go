@@ -301,12 +301,18 @@ func main() {
 	pot_.Set("log", js.FuncOf(log_))
 	pot_.Set("setOptimization", js.FuncOf(setOptimization))
 	pot_.Set("getOptimization", js.FuncOf(getOptimization))
+	pot_.Set("getGoHeapSize", js.FuncOf(getGoHeapSize))
+	pot_.Set("getJSHeapSize", js.FuncOf(getJSHeapSize))
 	pot_.Set("setVerbosity", js.FuncOf(setVerbosity))
 	pot_.Set("getVerbosity", js.FuncOf(getVerbosity))
 	pot_.Set("setValueSizeLimit", js.FuncOf(setValueSizeLimit))
 	pot_.Set("getValueSizeLimit", js.FuncOf(getValueSizeLimit))
 	pot_.Set("byteSize", js.FuncOf(byteSize))
 	pot_.Set("truncString", js.FuncOf(truncString))
+	pot_.Set("bar", js.FuncOf(bar))
+
+	// verbosity levels
+	// -------------------------------------------------
 	pot_.Set("NONE", 0)
 	pot_.Set("CRITICAL", 1)
 	pot_.Set("ERROR", 2)
@@ -1800,12 +1806,43 @@ func truncString(_ js.Value, parameters []js.Value) interface{} {
 
 // MEMORY PROFILING ------------------------------------------------------------
 
+func getGoHeapSize(_ js.Value, _ []js.Value) interface{} {
+
+	// Go memory stats
+	var goMem runtime.MemStats
+	runtime.ReadMemStats(&goMem)
+	return goMem.Alloc
+}
+
+func getJSHeapSize(_ js.Value, _ []js.Value) interface{} {
+
+	// JS memory stats / node.js
+	process := js.Global().Get("process")
+	if !process.IsUndefined() {
+		memUse := process.Get("memoryUsage")
+		if !memUse.IsUndefined() {
+			return process.Call("memoryUsage").Get("heapUsed").Int()
+		}
+	}
+
+	// JS memory stats / Chrome - avoiding promise of measureUserAgentSpecificMemory
+	performance := js.Global().Get("performance")
+	if !performance.IsUndefined() {
+		memory := performance.Get("memory")
+		if !memory.IsUndefined() {
+			return memory.Get("usedJSHeapSize").Int()
+		}
+	}
+
+	return js.Null()
+}
+
 func profile() string {
 
 	// Go memory stats
 	var goMem runtime.MemStats
 	runtime.ReadMemStats(&goMem)
-	p := "Go heap " + strconv.Itoa(int(goMem.Alloc/1024)) + "K " + bar(int(goMem.Alloc))
+	p := "Go heap " + strconv.Itoa(int(goMem.Alloc/1024)) + "K " + _bar(int(goMem.Alloc))
 
 	// JS memory stats / node.js
 	process := js.Global().Get("process")
@@ -1813,7 +1850,7 @@ func profile() string {
 		memUse := process.Get("memoryUsage")
 		if !memUse.IsUndefined() {
 			mem := process.Call("memoryUsage").Get("heapUsed").Int()
-			p = p + " JS heap " + strconv.Itoa(int(mem/1024)) + "K " + bar(mem)
+			p = p + " JS heap " + strconv.Itoa(int(mem/1024)) + "K " + _bar(mem)
 		}
 	}
 
@@ -1823,18 +1860,24 @@ func profile() string {
 		memory := performance.Get("memory")
 		if !memory.IsUndefined() {
 			mem := memory.Get("usedJSHeapSize").Int()
-			p = p + " JS heap " + strconv.Itoa(int(mem/1024)) + "K " + bar(mem)
+			p = p + " JS heap " + strconv.Itoa(int(mem/1024)) + "K " + _bar(mem)
 		}
 	}
 
 	return colorMem + p + colorOff
 }
 
-func bar(n int) string {
+func bar(_ js.Value, p []js.Value) interface{} {
+	return _bar(p[0].Int())
+}
+
+func _bar(n int) string {
 	n = n / 1000
 	if n > 10000 {
-		return strings.Repeat("᠁ ", n/1000000) +
-			strings.Repeat("❚", n%1000000/10000) +
+		return strings.Repeat("᠁ ", n/10000000) +
+			strings.Repeat("▢ ", n%10000000/2000000) +
+			strings.Repeat("▩ ", n%2000000/100000) +
+			strings.Repeat("❚", n%100000/10000) +
 			strings.Repeat("❘", (n%10000)/1000)
 	}
 	return strings.Repeat("❘", n/1000)
