@@ -84,7 +84,7 @@ var inBrowser bool
 // destiny to be branched into a tree. This is not impeded by the Slot struct,
 // which holds roots of contexts.
 type Slot struct {
-	Ref       int // double-check: index+1 in slots array
+	Ref       int
 	Ref32     string
 	Ctx       context.Context
 	Ls        persister.LoadSaver
@@ -106,13 +106,14 @@ var maxValueSize = 100000 // in byte including potential leading type byte.
 const maxKeySize = 32 // in byte
 
 // array of all slots
-var Slots = []Slot{}
-var SlotMap = make(map[string]int)
+var slots = 0
+var SlotMap = make(map[string]Slot)
 
 // JS-side GC callback registry
 var jsRegistry js.Value
 
 // POT re-used in-memory storage. Must be for state consistency across calls.
+// Is replaced by purge() to be garbage collected, for testing.
 var inMemoryPersister persister.LoadSaver
 
 // the payload function for the Go-created generic promise-creator function
@@ -199,6 +200,10 @@ var jsDeleteSync js.Func
 var jsSave js.Func
 var jsSaveSync js.Func
 
+// potmargin is the distance of the heap profile added to the logmargin
+var potmargin = 16
+
+
 // MAIN ----------------------------------------------------------------------
 
 // main() exposes the functions to be called from JS-land, and stays running on
@@ -257,27 +262,23 @@ func main() {
 
 		/// check type for abundance
 
-		slotRef := p[0].Int()
-		log(MEM, colorMid+"⦿ release of slot "+strconv.Itoa(slotRef)+colorOff+"  "+profile())
+		ref32 := p[0].String()
+		slot, exists := SlotMap[ref32]
+
+		if !exists {
+			log(CRIT, "### gc error: kvs to be released does not exist ‹" + ref32 + "›")
+			return nil
+		}
+
+		log(MEM, colorMid+"⦿ release of kvs slot "+strconv.Itoa(slot.Ref)+colorOff)
+
 		// -------------------------------------------------------------
-
-		slot := Slots[slotRef-1]
-		slotRef32 := slot.Ref32
-
-		// sanity check of internal linking
-		if slot.Ref != slotRef {
-			return errors.New("### crtical error: slot double link broken, slot ‹" + strconv.Itoa(slotRef) + "› has ‹" + strconv.Itoa(slot.Ref) + "›")
-		}
-		if slot.Ref != SlotMap[slotRef32] {
-			return errors.New("### crtical error: slot32 double link broken, slot32 ‹" + slotRef32 + "› has ‹" + strconv.Itoa(SlotMap[slotRef32]) + "› instead of ‹" + strconv.Itoa(slot.Ref) + "›")
-		}
 
 		// stop mutex
 		slot.Kvs.Close()
 
 		// take resources offline
-		Slots[slotRef-1] = Slot{}
-		SlotMap[slotRef32] = 0
+		delete(SlotMap, ref32)
 
 		// -------------------------------------------------------------
 		return nil
@@ -294,6 +295,9 @@ func main() {
 	pot_.Set("loadSync", js.FuncOf(loadSync))
 	pot_.Set("release", js.FuncOf(release))
 	pot_.Set("gc", js.FuncOf(gc))
+	pot_.Set("prune", js.FuncOf(prune))
+	pot_.Set("purge", js.FuncOf(purge))
+	pot_.Set("profile", js.FuncOf(profile))
 
 	// support functions
 	// -------------------------------------------------
@@ -301,12 +305,18 @@ func main() {
 	pot_.Set("log", js.FuncOf(log_))
 	pot_.Set("setOptimization", js.FuncOf(setOptimization))
 	pot_.Set("getOptimization", js.FuncOf(getOptimization))
-	pot_.Set("setVerbosity", js.FuncOf(setVerbosity))
+	pot_.Set("getGoHeapSize", js.FuncOf(getGoHeapSize))
+	pot_.Set("getJSHeapSize", js.FuncOf(getJSHeapSize))
+	pot_.Set("setVerbosity", js.FuncOf(__setVerbosity))
 	pot_.Set("getVerbosity", js.FuncOf(getVerbosity))
 	pot_.Set("setValueSizeLimit", js.FuncOf(setValueSizeLimit))
 	pot_.Set("getValueSizeLimit", js.FuncOf(getValueSizeLimit))
 	pot_.Set("byteSize", js.FuncOf(byteSize))
 	pot_.Set("truncString", js.FuncOf(truncString))
+	pot_.Set("bar", js.FuncOf(bar))
+
+	// verbosity levels
+	// -------------------------------------------------
 	pot_.Set("NONE", 0)
 	pot_.Set("CRITICAL", 1)
 	pot_.Set("ERROR", 2)
@@ -330,6 +340,7 @@ func main() {
 	pot_.Set("setPanic", js.FuncOf(setPanic))
 	pot_.Set("setHang", js.FuncOf(setHang))
 	pot_.Set("setDelay", js.FuncOf(setDelay))
+	pot_.Set("setNoop", js.FuncOf(setNoop))
 
 	// see defaultFunc declaration
 	defaultFunc = js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
@@ -460,7 +471,7 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 			// --------------------------------------------------------------
 			log(INFO, "» created new in-memory persister")
 		} else {
-			log(INFO, "» reusing in-memory persister")
+			log(DEB, "› reusing in-memory persister")
 		}
 		ls = inMemoryPersister
 		allowSync = true
@@ -529,7 +540,8 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 		}
 	}
 
-	log(INFO, "» initialize new P.O.T. - slot "+colorMid+strconv.Itoa(len(Slots)+1)+colorOff+"  "+profile())
+	msglen := len("+ new slot "+strconv.Itoa(slots+1))
+	log(INFO, "» new slot "+colorMid+strconv.Itoa(slots+1)+colorOff+spaces(potmargin-msglen)+_profile())
 
 	// --------------------------------------------------------------
 	kvs, err := NewSwarmKvs(ls)
@@ -541,26 +553,43 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 	}
 
 	// register context and kvs handle, take numerical index as handle
-	slot_ref, ref32 := newID()
-	Slots = append(Slots, Slot{Ctx: ctx, Kvs: kvs, Ref: slot_ref, Ref32: ref32, Ls: ls, allowRaw: allowRaw, allowSync: allowSync})
+	slot_ref, ref32 := newID(slots, true)
+
+	SlotMap[ref32] = Slot{Ctx: ctx, Kvs: kvs, Ref: slot_ref, Ref32: ref32, Ls: ls, allowRaw: allowRaw, allowSync: allowSync}
 
 	log(INFO, "› slot ref: "+strconv.Itoa(slot_ref)+" "+ref32)
 
 	return createMapObject(slot_ref, ref32), true
 }
 
-func newID() (int, string) {
+var preGen = make(map[int]string)
 
-	slot_ref := len(Slots) + 1 // = starting on 1.
+func newID(slot int, checkPre bool) (int, string) {
 
+	// for simulation testing
+	if checkPre {
+		ref32, exists := preGen[slot]
+		if exists {
+			preGen = make(map[int]string)
+			return slot, ref32
+		}
+	}
+
+	// sequential
+	slots = slots + 1 // = starting on 1.
+	slot = slot + 1
+
+	// random 32-byte
 	bytes := make([]byte, 32)
 	rand.Read(bytes)
 	ref32 := bHex(bytes)
 	log(TRACE, "∙ created 32 byte reference ‹"+ref32+"›")
 
-	SlotMap[ref32] = slot_ref
+	if !checkPre {
+		preGen[slot] = ref32
+	}
 
-	return slot_ref, ref32
+	return slot, ref32
 }
 
 // LOAD ------------------------------------------------------------------------
@@ -648,7 +677,7 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 			// --------------------------------------------------------------
 			log(INFO, "» created new in-memory persister")
 		} else {
-			log(INFO, "» reusing in-memory persister")
+			log(DEB, "› reusing in-memory persister")
 		}
 		ls = inMemoryPersister
 		allowSync = true
@@ -728,6 +757,9 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 		debug = "[" + jsToString(parameters[2]) + "]"
 	}
 
+	msglen := len("+ load slot "+strconv.Itoa(slots+1))
+	log(INFO, "» load slot "+colorMid+strconv.Itoa(slots+1)+colorOff+spaces(potmargin-msglen)+_profile())
+
 	// -------------------------------------------------------------------
 	kvs, err := NewSwarmKvsReference(ctx, ls, ref32)
 	// -------------------------------------------------------------------
@@ -738,8 +770,8 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 	}
 
 	// register context and kvs handle, take numerical index as handle
-	slot_ref, sref32 := newID()
-	Slots = append(Slots, Slot{Ctx: ctx, Kvs: kvs, Ref: slot_ref, Ref32: sref32, Ls: ls, allowSync: allowSync})
+	slot_ref, sref32 := newID(slots,true)
+	SlotMap[sref32] = Slot{Ctx: ctx, Kvs: kvs, Ref: slot_ref, Ref32: sref32, Ls: ls, allowSync: allowSync}
 
 	log(DEB, "› slot ref: "+debug+" "+strconv.Itoa(slot_ref))
 	log(DEB, "›    ref32: "+sref32)
@@ -749,8 +781,8 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 
 // createMapObject() creates the JS KVS object that new*() and load*()
 // return - directly or by promise -  and all put and get functions are members
-// of.  Go context and persister are stored this side in a Slot array that
-// slot_ref is an index to.
+// of.  Go context and persister are stored this side in a Slot map that
+// ref32 is an key to.
 func createMapObject(slot_ref int, ref32 string) js.Value {
 
 	// create Javascript handle object
@@ -782,11 +814,11 @@ func createMapObject(slot_ref int, ref32 string) js.Value {
 
 	// this closure is called when GC finds the jsMap object unreachable
 	// runtime.AddCleanup(&jsMap, func(slot_ref int) {
-	//	log(MEM, colorMid+"⦿ Go-side KVS slot "+strconv.Itoa(slot_ref)+" reference clean up"+colorOff+"  "+profile())
+	//	log(MEM, colorMid+"⦿ Go-side KVS slot "+strconv.Itoa(slot_ref)+" reference clean up"+colorOff+"  "+_profile())
 	// }, slot_ref)
 
 	// this registers a clean up call when the JS GC finds the jsMap unreachable
-	jsRegistry.Call("register", jsMap, slot_ref)
+	jsRegistry.Call("register", jsMap, ref32)
 
 	return jsMap
 }
@@ -823,9 +855,47 @@ func releaseMapObject(slot_ref int) {
 // triggers that.
 func gc(this js.Value, parameters []js.Value) (result interface{}) {
 
-	log(MEM, colorMid+"⦿ Go GC forced"+colorOff+"       "+profile())
+	log(MEM, colorMid+"⦿ Go GC forced"+colorOff+spaces(potmargin-14)+_profile())
 	runtime.GC()
-	log(MEM, "              "+"       "+profile())
+	log(MEM, spaces(potmargin)+_profile())
+
+	return js.Null()
+}
+
+// JS prune() replaces the SlotMap with a copy of itself to shed buckets that
+// are not needed any longer but Go maps cannot get rid of themselves.
+func prune(this js.Value, parameters []js.Value) (result interface{}) {
+
+	if optimization <= NONE {
+		return js.Null()
+	}
+
+	log(MEM, colorMid+"⦿ map pruning"+colorOff+spaces(potmargin-13)+_profile())
+
+	prunedMap := make(map[string]Slot)
+
+	for key, value := range SlotMap {
+		prunedMap[key] = value
+	}
+
+	SlotMap = prunedMap
+
+	runtime.GC() /// take out?
+	runtime.GC()
+
+	log(MEM, spaces(potmargin)+_profile())
+
+	return js.Null()
+}
+
+// JS purge() deletes the in-memory load saver and replaces it with a new one.
+// It is for tests. No warnings if no in-memory loadSaver is actually used,
+// e.g., when generally storing to local network.
+func purge(this js.Value, parameters []js.Value) (result interface{}) {
+
+	log(MEM, colorMid+"⦿ purge store"+colorOff+spaces(potmargin-13)+_profile())
+
+	inMemoryPersister = persister.NewInmemLoadSaver()
 
 	return js.Null()
 }
@@ -1462,6 +1532,23 @@ func promise(this js.Value, parameters []js.Value, timeOutPos int, name string, 
 	var jsCancel js.Func
 	var executor js.Func
 
+	// create the cancel function for the promise. Note that the executor
+	// might already have resolved. ///// order
+	jsCancel = js.FuncOf(func(_ js.Value, parameters []js.Value) interface{} {
+
+		// this closure variable (that is a function) holds the
+		// ctxCancel function of the context that communicates the
+		// cancellation downwards to the Go POT functions.
+		ctxCancel()
+
+		log(INFO, "𐄂 "+name+" canceled")
+
+		// signals that the cancel happened. The entire function is
+		// replaced by a function returning only false, once it is
+		// too late to cancel.
+		return js.ValueOf(true)
+	})
+
 	executor = js.FuncOf(func(_ js.Value, handler_parameters []js.Value) (result interface{}) {
 
 		resolve := handler_parameters[0]
@@ -1485,6 +1572,15 @@ func promise(this js.Value, parameters []js.Value, timeOutPos int, name string, 
 			} else {
 				reject.Invoke(jsvalue_or_jserr)
 			}
+
+			// This leads to the cancel function disappearing once
+			// the promise has been resolved.
+			// but promise.Set("cancel", js.Null) is not possible
+			// here as it would require a circular order of 
+			// definitions
+			if optimization > NONE {
+				jsCancel.Release()
+			}
 		}()
 
 		// free the resources used for this function after use
@@ -1498,25 +1594,8 @@ func promise(this js.Value, parameters []js.Value, timeOutPos int, name string, 
 	// create the JS promise object
 	promise = js.Global().Get("Promise").New(executor)
 
-	// create the cancel function for it. Note that the executor might
-	// already have resolved.
-	jsCancel = js.FuncOf(func(_ js.Value, parameters []js.Value) interface{} {
-
-		// this closure variable (that is a function) holds the
-		// ctxCancel function of the context that communicates the
-		// cancellation downwards to the Go POT functions.
-		ctxCancel()
-
-		log(INFO, "𐄂 "+name+" canceled")
-
-		// signals that the cancel happened. The entire function is
-		// replaced by a function returning only false, once it is
-		// too late to cancel.
-		return js.ValueOf(true)
-	})
-
 	// attach the cancel function to the promise object.
-	promise.Set("cancel", jsCancel) // temp insert
+	promise.Set("cancel", jsCancel)
 
 	return promise
 }
@@ -1670,7 +1749,7 @@ func log_(this js.Value, parameters []js.Value) interface{} {
 // browser, it logs into the browser console.
 // Because the default level is 4 = DEBUG, a production program will always use
 // setVerbosity() to change that. DEBUG is set for testing and learning. /// TEST
-func setVerbosity(_ js.Value, parameters []js.Value) interface{} {
+func __setVerbosity(_ js.Value, parameters []js.Value) interface{} {
 
 	before := verbosity
 
@@ -1679,11 +1758,10 @@ func setVerbosity(_ js.Value, parameters []js.Value) interface{} {
 		if p.Type() != js.TypeNumber {
 			return jsError("parameter type error. Number expected.")
 		}
-		if p.Int() < 0 || p.Int()%NOCUT > TRACE {
-			return jsError("parameter range error. 0-5 are valid.")
+		if p.Int() < 0 || p.Int()%MEM > TRACE {
+			return jsError("parameter range error.")
 		}
 
-		// set
 		verbosity = p.Int()
 	}
 
@@ -1798,14 +1876,78 @@ func truncString(_ js.Value, parameters []js.Value) interface{} {
 	return jsError("no valid utf-8 slice found within given length")
 }
 
+func npad(n int, w int) string {
+
+	s := strconv.Itoa(n)
+	if len(s) < w {
+		s = strings.Repeat(" ", w-len(s)) + s
+	}
+	return s
+}
+
+// tailpad returns a string of spaces at maximum w minus length of sbut at least
+// one.
+func tailpad(s string, w int) string {
+
+	if len(s) < w {
+		return strings.Repeat(" ", w-len(s))
+	}
+	return " "
+}
+
+// spaces returns a string of spaces at maximum w length but at least one.
+func spaces(w int) string {
+
+	if w > 0 {
+		return strings.Repeat(" ", w)
+	}
+	return " "
+}
+
 // MEMORY PROFILING ------------------------------------------------------------
 
-func profile() string {
+func getGoHeapSize(_ js.Value, _ []js.Value) interface{} {
 
 	// Go memory stats
 	var goMem runtime.MemStats
 	runtime.ReadMemStats(&goMem)
-	p := "Go heap " + strconv.Itoa(int(goMem.Alloc/1024)) + "K " + bar(int(goMem.Alloc))
+	return goMem.Alloc
+}
+
+func getJSHeapSize(_ js.Value, _ []js.Value) interface{} {
+
+	// JS memory stats / node.js
+	process := js.Global().Get("process")
+	if !process.IsUndefined() {
+		memUse := process.Get("memoryUsage")
+		if !memUse.IsUndefined() {
+			return process.Call("memoryUsage").Get("heapUsed").Int()
+		}
+	}
+
+	// JS memory stats / Chrome - avoiding promise of measureUserAgentSpecificMemory
+	performance := js.Global().Get("performance")
+	if !performance.IsUndefined() {
+		memory := performance.Get("memory")
+		if !memory.IsUndefined() {
+			return memory.Get("usedJSHeapSize").Int()
+		}
+	}
+
+	return js.Null()
+}
+
+func profile(_ js.Value, _ []js.Value) interface{} {
+
+	return _profile()
+}
+
+func _profile() string {
+
+	// Go memory stats
+	var goMem runtime.MemStats
+	runtime.ReadMemStats(&goMem)
+	p := "Go heap " + npad(int(goMem.Alloc/1024),6) + "K " + _bar(int(goMem.Alloc))
 
 	// JS memory stats / node.js
 	process := js.Global().Get("process")
@@ -1813,7 +1955,7 @@ func profile() string {
 		memUse := process.Get("memoryUsage")
 		if !memUse.IsUndefined() {
 			mem := process.Call("memoryUsage").Get("heapUsed").Int()
-			p = p + " JS heap " + strconv.Itoa(int(mem/1024)) + "K " + bar(mem)
+			p = p + " JS heap " + npad(mem/1024,6) + "K " + _bar(mem)
 		}
 	}
 
@@ -1823,21 +1965,35 @@ func profile() string {
 		memory := performance.Get("memory")
 		if !memory.IsUndefined() {
 			mem := memory.Get("usedJSHeapSize").Int()
-			p = p + " JS heap " + strconv.Itoa(int(mem/1024)) + "K " + bar(mem)
+			p = p + " JS heap " + npad(mem/1024,6) + "K " + _bar(mem)
 		}
 	}
 
 	return colorMem + p + colorOff
 }
 
-func bar(n int) string {
+// JS bar returns a UTF-8 character bar graphic representing a number, the 1st
+// argument.
+func bar(_ js.Value, p []js.Value) interface{} {
+	return _bar(p[0].Int())
+}
+
+// _bar returns a UTF-8 character bar graphic representing n.
+func _bar(n int) string {
 	n = n / 1000
-	if n > 10000 {
-		return strings.Repeat("᠁ ", n/1000000) +
-			strings.Repeat("❚", n%1000000/10000) +
-			strings.Repeat("❘", (n%10000)/1000)
+	var bar string
+	bar = strings.Repeat("᠁ ", n/10000000) +
+		strings.Repeat("▢ ", n%10000000/2000000) +
+		strings.Repeat("▩ ", n%2000000/100000) +
+		strings.Repeat("❚", n%100000/10000) +
+		strings.Repeat("❘", (n%10000)/1000)
+	if len(bar) == 0 {
+		bar = "∙" + strings.Repeat("∙", (n%1000)/100)
 	}
-	return strings.Repeat("❘", n/1000)
+	if len(bar) < 60 { // = 20 characters
+		bar = bar + strings.Repeat(" ", 20-len(bar)/3)
+	}
+	return bar
 }
 
 // OPTIMIZATION ----------------------------------------------------------------
@@ -1878,7 +2034,7 @@ func getOptimization(_ js.Value, _ []js.Value) interface{} {
 // SLOTS AND CONTEXT -----------------------------------------------------------
 
 // getSlot() securely retrieves the slot information from the slot list going
-// by the slot index stored in the JS KVS object, slot_ref attribute. It also
+// by the slot index stored in the JS KVS object, ref32 attribute. It also
 // double checks the index by the double-link in the slot structure, `Ref`.
 func getSlot(this js.Value) (Slot, error) {
 
@@ -1890,24 +2046,27 @@ func getSlot(this js.Value) (Slot, error) {
 	}
 	slotRef := jsSlotRef.Int()
 
+	if slotRef < 1 || slotRef > slots { // starts at 1
+		return Slot{}, errors.New("### critical error: slot_ref member invalid")
+	}
+
 	if jsSlotRef32.Type() != js.TypeString {
 		return Slot{}, errors.New("### critical error: ref32 member missing or altered")
 	}
 	ref32 := jsSlotRef32.String()
 
-	alternate := SlotMap[ref32]
-	if alternate != slotRef {
-		return Slot{}, errors.New("### critical error: references altered")
+	if len(ref32) != 64 {
+		return Slot{}, errors.New("### critical error: ref32 member invalid")
 	}
 
-	if slotRef < 1 || slotRef > len(Slots) { // sic, bec shifted by 1
-		return Slot{}, errors.New("### critical error: slot_ref member invalid")
-	}
+	slot, exists := SlotMap[ref32]
 
-	slot := Slots[slotRef-1]
+	if !exists {
+		return Slot{}, errors.New("### crtical error: invalid or expired slot references ‹" + strconv.Itoa(slotRef) + "› ‹" + ref32 + "›")
+	}
 
 	if slot.Ref != slotRef {
-		return Slot{}, errors.New("### crtical error: slot double link broken, slot ‹" + strconv.Itoa(slotRef) + "› has ‹" + strconv.Itoa(slot.Ref) + "›")
+		return Slot{}, errors.New("### crtical error: slot double link broken, slot ‹" + ref32 + "› has ‹" + strconv.Itoa(slot.Ref) + "› expected to be ‹" + strconv.Itoa(slotRef) + "›")
 	}
 
 	return slot, nil

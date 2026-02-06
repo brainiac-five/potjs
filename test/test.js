@@ -6,25 +6,36 @@ const low  = "\033[90m"
 const erm  = "\033[91m"
 const warn = "\033[38;5;214m"
 const ok   = "\033[36m"
+const job  = "\033[34m"
+const pink = "\033[35m"
 const off  = "\033[0m"
 
 const NODE = (typeof window === 'undefined')
 
 globalThis.T = {
-	tests:            0,
-	errors:           0,
-	suites:           0,
-	cases:            0,
-	head:             suitehead,
-	start:            teststart,
-	log:              log_and_display,
-	box_display:      box_display,
-	balance:          balance,
-	tag:              null,
-	inside:           false,
-	connection_issue: null,
-	time:             null,
-	NODE:             NODE
+        tests:            0,
+        errors:           0,
+        suites:           0,
+        cases:            0,
+        head:             suitehead,
+        start:            teststart,
+        log:              log_and_display,
+        box_display:      box_display,
+        balance:          balance,
+        tag:              null,
+        inside:           false,
+        connection_issue: null,
+        time:             null,
+        NODE:             NODE,
+
+        hi:               hi,
+        mid:              mid,
+        low:              low,
+        erm:              erm,
+        warn:             warn,
+        ok:               ok,
+        job:              job,
+        off:              off,
 }
 
 // Write both to browser consol and, briefer and more formatted, to web page.
@@ -82,6 +93,7 @@ function log_and_display(one, two, three, four) {
 	if(NODE && trail == "---") logmsg = "···" + logmsg.substr(3) + " " + "·".repeat(79-logmsg.length)
 	else if(NODE && first == "✦") logmsg = mid + logmsg + off + alignpad(loc, logmsg, 80, "|")
 	else if(NODE && first == "•") logmsg = mid + logmsg + off
+	else if(NODE && first == "▣") logmsg = job + logmsg + off
 	else if(NODE && first == "√") logmsg = ok + "√" + off + logmsg.substr(1) + profile(threadno + "√" + numcut(logmsg.substr(1)))
 	else if(NODE && trail == "###") logmsg = erm + logmsg + off + profile(threadno + numcut(logmsg))
 	if(pot.log)
@@ -376,7 +388,7 @@ T.attestCompletion = function(t, T, suppress_ok) {
 	T.tests++
 	set_counter(T.tests)
 	if(!suppress_ok)
-		T.log(t, "√ complete.")
+		T.log(t, "▣ jobs complete.")
 }
 
 T.assertUndefined = function(t, T, val) {
@@ -426,7 +438,31 @@ T.assertNotEqual = function(t, T, res, exp) {
 		T.log(t, "### Test Error: result was expected to not be ‹" + exp + "› ###")
 		T.errors++
 	}
-	else T.log(t, "√ as expected, ‹" + res + "› not ‹" + exp + "›.")
+	else T.log(t, "√ as expected, resulting ‹" + res + "› not ‹" + exp + "›.")
+}
+
+T.assertLesserOrEqual = function(t, T, res, limit, suppress_ok, box) {
+	T.tests++
+	set_counter(T.tests)
+
+	if(!(res <= limit)) {
+		T.log(t, "### Test Error: result ‹" + res + "› was expected to be <= ‹" + limit + "› ###", false, box)
+		T.errors++
+	}
+	else if(!suppress_ok)
+		T.log(t, "√ as expected, resulting ‹" + res + "› is <= "+limit+".", false, box)
+}
+
+T.assertGreaterOrEqual = function(t, T, res, limit, suppress_ok, box) {
+	T.tests++
+	set_counter(T.tests)
+
+	if(!(res >= limit)) {
+		T.log(t, "### Test Error: result ‹" + res + "› was expected to be >= ‹" + limit + "› ###", false, box)
+		T.errors++
+	}
+	else if(!suppress_ok)
+		T.log(t, "√ as expected, resulting ‹" + res + "› is >= "+limit+".", false, box)
 }
 
 // -----------------------------------------------------------------------------
@@ -439,7 +475,7 @@ function isEqualArray(a, b) {
 }
 
 T.completion = async function(t, T, threads, interval, max) {
-	T.log(t, "• waiting for completion")
+	T.log(t, "  waiting for completion")
 	let snap = ""
 	for(let count = 0; threads() && count++ < max / interval;) {
 		T.log(t, "» concurrent threads: " + threads())
@@ -455,9 +491,10 @@ T.completion = async function(t, T, threads, interval, max) {
 }
 
 T.completion2 = async function(t, T, done, outer_count, interval, max) {
-	T.log(t, "• waiting for completion")
+	T.log(t, "  waiting for completion")
 	for (let count = 0; !done() && count++ < max / interval;) {
-		T.log(t, "  iterations: " + outer_count())
+		if(outer_count)
+			T.log(t, "  iterations: " + outer_count())
 		await T.delay(interval)
 	}
 	if(!done())

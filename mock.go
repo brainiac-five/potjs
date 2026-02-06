@@ -27,11 +27,14 @@ import (
 // SwarmKvs is a mock struct replacing pot.SwarmKvs of the Go implementation
 type SwarmKvs struct {
 	Slot_ref int
+	Ref32	 string
 	Store    map[string][]byte
 }
 
 // Saved is the simulated storage where KVSs are `saved` to on save()
-var Saved = make(map[string]int)
+// the key is a randomly created pseudo save reference, the value the 
+// string of the hex digits of the KVS's ref32.
+var Saved = make(map[string]string)
 
 // These variables are set by setFail() etc. and set to 0/false
 // once used once. They are for testing and have no production purpose.
@@ -39,6 +42,7 @@ var fail = false
 var panix = false
 var delay = 0 // milliseconds
 var hang = false
+var noop = false
 
 // testMode() returns a string indicating for what tests POT JS is been built.
 func testMode(_ js.Value, parameters []js.Value) interface{} {
@@ -80,6 +84,16 @@ func setHang(_ js.Value, parameters []js.Value) interface{} {
 		log(INFO, "» set up for hanging")
 	}
 	hang = parameters[0].Bool()
+	return nil
+}
+
+// setNoop() instructs the next mock POT KVS put function called to not store
+// or get or delete anything to not use any memory in leak-testing.
+func setNoop(_ js.Value, parameters []js.Value) interface{} {
+	if parameters[0].Bool() {
+		log(INFO, "» set no-op")
+	}
+	noop = parameters[0].Bool()
 	return nil
 }
 
@@ -149,33 +163,46 @@ func NewSwarmKvs(_ persister.LoadSaver) (*SwarmKvs, error) {
 	if mockFail() {
 		return nil, errors.New("mock fail of NewSwarmKvs()")
 	}
+
 	mockPanic("NewSwarmKvs()")
 
-	kvs := &SwarmKvs{Store: make(map[string][]byte), Slot_ref: len(Slots) + 1}
+	slot_ref, ref32 := newID(slots, false)
+	kvs := &SwarmKvs{Store: make(map[string][]byte), Slot_ref: slot_ref, Ref32: ref32}
 
 	return kvs, nil
 }
 
 // NewSwarmKvsReference() loads a mock key-value store from the given root hash.
-func NewSwarmKvsReference(ctx context.Context, _ persister.LoadSaver, ref32 []byte) (*SwarmKvs, error) {
+func NewSwarmKvsReference(ctx context.Context, _ persister.LoadSaver, saveRef32 []byte) (*SwarmKvs, error) {
 
 	log(DEB, "› using simulated storage")
 
 	if mockFail() {
 		return nil, errors.New("mock fail of NewSwarmKvsReference()")
 	}
+
 	mockPanic("NewSwarmKvsReference()")
+
 	err := mockDelay(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	err = mockHang(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	slot_ref := Saved[bHex(ref32)]
-	slot := Slots[slot_ref-1]
+	// noop: just return an empty, new kvs
+	if noop {
+		noop = false
+		slot_ref, ref32 := newID(slots, false)
+		kvs := &SwarmKvs{Store: make(map[string][]byte), Slot_ref: slot_ref, Ref32: ref32}
+		return kvs, nil
+	}
+
+	ref32 := Saved[bHex(saveRef32)]
+	slot := SlotMap[ref32]
 	kvs := slot.Kvs
 
 	return kvs, nil
@@ -189,14 +216,22 @@ func (ps *SwarmKvs) Get(ctx context.Context, key []byte) ([]byte, error) {
 	if mockFail() {
 		return nil, errors.New("mock fail of Get()")
 	}
+
 	mockPanic("Get()")
+
 	err := mockDelay(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	err = mockHang(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if noop {
+		noop = false
+		return []byte{0x3, 'a', 'b', 'c'}, nil
 	}
 
 	value := ps.Store[bHex(key)]
@@ -216,14 +251,22 @@ func (ps *SwarmKvs) Put(ctx context.Context, key []byte, value []byte) error {
 	if mockFail() {
 		return errors.New("mock fail of Put()")
 	}
+
 	mockPanic("Put()")
+
 	err := mockDelay(ctx)
 	if err != nil {
 		return err
 	}
+
 	err = mockHang(ctx)
 	if err != nil {
 		return err
+	}
+
+	if noop {
+		noop = false
+		return nil
 	}
 
 	ps.Store[bHex(key)] = value
@@ -239,14 +282,22 @@ func (ps *SwarmKvs) Delete(ctx context.Context, key []byte) error {
 	if mockFail() {
 		return errors.New("mock fail of Delete()")
 	}
+
 	mockPanic("Delete()")
+
 	err := mockDelay(ctx)
 	if err != nil {
 		return err
 	}
+
 	err = mockHang(ctx)
 	if err != nil {
 		return err
+	}
+
+	if noop {
+		noop = false
+		return nil
 	}
 
 	delete(ps.Store, bHex(key))
@@ -269,14 +320,25 @@ func (ps *SwarmKvs) Save(ctx context.Context) (rref []byte, rerr error) {
 	if mockFail() {
 		return nil, errors.New("mock fail of Save()")
 	}
+
 	mockPanic("Save()")
+
 	err := mockDelay(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	err = mockHang(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	// return a random reference, which will do with an empty root
+	if noop {
+		noop = false
+		key := make([]byte, 32)
+		rand.Read(key)
+		return key, nil
 	}
 
 	if ps.Slot_ref < 1 {
@@ -286,7 +348,12 @@ func (ps *SwarmKvs) Save(ctx context.Context) (rref []byte, rerr error) {
 	}
 
 	// slot to 'save' (clone)
-	slot := Slots[ps.Slot_ref-1]
+	slot, exists := SlotMap[ps.Ref32]
+	if !exists {
+		msg := "invalid slot ‹"+ps.Ref32+"›"
+		log(CRIT, msg)
+		return []byte{}, errors.New(msg)
+	}
 
 	// check 0 length -- this is a feature of the pot.InMemLoadSaver
 	if len(slot.Kvs.Store) < 1 {
@@ -296,20 +363,20 @@ func (ps *SwarmKvs) Save(ctx context.Context) (rref []byte, rerr error) {
 	}
 
 	// new, cloned slot#
-	slot_ref := len(Slots) + 1 // = starting on 1.
+	slot_ref, ref32 := newID(slots, false)
 
 	// clone map to be 'saved'
-	kvs := &SwarmKvs{Store: maps.Clone(slot.Kvs.Store), Slot_ref: slot_ref}
-	Slots = append(Slots, Slot{Ctx: context.Background(), Kvs: kvs, Ref: slot_ref, Ls: slot.Ls, allowSync: slot.allowSync})
+	kvs := &SwarmKvs{Store: maps.Clone(slot.Kvs.Store), Slot_ref: slot_ref, Ref32: ref32}
+	SlotMap[ref32] = Slot{Ctx: context.Background(), Kvs: kvs, Ref: slot_ref, Ref32: ref32, Ls: slot.Ls, allowSync: slot.allowSync}
 
-	ref32 := make([]byte, 32)
-	rand.Read(ref32)
-	log(DEB, "› simulated save reference "+bHex(ref32))
+	saveRef32 := make([]byte, 32)
+	rand.Read(saveRef32)
+	log(DEB, "› simulated save reference "+bHex(saveRef32))
 
-	Saved[bHex(ref32)] = slot_ref
-	log(DEB, "› simulated save of map in slot #"+strconv.Itoa(ps.Slot_ref)+" cloned new slot #"+strconv.Itoa(slot_ref)+" to key "+bHex(ref32))
+	Saved[bHex(saveRef32)] = ref32
+	log(DEB, "› simulated save of kvs in slot #"+strconv.Itoa(ps.Slot_ref)+" cloned new slot #"+strconv.Itoa(slot_ref)+" to key "+bHex(saveRef32))
 
-	return ref32, nil
+	return saveRef32, nil
 }
 
 func (ps *SwarmKvs) Close() error {

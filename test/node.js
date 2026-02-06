@@ -15,14 +15,19 @@ const tag    = process.argv[2]
 const bee    = process.argv[3] != "-" ? process.argv[3] : null
 const batch  = process.argv[4] != "-" ? process.argv[4] : null
 const branch = process.argv[5]
-const iter   = process.argv[6]
+const def_it = process.argv[6]
+const suite  = process.argv[7] // TEST= in make call
+const ovr_it = process.argv[8]
+const log_level = process.argv[9] // VERB= in make call
+const iterations = ovr_it ?? def_it
 
 console.log()
-console.log("tag   ", tag)
-console.log("bee   ", bee)
-console.log("batch ", batch)
-console.log("branch", branch)
-console.log("iter  ", iter)
+console.log("tag       ", tag)
+console.log("bee       ", bee)
+console.log("batch     ", batch)
+console.log("branch    ", branch)
+console.log("iterations", iterations)
+console.log("log level ", log_level)
 
 T.tag = tag
 
@@ -134,11 +139,11 @@ console.log(`
 
 		} else if (branch == "stress") {
 
-			await tests.TestPotKvs_Stress(T, bee, batch, iter)
+			await tests.TestPotKvs_Stress(T, bee, batch, iterations)
 
 		} else if (branch == "resources") {
 
-			await tests.TestPotKvs_Release(T, bee, batch, iter)
+			await tests.TestPotKvs_Release(T, bee, batch, iterations, suite, tag, log_level)
 		}
 
 		T.balance()

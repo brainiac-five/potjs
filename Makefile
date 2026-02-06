@@ -223,7 +223,7 @@ explain_tests:
 	#  Meaning     Tag     |  Description
 	#  --------------------+----------------------------------------------------------
 	#  browser     web     |  Javascript running in the browser
-	#  node        node    |  Javascript running in the terminal using node.js
+	#  node.js     node    |  Javascript running in the terminal using node.js
 	#  --------------------+----------------------------------------------------------
 	#  in-memory   inmem   |  non-persistent, in-memory storage
 	#  simulated   sim     |  simulated storage for testing exceptions
@@ -251,14 +251,40 @@ explain_tests:
 	#  web_locnet_stress   |  stress test with a locally installed Swarm network, web
 	#  node_inmem_test     |  test api interaction with go pot in-memory persisting, node
 	#  node_inmem_stress   |  stress test with go pot in-memory persisting, node
+	#  node_inmem_memory   |  memory leak test with go pot in-memory persisting, node
 	#  node_sim_test       |  extended exceptions tests w/out go pot connection, node
+	#  node_sim_memory     |  memory leak tests w/out go pot connection, node
 	#  node_locnet_test    |  test with a locally installed Swarm network, node
 	#  node_locnet_quick   |  like node_locnet_test but re-using the last batch id, node
 	#  node_locnet_stress  |  stress test with a locally installed Swarm network, node
+	#  node_locnet_memory  |  memory leak test with a locally installed Swarm network, node
 	#
-	#  All node_* tests are run on push by github CI workloads, except *_quick.
+	#  All node_* tests are run on push by github CI workloads, except *_quick and *_memory.
 	#  CI runs all those tests for ubuntu-latest, and all non-locnet for MacOS.
 	#
+	# Memory leak test cases can be picked via names, e.g.:
+	#
+	#  % make node_inmem_memory TEST="gc-response,gc-kvs-detection"
+	#
+	# gc-response             check whether the Javascript GC can be triggered
+	# gc-kvs-detection	  check whether the collection of a kvs is detectable
+	# gc-kvs-creation	  leak-test sync kvs creation
+	# gc-put-sync		  leak-test sync put with counter as key and value
+	# gc-put-async		  leak-test async put with negative of counter as key and value
+	# gc-get-async-fix	  leak-test async get of value for fix key "K"
+	# gc-put-get-sync-rand	  leak-test sync put, get of random keys and values
+	# gc-put-get-async-rand	  leak-test async put, get of random keys and values
+	# gc-basics-sync-rand	  leak-test sync put, get, save, load, get, delete
+	# gc-basics-async-rand	  leak-test async put, get, save, load, get, delete
+	# gc-multiop1-async-rand  leak-test 3x async put, get, save, load, get, delete, get
+	# gc-multiop2-async-rand  leak-test 3x async put, get, delete, get
+	#
+	# The number of iterations can also be adjusted. Below 100,000 is less usefull. E.g.:
+	#
+	#  % make node_sim_memory TEST="gc-kvs-creation" ITER=20000
+	#
+	# Verbosity can be set with VERB. This works only if ITER is given.
+	# ITER works only when TEST is given.
 
 # jest integration tests
 jest: jest_test
@@ -357,7 +383,7 @@ web_locnet_stress: unmock build http_serve
 	fdp-play stop
 
 # node.js-based std test using in-memory persister of Go POT implementation
-node_inmem_test: build
+node_inmem_test: unmock build
 	node test/node.js in-mem
 
 # node.js-based std test using pure simulation to test exception cases
@@ -365,12 +391,16 @@ node_sim_test: lib/wasm_exec.js go.mod mockbuild
 	node test/node.js ext-api
 
 # node.js-based stress test using in-memory persister of Go POT implementation
-node_inmem_stress: build
+node_inmem_stress: unmock build
 	node test/node.js in-mem - - stress 100000
 
 # node.js-based resource test using in-memory persister of Go POT implementation
-node_inmem_memory: build
-	node test/node.js in-mem - - resources
+node_inmem_memory: unmock build
+	node test/node.js in-mem - - resources 100000 $(TEST) $(ITER) $(VERB)
+
+# node.js-based resource test pure simulation to test exception cases
+node_sim_memory:  lib/wasm_exec.js go.mod mockbuild
+	node test/node.js ext-api - - resources 100000 $(TEST) $(ITER) $(VERB)
 
 # node.js-based test using a local swarm network of five nodes
 node_locnet_test: unmock build
@@ -424,6 +454,21 @@ node_locnet_stress: unmock build
 	$(MAKE) .batch_id
 	@echo "⬡ start tests"
 	node test/node.js loc-net http://localhost:1633 $$(cat .batch_id) stress 500
+
+# node.js-based resource test using local swarm network, reusing the previous batch
+node_locnet_memory: unmock build
+	@echo " -----------------------------------------------------------------------------------"
+	@echo "|                                                                                   |"
+	@echo "|   Quick start reusing batch id, no logs, no shutdown, results shown in terminal.  |"
+	@echo "|                                                                                   |"
+	@echo " -----------------------------------------------------------------------------------"
+	@echo "⬢ Local Swarm Network Memory Test"
+	$(MAKE) unmock
+	$(MAKE) build
+	$(MAKE) locnet_start
+	$(MAKE) .batch_id
+	@echo "⬡ start tests"
+	node test/node.js loc-net http://localhost:1633 $$(cat .batch_id) resources 100000 $(TEST) $(ITER) $(VERB)
 
 # start the local Swarm network of five nodes, using docker FreeOS
 locnet_start:

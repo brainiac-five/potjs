@@ -71,9 +71,15 @@ var map3
 var map4
 var map5
 
-// ·····································································
-// Browser-only, catch for uncaught promise rejections.
-// ·····································································
+fmt = (n) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+
+potlogmargin = "           "
+
+// ·············································································
+// Browser-only, global catch of uncaught promise rejections.
+// ·············································································
+
+
 let noUncaughtRejectionExpected = "[ not expecting unhandled rejections ]"
 let expectedUncaughtRejection = noUncaughtRejectionExpected
 if(typeof window === 'undefined') {
@@ -83,9 +89,11 @@ if(typeof window === 'undefined') {
 	})
 }
 
-// ·····································································
+
+// ·············································································
 // Start of Tests
-// ·····································································
+// ·············································································
+
 function TestPotKvsSync(T, bee_url, batch_id) {
 
 	T.head("Simple gets and puts of KVS, synchronous", bee_url)
@@ -208,6 +216,7 @@ function TestPotKvsSync(T, bee_url, batch_id) {
 	ref = map.saveSync()
 	T.assertNotAnError(t0, T, ref)
 }
+
 
 async function TestPotKvsAsync(T, bee_url, batch_id) {
 
@@ -452,6 +461,7 @@ async function TestPotKvsAsync(T, bee_url, batch_id) {
 	}
 }
 
+
 function TestPotKvs_EdgeValuesSync(T, bee_url, batch_id) {
 
 
@@ -627,6 +637,7 @@ function TestPotKvs_EdgeValuesSync(T, bee_url, batch_id) {
 	val = map.getRawSync(key2)
 	T.assertEqual(t0, T, T.hex(val), T.hex(val2)) // No direct equality check for Uint8Arrays
 }
+
 
 async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
 
@@ -982,6 +993,7 @@ async function TestPotKvs_EdgeValuesAsync(T, bee_url, batch_id) {
 	}
 }
 
+
 function TestPotKvs_TypeEncoding(T, bee_url, batch_id) {
 
 	T.head("type-enccoding")
@@ -1193,6 +1205,7 @@ function TestPotKvs_TypeEncoding(T, bee_url, batch_id) {
 	if(r instanceof Error) T.attestExpectedError(t0, T, r.message)
 	else T.attestMissingError(t, T)
 }
+
 
 function TestPotKvs_TypedAccessSync(T, bee_url, batch_id) {
 
@@ -1509,6 +1522,7 @@ function TestPotKvs_TypedAccessSync(T, bee_url, batch_id) {
 	if(r instanceof Error) T.attestExpectedError(t0, T, r.message)
 	else T.attestMissingError(t, T)
 }
+
 
 async function TestPotKvs_TypedAccessAsync(T, bee_url, batch_id) {
 
@@ -1996,6 +2010,7 @@ async function TestPotKvs_TypedAccessAsync(T, bee_url, batch_id) {
 	}
 }
 
+
 async function TestPotKvs_Save(T, bee_url, batch_id) {
 
 	T.head("Saving and Loading")
@@ -2239,6 +2254,7 @@ async function TestPotKvs_Save(T, bee_url, batch_id) {
 		T.assertEqual(t0, T, val, val2)
 	}
 }
+
 
 async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 
@@ -3899,6 +3915,7 @@ async function TestPotKvs_ComplexConcurrent(T, bee_url, batch_id) {
 
 	}
 }
+
 
 async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 
@@ -5572,6 +5589,7 @@ async function TestPotKvs_Cancellation(T, bee_url, batch_id) {
 	await T.delay(10)
 }
 
+
 async function TestPotKvs_InternalErrors(T, bee_url, batch_id) {
 
 	T.head("Internal Error Conditions")
@@ -5600,6 +5618,7 @@ async function TestPotKvs_InternalErrors(T, bee_url, batch_id) {
 		T.attestExpectedError(t0, T, err, "### panic in panickingPromise executor: test panic of panickingPromise")
 	}
 }
+
 
 async function TestPotKvs_MassSequentialSync(T, bee_url, batch_id) {
 
@@ -5813,6 +5832,7 @@ async function TestPotKvs_MassSequentialSync(T, bee_url, batch_id) {
 	}
 	T.attestNoError(t0, T)
 }
+
 
 async function TestPotKvs_MassSequentialAsync(T, bee_url, batch_id) {
 
@@ -6219,7 +6239,6 @@ async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 	val = await map.getRaw(key1)
 	T.assertEqual(t0, T, val, val1)
 
-
 	T.log("• " + maxSize + "+1 byte sized value should be stopped (async)")
 	let key2 = "B"
 	let val2 = pot.randBuffer(maxSize+1)
@@ -6397,126 +6416,1316 @@ async function TestPotKvs_Stress(T, bee_url, batch_id, iterations) {
 	}
 }
 
-async function TestPotKvs_Release(T, bee_url, batch_id, iterations) {
 
-	T.head("Resource Release Tests")
+async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, log_level) {
 
-	T.log("")
+	T.head("Resource Release / Memory Leak Tests")
 
-	{
-		T.start("Garbage Collector Test")
+	// Maximum number of repeat runs when a test overruns the expected
+	// threshold of bytes lost per iteration (many cases have >1 allowed)
+	maxloop = 5
+
+	// pot.setOptimization(false) // this will let the Go heap grow as resources are not released
+
+	T.log("These tests automate memory leak checking to complement visual examination of heap size curves. ")
+	T.log()
+	if(tag == "ext-api") {
+		T.log("This particular test run (ext-api) test POT JS alone, it simulates storage functionality with no-op stub functions. Nothing is actually stored in this run and therefore the Go heap should not increase. Go POT (proximity-order-trie) is not used in any way and leaks observed, if, will solely be caused by POT JS. The Go heap margin is therefore 1 byte per iteration. The JS heap received more lenient 10 bytes as it handles the test itself but should ideally be close to 0, too, the closer the more iterations are performed. ")
+		T.log()
+	}
+	T.log("The leak test algorithm compares minimas of minimas of the beginning with the end of a run of x iterations. The minima can be assumed to be caused by garbage collector runs, for which there is no direct way to be informed about. The minimum of these minima towards the end of the run is compared with the minimum of minimas at the beginning of the run to make a best estimate what heap growth effectively might have taken place. There are limits to this approach because it can measure pure noise as can be seen from the occasional negative growth that is being reported. Anything below 100,000 iterations is of limited use. Failed runs can be repeated and if one run succeeds it justifies the assumption that there is no leak and the error signal was noise due to the unspecified behavior of the garbage collectors. ")
+	T.log()
+	T.log("The comparison of minima of minima is between the lowest values of the first fifth and the last fifth. Beforehand, all initial minima that are above average are cut to compensate for potential residual elevated heap sizes from unrelated activity before the start of the specific test case. Also at least the first tenth, or the first 30 minima are cut. All values, including those cut, are shown in the bar chart given before the calculated leak. The calculation of leakage per iteration is thus approximate as the difference between the two picked minima is simply divided by the number of iterations. Note that all values are minima: not all measurements of all iterations are included but only those that were lower than the measurement before, presumably right after a garbage collection took place. This yields the most useful approach to automate the leak tests. ")
+	T.log()
+	T.log(" |-cut-|== first 5th ==|------------|------------|------------|== last 5th ==| ")
+	T.log()
+	T.log("The allowed heap growth is in-memory and test overhead, and to account for unspecified GC behavior. Still, anything different than 0 is not really satisfactory, except for the Go heap after ‹inmem› runs. ")
+	T.log()
+	T.log("Test results also allow for visual examination as backup. Measurements should stay within a recurring range that does not shift upwards. Very small growth can be difficult to see. If it persists over multiple runs the algorithm should be trusted to be indicating a leak. ")
+
+	log_level = log_level ?? pot.ERROR
+
+	if (!suite || suite.includes("gc-response")) {
+
+		T.start("JS Garbage Collector Response Test")
+
+		T.log("Testing the Javacsript garbage collector with dummy data to see if a release is detectable in the first place.")
+
+		let beaconCollected = false
+		let stop = false
+		let counter = 0
+
+		const registry = new FinalizationRegistry(() => {
+			T.log(`• iterations: ${counter} - beacon garbage collected`)
+			beaconCollected = true
+		})
+
+		registry.register(["garbage collection beacon"]) // the dummy
+
+		T.log("Allocate new empty function arrays until a dummy string is collected and released")
+
+		// CPS style loop
+		;(function allocateMemory() {
+
+			// allocate a chunk of memory: 100,000 arrays elements
+			// with empty functions as blind text.
+			Array.from({ length: 100_000 }, () => () => {})
+
+			counter++
+
+			if (stop || beaconCollected) return
+
+			// Use setTimeout to loop continuation passing style to
+			// make each allocation a different job, so the JS GC
+			// can fire inbetween.
+			setTimeout(allocateMemory)
+		})()
+
+		T.log("▣ main job complete")
+
+		// wait until beacon is collected. Show counter every second.
+		// Time out after 10 seconds.
+		await T.completion2(null, T, ()=>beaconCollected, ()=>counter, 1000, 10000)
+		stop = true
+	}
+
+	if (!suite || suite.includes("gc-kvs-detection")) {
+
+		T.start("KVS Garbage Collector Test")
+
+		T.log("Note this will time out if the KVS is reachable on the Go side, which would prevent its collection.")
 
 		let cannary = pot.newSync(bee_url, batch_id)
-		let cannary2 = pot.newSync(bee_url, batch_id)
+		let cannary_ref = cannary.slot_ref
 		let stack = new Array()
 		let beaconCollected = false
 		let stop = false
 		let counter = 0
+
 		const registry = new FinalizationRegistry(() => {
-			T.log(`  iterations: ${counter} - beacon garbage collected`, pot.INFO | pot.MEMORY)
+			T.log(`• iterations: ${counter} - KVS garbage collected`)
 			beaconCollected = true;
 		});
-		//registry.register(["garbage collection beacon"])
-		//registry.register({foo:"foo"});
-		//registry.register(pot.newSync(bee_url, batch_id));
-		registry.register(pot.newSync())
 
-		T.log("Allocate memory until the KVS is garbage collected and released")
+		registry.register(pot.newSync(bee_url, batch_id)) // the KVS to be collected
 
-		;(function allocateMemory() {
+		T.log("• Allocate memory until the KVS is garbage collected and released")
 
-			// allocate memory
-			Array.from({ length: 10000000 }, () => () => {});
+		;(async function allocateMemory() {
 
-			T.log("allocated memory chunk #" + counter++)
+			await T.delay(0) // yield to cleanly stop
 
 			if (stop || beaconCollected) return;
 
-			pot.gc() // Go GC, otherwise the KVS won't be collected
+			// allocate a chunk of memory: 1,000,000 array elements
+			// with empty functions as blind text.
+			T.log("  allocating memory chunk #" + counter++)
+			Array.from({ length: 1_000_000 }, () => () => {});
 
-			// Use setTimeout to make each allocateMemory a different job
+			// Trigger the Go GC to make sure the KVS handle is
+			// collected on the go side.
+			pot.gc()
+
+			// Use setTimeout to loop continuation passing style to
+			// make each allocation a different job, so the JS GC
+			// can fire inbetween.
 			setTimeout(allocateMemory);
 		})();
 
-		T.log("• main job complete")
+		T.log("▣ main job complete")
 
-		await T.completion2(null, T, ()=>beaconCollected, ()=>counter, 1000, 3000)
+		// wait until beacon is collected. Show counter every second.
+		// Time out after 3 seconds.
+		await T.completion2(null, T, ()=>beaconCollected, ()=>counter, 1_000, 3_000)
 		stop = true
-		T.log(cannary.slot_ref)
-		T.log(cannary2.slot_ref)
-		for(const map of stack) console.log(map.slot_ref)
+		await T.delay(0) // yield
+
+		// This one shuld not have been collected.
+		T.log("• Reachable KVS survives")
+		T.assertEqual(t0, T, cannary.slot_ref, cannary_ref) 
 	}
 
-	{
-		T.start("Garbage Collector Test")
 
-		let beaconCollected = false;
-		let stop = false;
-		let counter = 0;
-		const registry = new FinalizationRegistry(() => {
-			T.log(`  iterations: ${counter} - beacon garbage collected`);
-			beaconCollected = true;
-		});
-		registry.register(["garbage collection beacon"]);
-		// registry.register(pot.newSync(bee_url, batch_id));
+	if (!suite || suite.includes("gc-kvs-creation")) {
 
-		// T.start("Allocate new KVSs until one is garbage collected and released")
+		T.start("Sync KVS Creation Leak Test")
 
-		(function allocateMemory() {
+		T.log("• leak test — "+iterations+" iterations")
 
-			// allocate memory
-			Array.from({ length: 100000 }, () => () => {});
+		let max = iterations
 
-			// T.log("allocated memory chunk #" + counter++)
-			counter++
+		T.log("  allocate and release "+iterations+" KVSs, check memory")
 
-			if (stop || beaconCollected) return;
+		for (let loop = 1; loop <= maxloop; loop++) {
 
-			// Use setTimeout to make each allocateMemory a different job
-			setTimeout(allocateMemory);
-		})();
+			T.log("• test run #" + loop)
 
-		T.log("√ main job complete")
+			let counter = 0
 
-		await T.completion2(null, T, ()=>{return beaconCollected}, ()=>{return counter}, 1000, 10000)
-		stop = true
+			let verb = pot.setVerbosity(log_level)
+
+			if(tag == "in-mem") {
+				T.log("  purge in-memory storage to start from a minimum Go heap size")
+				pot.purge()
+			}
+
+			T.log("  trigger Go GC to start from a minimum Go heap size")
+			pot.gc()
+
+			let jsHeap0 = 0
+			let goHeap0 = 0
+			let jsMinima = new Array()
+			let goMinima = new Array()
+
+			;(async function allocate() {
+
+				await T.delay(0) // yield to cleanly stop
+
+				if (counter++ >= max) {
+					process.stdout.write("\n")
+					return
+				}
+
+				// create a new KVS and let it go out of scope
+				let kvs = pot.newSync(bee_url, batch_id)
+
+				 // log overriding status
+				if(log_level <= pot.ERROR)
+					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+
+				// Go GC trigger every 1,000 iterations
+				if (counter % 1000 == 0) {
+					pot.prune()
+					pot.gc()
+					pot.gc()
+
+					if(tag == "loc-net") {
+						pot.setVerbosity(verb)
+						checkMinima(T, "JS", counter, [...jsMinima], null, true)
+						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						pot.setVerbosity(log_level)
+					}
+				}
+
+				// track heap size
+				let goHeap = pot.getGoHeapSize()
+				let jsHeap = pot.getJSHeapSize()
+
+				if (jsHeap < jsHeap0)
+					jsMinima.push(jsHeap)
+
+				if (goHeap < goHeap0)
+					goMinima.push(goHeap)
+
+				jsHeap0 = jsHeap
+				goHeap0 = goHeap
+
+				// Use setTimeout to loop continuation passing style to
+				// make each allocation a different job, so the JS GC
+				// can fire inbetween.
+				setTimeout(allocate);
+			})();
+
+			T.log("▣ main job complete")
+
+			// wait until beacon is collected. Show no counter.
+			// Time out after one hour.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+
+			await T.delay(100) // yield to give GC release messages a chance
+
+			pot.setVerbosity(verb)
+
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, 1, false, loop == maxloop)
+			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : 10, false, loop == maxloop)
+
+			if (ok1 && ok2) break;
+		}
 	}
 
-	{
-		T.start("Map Release")
 
-		let beaconCollected = false;
-		let stop = false;
-		let counter = 0;
-		const registry = new FinalizationRegistry(() => {
-			T.log(`  iterations: ${counter} - map released`);
-			beaconCollected = true;
-		});
+	if (!suite || suite.includes("gc-put-sync")) {
 
-		// allocate KVS and register for on-garbage collection callback
-		// registry.register(pot.newSync(bee_url, batch_id));
-		registry.register(["garbage collection beacon 2"]);
+		T.start("Sync Put Leak Test")
 
-		// T.start("Allocate new KVSs until one is garbage collected and released")
+		T.log("• leak test — "+iterations+" iterations")
 
-		(function allocateMemory() {
+		let max = iterations
 
-			// allocate memory
-			Array.from({ length: 100000 }, () => () => {});
+		T.log("  put(i, i) synchronously, check memory")
 
-			// T.log("allocated memory chunk #" + counter++)
-			counter++
+		for (let loop = 1; loop <= maxloop; loop++) {
 
-			if (stop || beaconCollected) return;
+			T.log("• test run #" + loop)
 
-			// Use setTimeout to make each allocateMemory a different job
-			setTimeout(allocateMemory);
-		})();
+			let counter = 0
 
-		T.log("√ main job complete")
+			let verb = pot.setVerbosity(log_level)
 
-		await T.completion2(null, T, ()=>{return beaconCollected}, ()=>{return counter}, 1000, 10000)
-		stop = true
+			if(tag == "in-mem") {
+				T.log("  purge in-memory storage to start from a minimum Go heap size")
+				pot.purge()
+			}
+
+			T.log("  trigger Go GC to start from a minimum Go heap size")
+			pot.gc()
+
+			let jsHeap0 = 0
+			let goHeap0 = 0
+			let jsMinima = new Array()
+			let goMinima = new Array()
+
+			let kvs = pot.newSync(bee_url, batch_id)
+
+			;(async function allocate() {
+
+				await T.delay(0) // yield to cleanly stop
+
+				if (counter++ >= max) {
+					process.stdout.write("\n")
+					return
+				}
+
+				if(tag == "ext-api") pot.setNoop(true)
+				kvs.putSync(counter, counter)
+				T.log(" ".repeat(16)+pot.profile())
+
+				 // log overriding status
+				if(log_level <= pot.ERROR)
+					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+
+				if (counter % 1000 == 0) {
+					kvs = pot.newSync(bee_url, batch_id)
+					pot.prune()
+					pot.gc()
+					pot.gc()
+
+					if(tag == "loc-net") {
+						pot.setVerbosity(verb)
+						checkMinima(T, "JS", counter, [...jsMinima], null, true)
+						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						pot.setVerbosity(log_level)
+					}
+				}
+
+				// track heap size
+				let goHeap = pot.getGoHeapSize()
+				let jsHeap = pot.getJSHeapSize()
+
+				if (jsHeap < jsHeap0)
+					jsMinima.push(jsHeap)
+
+				if (goHeap < goHeap0)
+					goMinima.push(goHeap)
+
+				jsHeap0 = jsHeap
+				goHeap0 = goHeap
+
+				// Use setTimeout to loop continuation passing style to
+				// make each allocation a different job, so the JS GC
+				// can fire inbetween.
+				setTimeout(allocate);
+			})();
+
+			T.log("▣ main job complete")
+
+			// wait until beacon is collected. Show no counter.
+			// Time out after one hour.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+
+			await T.delay(100) // yield to give GC release messages a chance
+
+			pot.setVerbosity(verb)
+
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, 1, false, loop == maxloop)
+			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : bee_url ? 10 : 300)
+
+			if (ok1 && ok2) break;
+		}
+	}
+
+	if (!suite || suite.includes("gc-put-async")) {
+
+		T.start("Async Put Leak Test")
+
+		T.log("• leak test — "+iterations+" iterations")
+
+		let max = iterations
+
+		T.log("  put(-i, -i) asynchronously, check memory")
+
+		for (let loop = 1; loop <= maxloop; loop++) {
+
+			T.log("• test run #" + loop)
+
+			let counter = 0
+
+			let verb = pot.setVerbosity(log_level)
+
+			if(tag == "in-mem") {
+				T.log("  purge in-memory storage to start from a minimum Go heap size")
+				pot.purge()
+			}
+
+			T.log("  trigger Go GC to start from a minimum Go heap size")
+			pot.gc()
+
+			let jsHeap0 = 0
+			let goHeap0 = 0
+			let jsMinima = new Array()
+			let goMinima = new Array()
+
+			let kvs = pot.newSync(bee_url, batch_id)
+
+			;(async function allocate() {
+
+				await T.delay(0) // yield to cleanly stop
+
+				if (counter++ >= max) {
+					process.stdout.write("\n")
+					return
+				}
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs.put(-counter, -counter)
+				T.log(" ".repeat(16)+pot.profile())
+
+				 // log overriding status
+				if(log_level <= pot.ERROR)
+					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+
+				if (counter % 1000 == 0) {
+					kvs = pot.newSync(bee_url, batch_id)
+					pot.prune()
+					pot.gc()
+					pot.gc()
+
+					if(tag == "loc-net") {
+						pot.setVerbosity(verb)
+						checkMinima(T, "JS", counter, [...jsMinima], null, true)
+						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						pot.setVerbosity(log_level)
+					}
+				}
+
+				// track heap size
+				let goHeap = pot.getGoHeapSize()
+				let jsHeap = pot.getJSHeapSize()
+
+				if (jsHeap < jsHeap0)
+					jsMinima.push(jsHeap)
+
+				if (goHeap < goHeap0)
+					goMinima.push(goHeap)
+
+				jsHeap0 = jsHeap
+				goHeap0 = goHeap
+
+				// Use setTimeout to loop continuation passing style to
+				// make each allocation a different job, so the JS GC
+				// can fire inbetween.
+				setTimeout(allocate);
+			})();
+
+			T.log("▣ main job complete")
+
+			// wait until beacon is collected. Show no counter.
+			// Time out after one hour.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+
+			await T.delay(100) // yield to give GC release messages a chance
+
+			pot.setVerbosity(verb)
+
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, 1, false, loop == maxloop)
+			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : bee_url ? 10 : 300, false, loop == maxloop)
+
+			if (ok1 && ok2) break;
+		}
+	}
+
+
+	if (!suite || suite.includes("gc-get-async-fix")) {
+
+		T.start("Async Fix Key Get Leak Test")
+
+		T.log("• leak test — "+iterations+" iterations")
+
+		let max = iterations
+
+		T.log("  get('K') asynchronously, check memory")
+
+		for (let loop = 1; loop <= maxloop; loop++) {
+
+			T.log("• test run #" + loop)
+
+			let counter = 0
+
+			let verb = pot.setVerbosity(log_level)
+
+			if(tag == "in-mem") {
+				T.log("  purge in-memory storage to start from a minimum Go heap size")
+				pot.purge()
+			}
+
+			T.log("  trigger Go GC to start from a minimum Go heap size")
+			pot.gc()
+
+			let jsHeap0 = 0
+			let goHeap0 = 0
+			let jsMinima = new Array()
+			let goMinima = new Array()
+
+			let kvs = pot.newSync(bee_url, batch_id)
+			await kvs.put("k", "abc")
+
+			;(async function allocate() {
+
+				await T.delay(0) // yield to cleanly stop
+
+				if (counter++ >= max) {
+					process.stdout.write("\n")
+					return
+				}
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs.get("k") // returns fix "abc" for sim no-op mode
+				T.log(counter + "/" + max + " ".repeat(Math.max(1,16-(counter+"/"+max).length)) + pot.profile())
+
+				 // log overriding status
+				if(log_level <= pot.ERROR)
+					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+
+				if (counter % 1000 == 0) {
+					kvs = pot.newSync(bee_url, batch_id)
+					await kvs.put("k", "abc")
+					pot.prune()
+					pot.gc()
+					pot.gc()
+
+					if(tag == "loc-net") {
+						pot.setVerbosity(verb)
+						checkMinima(T, "JS", counter, [...jsMinima], null, true)
+						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						pot.setVerbosity(log_level)
+					}
+				}
+
+				// track heap size
+				let goHeap = pot.getGoHeapSize()
+				let jsHeap = pot.getJSHeapSize()
+
+				if (jsHeap < jsHeap0)
+					jsMinima.push(jsHeap)
+
+				if (goHeap < goHeap0)
+					goMinima.push(goHeap)
+
+				jsHeap0 = jsHeap
+				goHeap0 = goHeap
+
+				// Use setTimeout to loop continuation passing style to
+				// make each allocation a different job, so the JS GC
+				// can fire inbetween.
+				setTimeout(allocate);
+			})();
+
+			T.log("▣ main job complete")
+
+			// wait until beacon is collected. Show no counter.
+			// Time out after one hour.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+
+			await T.delay(100) // yield to give GC release messages a chance
+
+			pot.setVerbosity(verb)
+
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, 1, false, loop == maxloop)
+			ok2 = checkMinima(T, "Go", iterations, goMinima, 1, false, loop == maxloop)
+
+			if (ok1 && ok2) break;
+		}
+	}
+
+
+	if (!suite || suite.includes("gc-put-get-sync-rand")) {
+
+		T.start("Sync Put & Get Leak Test")
+
+		T.log("• leak test — "+iterations+" iterations")
+
+		let max = iterations
+
+		T.log("  put & get random values synchronously, check memory")
+
+		for (let loop = 1; loop <= maxloop; loop++) {
+
+			T.log("• test run #" + loop)
+
+			let counter = 0
+
+			let verb = pot.setVerbosity(log_level)
+
+			if(tag == "in-mem") {
+				T.log("  purge in-memory storage to start from a minimum Go heap size")
+				pot.purge()
+			}
+
+			T.log("  trigger Go GC to start from a minimum Go heap size")
+			pot.gc()
+
+			let jsHeap0 = 0
+			let goHeap0 = 0
+			let jsMinima = new Array()
+			let goMinima = new Array()
+
+			let kvs = pot.newSync(bee_url, batch_id)
+
+			;(async function allocate() {
+
+				await T.delay(0) // yield to cleanly stop
+
+				if (counter++ >= max) {
+					process.stdout.write("\n")
+					return
+				}
+
+				let key = pot.randKey()
+				let val = pot.randValue()
+				if(tag == "ext-api") pot.setNoop(true)  // for sim mode. Otherwise no-op
+				kvs.putSync(key, val) // no-op for sim mode.
+				if(tag == "ext-api") pot.setNoop(true)  // for sim mode. Otherwise no-op
+				kvs.getSync(key) // returns fix "abc" for sim no-op mode
+				T.log(counter + "/" + max + " ".repeat(Math.max(1,16-(counter+"/"+max).length)) + pot.profile())
+
+				 // log overriding status
+				if(log_level <= pot.ERROR)
+					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+
+				if (counter % 1000 == 0) {
+
+					kvs = pot.newSync(bee_url, batch_id)
+
+					pot.prune()
+					pot.gc()
+					pot.gc()
+
+					if(tag == "loc-net") {
+						pot.setVerbosity(verb)
+						checkMinima(T, "JS", counter, [...jsMinima], null, true)
+						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						pot.setVerbosity(log_level)
+					}
+				}
+
+				// track heap size
+				let goHeap = pot.getGoHeapSize()
+				let jsHeap = pot.getJSHeapSize()
+
+				if (jsHeap < jsHeap0)
+					jsMinima.push(jsHeap)
+
+				if (goHeap < goHeap0)
+					goMinima.push(goHeap)
+
+				jsHeap0 = jsHeap
+				goHeap0 = goHeap
+
+				// Use setTimeout to loop continuation passing style to
+				// make each allocation a different job, so the JS GC
+				// can fire inbetween.
+				setTimeout(allocate);
+			})();
+
+			T.log("▣ main job complete")
+
+			// wait until beacon is collected. Show no counter.
+			// Time out after one hour.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+
+			await T.delay(100) // yield to give GC release messages a chance
+
+			pot.setVerbosity(verb)
+
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, tag == "ext-api" ? 1 : tag == "loc-net" ? 100 : 1, false, loop == maxloop) // 100 unexplained
+			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : tag == "in-mem" ? 600 : 10, false, loop == maxloop) // 600 in-memory storage
+
+			if (ok1 && ok2) break;
+		}
+
+	}
+
+	if (!suite || suite.includes("gc-put-get-async-rand")) {
+
+		T.start("Async Put & Get Leak Test")
+
+		T.log("• leak test — "+iterations+" iterations")
+
+		let max = iterations
+
+		T.log("  put & get random values asynchronously, check memory")
+
+		for (let loop = 1; loop <= maxloop; loop++) {
+
+			T.log("• test run #" + loop)
+
+			let counter = 0
+
+			let verb = pot.setVerbosity(log_level)
+
+			if(tag == "in-mem") {
+				T.log("  purge in-memory storage to start from a minimum Go heap size")
+				pot.purge()
+			}
+
+			T.log("  trigger Go GC to start from a minimum Go heap size")
+			pot.gc()
+
+			let jsHeap0 = 0
+			let goHeap0 = 0
+			let jsMinima = new Array()
+			let goMinima = new Array()
+
+			let kvs = pot.newSync(bee_url, batch_id)
+
+			;(async function allocate() {
+
+				await T.delay(0) // yield to cleanly stop
+
+				if (counter++ >= max) {
+					process.stdout.write("\n")
+					return
+				}
+
+				let key = pot.randKey()
+				let val = pot.randValue()
+				if(tag == "ext-api") pot.setNoop(true)  // for sim mode. Otherwise no-op
+				await kvs.put(key, val) // no-op for sim mode.
+				if(tag == "ext-api") pot.setNoop(true)  // for sim mode. Otherwise no-op
+				await kvs.get(key) // returns fix "abc" for sim no-op mode
+				T.log(counter + "/" + max + " ".repeat(Math.max(1,16-(counter+"/"+max).length)) + pot.profile())
+
+				 // log overriding status
+				if(log_level <= pot.ERROR)
+					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+
+				if (counter % 1000 == 0) {
+
+					kvs = pot.newSync(bee_url, batch_id)
+
+					pot.prune()
+					pot.gc()
+					pot.gc()
+
+					if(tag == "loc-net") {
+						pot.setVerbosity(verb)
+						checkMinima(T, "JS", counter, [...jsMinima], null, true)
+						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						pot.setVerbosity(log_level)
+					}
+				}
+
+				// track heap size
+				let goHeap = pot.getGoHeapSize()
+				let jsHeap = pot.getJSHeapSize()
+
+				if (jsHeap < jsHeap0)
+					jsMinima.push(jsHeap)
+
+				if (goHeap < goHeap0)
+					goMinima.push(goHeap)
+
+				jsHeap0 = jsHeap
+				goHeap0 = goHeap
+
+				// Use setTimeout to loop continuation passing style to
+				// make each allocation a different job, so the JS GC
+				// can fire inbetween.
+				setTimeout(allocate);
+			})();
+
+			T.log("▣ main job complete")
+
+			// wait until beacon is collected. Show no counter.
+			// Time out after one hour.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+
+			await T.delay(100) // yield to give GC release messages a chance
+
+			pot.setVerbosity(verb)
+
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, tag == "ext-api" ? 1 : tag == "loc-net" ? 100 : 10, false, loop == maxloop) // 100 (loc-net) and 10 (in-mem) unexplained
+			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : tag == "in-mem" ? 4*150 : 10, false, loop == maxloop) // 600 in-memory storage
+
+			if (ok1 && ok2) break;
+		}
+
+	}
+
+
+	if (!suite || suite.includes("gc-basics-sync-rand")) {
+
+		T.start("Sync Basics Leak Test")
+
+		T.log("• leak test — "+iterations+" iterations")
+
+		let max = iterations
+
+		T.log("  put, get, delete, save, load random values synchronously, check memory")
+
+		for (let loop = 1; loop <= maxloop; loop++) {
+
+			T.log("• test run #" + loop)
+
+			let counter = 0
+
+			let verb = pot.setVerbosity(log_level)
+
+			if(tag == "in-mem") {
+				T.log("  purge in-memory storage to start from a minimum Go heap size")
+				pot.purge()
+			}
+
+			T.log("  trigger Go GC to start from a minimum Go heap size")
+			pot.gc()
+
+			let jsHeap0 = 0
+			let goHeap0 = 0
+			let jsMinima = new Array()
+			let goMinima = new Array()
+
+			;(async function allocate() {
+
+				await T.delay(0) // yield to cleanly stop
+
+				if (counter++ >= max) {
+					process.stdout.write("\n")
+					return
+				}
+
+				let key = pot.randKey()
+				let val = pot.randValue()
+
+				let kvs = pot.newSync(bee_url, batch_id)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				kvs.putSync(key, val)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				let res = kvs.getSync(key)
+				if(tag != "ext-api")
+					T.assertEqual(t0, T, res, val)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				let ref = kvs.saveSync()
+
+				if(tag == "ext-api") pot.setNoop(true)
+				kvs = pot.loadSync(ref, bee_url, batch_id)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				res = kvs.getSync(key)
+				if(tag != "ext-api")
+					T.assertEqual(t0, T, res, val)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				kvs.deleteSync(key)
+
+				 // log overriding status
+				if(log_level <= pot.ERROR)
+					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+
+				if (counter % 1000 == 0) {
+
+					kvs = pot.newSync(bee_url, batch_id)
+
+					pot.prune()
+					pot.gc()
+					pot.gc()
+
+					if(tag == "loc-net") {
+						pot.setVerbosity(verb)
+						checkMinima(T, "JS", counter, [...jsMinima], null, true)
+						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						pot.setVerbosity(log_level)
+					}
+				}
+
+				// track heap size
+				let goHeap = pot.getGoHeapSize()
+				let jsHeap = pot.getJSHeapSize()
+
+				if (jsHeap < jsHeap0)
+					jsMinima.push(jsHeap)
+
+				if (goHeap < goHeap0)
+					goMinima.push(goHeap)
+
+				jsHeap0 = jsHeap
+				goHeap0 = goHeap
+
+				// Use setTimeout to loop continuation passing style to
+				// make each allocation a different job, so the JS GC
+				// can fire inbetween.
+				setTimeout(allocate);
+			})();
+
+			T.log("▣ main job complete")
+
+			// wait until beacon is collected. Show no counter.
+			// Time out after one hour.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+
+			await T.delay(100) // yield to give GC release messages a chance
+
+			pot.setVerbosity(verb)
+
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, tag == "ext-api" ? 1 : tag == "loc-net" ? 100 : 1, false, loop == maxloop) // 100 unexplained
+			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : tag == "in-mem" ? 3*150 : 10, false, loop == maxloop) // 450 in-memory storage
+
+			if (ok1 && ok2) break;
+		}
+
+	}
+
+
+	if (!suite || suite.includes("gc-basics-async-rand")) {
+
+		T.start("Async Basics Leak Test")
+
+		T.log("• leak test — "+iterations+" iterations")
+
+		let max = iterations
+
+		T.log("  put, get, delete, save, load random values asynchronously, check memory")
+
+		for (let loop = 1; loop <= maxloop; loop++) {
+
+			T.log("• test run #" + loop)
+
+			let counter = 0
+
+			let verb = pot.setVerbosity(log_level)
+
+			if(tag == "in-mem") {
+				T.log("  purge in-memory storage to start from a minimum Go heap size")
+				pot.purge()
+			}
+
+			T.log("  trigger Go GC to start from a minimum Go heap size")
+			pot.gc()
+
+			let jsHeap0 = 0
+			let goHeap0 = 0
+			let jsMinima = new Array()
+			let goMinima = new Array()
+
+			;(async function allocate() {
+
+				await T.delay(0) // yield to cleanly stop
+
+				if (counter++ >= max) {
+					process.stdout.write("\n")
+					return
+				}
+
+				let key = pot.randKey()
+				let val = pot.randValue()
+
+				let kvs = pot.newSync(bee_url, batch_id)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs.put(key, val)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				let res = await kvs.get(key)
+				if(tag != "ext-api")
+					T.assertEqual(t0, T, res, val)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				let ref = await kvs.save()
+
+				if(tag == "ext-api") pot.setNoop(true)
+				kvs = await pot.load(ref, bee_url, batch_id)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				res = await kvs.get(key)
+				if(tag != "ext-api")
+					T.assertEqual(t0, T, res, val)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs.delete(key)
+
+				 // log overriding status
+				if(log_level <= pot.ERROR)
+					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+
+				if (counter % 1000 == 0) {
+
+					kvs = pot.newSync(bee_url, batch_id)
+
+					pot.prune()
+					pot.gc()
+					pot.gc()
+
+					if(tag == "loc-net") {
+						pot.setVerbosity(verb)
+						checkMinima(T, "JS", counter, [...jsMinima], null, true)
+						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						pot.setVerbosity(log_level)
+					}
+				}
+
+				// track heap size
+				let goHeap = pot.getGoHeapSize()
+				let jsHeap = pot.getJSHeapSize()
+
+				if (jsHeap < jsHeap0)
+					jsMinima.push(jsHeap)
+
+				if (goHeap < goHeap0)
+					goMinima.push(goHeap)
+
+				jsHeap0 = jsHeap
+				goHeap0 = goHeap
+
+				// Use setTimeout to loop continuation passing style to
+				// make each allocation a different job, so the JS GC
+				// can fire inbetween.
+				setTimeout(allocate);
+			})();
+
+			T.log("▣ main job complete")
+
+			// wait until beacon is collected. Show no counter.
+			// Time out after one hour.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+
+			await T.delay(100) // yield to give GC release messages a chance
+
+			pot.setVerbosity(verb)
+
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, tag == "ext-api" ? 1 : tag == "loc-net" ? 100 : 1, false, loop == maxloop) // 100 unexplained
+			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : tag == "in-mem" ? 150 : 10, false, loop == maxloop) // 150 in-memory storage
+
+			if (ok1 && ok2) break;
+		}
+
+	}
+
+
+	if (!suite || suite.includes("gc-multiop1-async-rand")) {
+
+		T.start("Async Multiple Operations Leak Test 1")
+
+		T.log("• leak test — "+iterations+" iterations")
+
+		let max = iterations
+
+		T.log("  multiple put, get, delete, save, load random values asynchronously, check memory")
+
+		for (let loop = 1; loop <= maxloop; loop++) {
+
+			T.log("• test run #" + loop)
+
+			let counter = 0
+
+			let verb = pot.setVerbosity(log_level)
+
+			if(tag == "in-mem") {
+				T.log("  purge in-memory storage to start from a minimum Go heap size")
+				pot.purge()
+			}
+
+			T.log("  trigger Go GC to start from a minimum Go heap size")
+			pot.gc()
+
+			let jsHeap0 = 0
+			let goHeap0 = 0
+			let jsMinima = new Array()
+			let goMinima = new Array()
+
+			;(async function allocate() {
+
+				await T.delay(0) // yield to cleanly stop
+
+				if (counter++ >= max) {
+					process.stdout.write("\n")
+					return
+				}
+
+				T.log("• " + counter + "/" + max)
+
+				let key1 = pot.randKey()
+				let key2 = pot.randKey()
+				let key3 = pot.randKey()
+				let val1 = pot.randValue()
+				let val2 = pot.randValue()
+				let val3 = pot.randValue()
+
+				let kvs1 = await pot.new(bee_url, batch_id)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs1.put(key1, val1)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs1.put(key2, val2)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs1.put(key3, val3)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				let res = await kvs1.get(key1)
+				if(tag != "ext-api")
+					T.assertEqual(t0, T, res, val1)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				let ref = await kvs1.save()
+				if(tag == "ext-api") pot.setNoop(true)
+				kvs11 = await pot.load(ref, bee_url, batch_id)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				res = await kvs11.get(key1)
+				if(tag != "ext-api")
+					T.assertEqual(t0, T, res, val1)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				res = await kvs11.get(key2)
+				if(tag != "ext-api")
+					T.assertEqual(t0, T, res, val2)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				res = await kvs11.get(key3)
+				if(tag != "ext-api")
+					T.assertEqual(t0, T, res, val3)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs11.delete(key1)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs11.delete(key2)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs11.delete(key3)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				res = await kvs11.get(key1)
+				if(tag != "ext-api")
+					T.assertEqual(t0, T, res, undefined)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				res = await kvs11.get(key2)
+				if(tag != "ext-api")
+					T.assertEqual(t0, T, res, undefined)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				res = await kvs11.get(key3)
+				if(tag != "ext-api")
+					T.assertEqual(t0, T, res, undefined)
+
+				T.log(" ".repeat(16) + pot.profile())
+
+				 // log overriding status
+				if(log_level <= pot.ERROR)
+					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+
+				if (counter % 1000 == 0) {
+
+					kvs = await pot.new(bee_url, batch_id)
+
+					pot.prune()
+					pot.gc()
+					pot.gc()
+
+					if(tag == "loc-net") {
+						pot.setVerbosity(verb)
+						checkMinima(T, "JS", counter, [...jsMinima], null, true)
+						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						pot.setVerbosity(log_level)
+					}
+				}
+
+				// track heap size
+				let goHeap = pot.getGoHeapSize()
+				let jsHeap = pot.getJSHeapSize()
+
+				if (jsHeap < jsHeap0)
+					jsMinima.push(jsHeap)
+
+				if (goHeap < goHeap0)
+					goMinima.push(goHeap)
+
+				jsHeap0 = jsHeap
+				goHeap0 = goHeap
+
+				// Use setTimeout to loop continuation passing style to
+				// make each allocation a different job, so the JS GC
+				// can fire inbetween.
+				setTimeout(allocate);
+			})();
+
+			T.log("▣ main job complete")
+
+			// wait until beacon is collected. Show no counter.
+			// Time out after one hour.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+
+			await T.delay(100) // yield to give GC release messages a chance
+
+			pot.setVerbosity(verb)
+
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, tag == "ext-api" ? 1 : tag == "loc-net" ? 100 : 10, false, loop == maxloop) // 100 unexplained, 10 unexplained
+			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : tag == "in-mem" ? 8*150 : 10, false, loop == maxloop) // 150 in-memory storage
+
+			if (ok1 && ok2) break;
+		}
+
+	}
+
+
+	if (!suite || suite.includes("gc-multiop2-async-rand")) {
+
+		T.start("Async Multiple Operations Leak Test 2")
+
+		T.log("• leak test — "+iterations+" iterations")
+
+		let max = iterations
+
+		T.log("  multiple put, get, delete, save, load random values asynchronously, check memory")
+
+		for (let loop = 1; loop <= maxloop; loop++) {
+
+			T.log("• test run #" + loop)
+
+			let counter = 0
+
+			let verb = pot.setVerbosity(log_level)
+
+			if(tag == "in-mem") {
+				T.log("  purge in-memory storage to start from a minimum Go heap size")
+				pot.purge()
+			}
+
+			T.log("  trigger Go GC to start from a minimum Go heap size")
+			pot.gc()
+
+			let jsHeap0 = 0
+			let goHeap0 = 0
+			let jsMinima = new Array()
+			let goMinima = new Array()
+
+			;(async function allocate() {
+
+				await T.delay(0) // yield to cleanly stop
+
+				if (counter++ >= max) {
+					process.stdout.write("\n")
+					return
+				}
+
+				T.log("• " + counter + "/" + max)
+
+				let key1 = pot.randKey()
+				let key2 = pot.randKey()
+				let key3 = pot.randKey()
+				let val1 = pot.randValue()
+				let val2 = pot.randValue()
+				let val3 = pot.randValue()
+
+				let kvs1 = await pot.new(bee_url, batch_id)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs1.put(key1, val1)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs1.put(key2, val2)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs1.put(key3, val3)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				let res = await kvs1.get(key1)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				res = await kvs1.get(key2)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				res = await kvs1.get(key3)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs1.delete(key1)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs1.delete(key2)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs1.delete(key3)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				res = await kvs1.get(key1)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				res = await kvs1.get(key2)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				res = await kvs1.get(key3)
+
+				T.log(" ".repeat(30) + pot.profile())
+
+				 // log overriding status
+				if(log_level <= pot.ERROR)
+					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+
+				if (counter % 1000 == 0) {
+
+					kvs = await pot.new(bee_url, batch_id)
+
+					pot.prune()
+					pot.gc()
+					pot.gc()
+
+					if(tag == "loc-net") {
+						pot.setVerbosity(verb)
+						checkMinima(T, "JS", counter, [...jsMinima], null, true)
+						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						pot.setVerbosity(log_level)
+					}
+				}
+
+				// track heap size
+				let goHeap = pot.getGoHeapSize()
+				let jsHeap = pot.getJSHeapSize()
+
+				if (jsHeap < jsHeap0)
+					jsMinima.push(jsHeap)
+
+				if (goHeap < goHeap0)
+					goMinima.push(goHeap)
+
+				jsHeap0 = jsHeap
+				goHeap0 = goHeap
+
+				// Use setTimeout to loop continuation passing style to
+				// make each allocation a different job, so the JS GC
+				// can fire inbetween.
+				setTimeout(allocate);
+			})();
+
+			T.log("▣ main job complete")
+
+			// wait until beacon is collected. Show no counter.
+			// Time out after one hour.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+
+			await T.delay(100) // yield to give GC release messages a chance
+
+			pot.setVerbosity(verb)
+
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, tag == "ext-api" ? 1 : tag == "loc-net" ? 100 : 1, false, loop == maxloop) // 100 unexplained
+			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : tag == "in-mem" ? 5*150 : 10, false, loop == maxloop) // 150 in-memory storage
+
+			if (ok1 && ok2) break;
+		}
+
 	}
 }
 
@@ -6661,6 +7870,101 @@ async function TestPotKvs_InvalidArguments(T, bee_url, batch_id) {
 	} catch(err) {
 		T.assertError(t0, T, err, /value too large/)
 	}
+}
+
+function checkMinima(T, tag, iterations, minima, allowed, isLap, lastRun) {
+
+	// list out the detected relative minima of Go and JS heap size
+	head = `• ${tag} Heap Minima over ${fmt(iterations)} iterations`
+	T.log(head)
+	T.log("—".repeat(head.length))
+
+	minima.forEach((v) => T.log(T.ok + fmt(v).padStart(10," ") + "  " + pot.bar(v) + T.off+" "))
+
+	T.log()
+	T.log(`At least 10 minima: ${minima.length}`)
+	if(!isLap) {
+		if(lastRun || minima.length >= 10) {
+			T.assertGreaterOrEqual(t0, T, minima.length, 10)
+		} else if(minima.length < 10) {
+			T.log(T.erm + "𐄂 failed. Rerunning"+T.off)
+			return false
+		}
+	}
+
+	if(minima.length < 4)
+		return false // does not stop laps
+
+	// cut initial outliers, at most 30, at least a tenth.
+	let pre = minima.length
+	let disc = Math.min(30, Math.floor(pre / 5))
+	let jsAvg = minima.reduce((a,c)=>a+c) / minima.length
+	while (minima[0] > jsAvg && minima.length > 2) minima.shift() // don't join with next line
+	while (minima.length > pre - disc) minima.shift()
+
+	T.log()
+	T.log(`At least 10 minima without the leading/outlier ${pre-minima.length}: ${minima.length}`)
+	if(!isLap) {
+		if(lastRun || minima.length >= 10) {
+			T.assertGreaterOrEqual(t0, T, minima.length, 10)
+		} else if(minima.length < 10) {
+			T.log(T.erm + "𐄂 failed. Rerunning"+T.off)
+			return false
+		}
+	}
+
+	if(minima.length < 4)
+		return false // does not stop laps
+
+/*
+	let span = Math.floor(minima.length / 5)
+	let avg0 = Math.floor(minima.slice(0,span).reduce((a,c)=>a+c) / span)
+	let avg1 = Math.floor(minima.slice(-span).reduce((a,c)=>a+c) / span)
+	let growth = Math.floor((avg1 - avg0) / iterations)
+
+	let svar = Math.round(avg1/avg0*10000-10000)/100
+	T.log(`• growth less than 10%? (${svar}%)`)
+	T.log(`Initial ${span} minima average   : ${fmt(avg0)}`)
+	T.log(`Final   ${span} minima average   : ${fmt(avg1)}`)
+	T.log(`Growth per iteration        : ${growth?"":"⩽"}${fmt(growth)} byte`)
+	T.assertLesserOrEqual(t0, T, svar, 10)
+
+	let split = minima.length < 40 ? 2 : 4
+	span = Math.floor(minima.length / split)
+	let min0 = Math.floor(minima.slice(1,span).reduce((a,c)=>Math.min(a,c))) // skip first
+	let min1 = Math.floor(minima.slice(-span).reduce((a,c)=>Math.min(a,c)))
+	let mgrowth = Math.floor((min1 - min0) / iterations)
+
+	let mvar = Math.round(min1/min0*10000-10000)/100
+	T.log(`• growth less than 10%? (${mvar}%)`)
+	T.log(`Initial ${span} minima's minimum : ${fmt(min0)}`)
+	T.log(`Final   ${span} minima's minimum : ${fmt(min1)}`)
+	T.log(`Growth across minima-minima: ${mgrowth?"":"⩽"}${fmt(mgrowth)} byte`)
+	T.assertLesserOrEqual(t0, T, mvar, 10)
+*/
+	let split = minima.length < 40 ? 2 : 4
+	span = Math.floor(minima.length / split)
+	let min0 = Math.floor(minima.slice(0,span).reduce((a,c)=>Math.min(a,c)))
+	let min1 = Math.floor(minima.slice(-span).reduce((a,c)=>Math.min(a,c)))
+	let mgrowth = Math.floor((min1 - min0) / iterations)
+
+	let mvar = Math.round(min1/min0*10000-10000)/100
+	T.log(`• growth not more than ${allowed} byte per iteration? (${mgrowth})`)
+	T.log(`Initial ${span} minima's minimum: ${fmt(min0)}`)
+	T.log(`Final   ${span} minima's minimum: ${fmt(min1)}`)
+	T.log(`Growth across minima-minima: ${mgrowth?"":"⩽"}${fmt(mgrowth)} byte`)
+
+
+	if(!isLap) {
+		if(lastRun || mgrowth <= allowed) {
+			T.assertLesserOrEqual(t0, T, mgrowth, allowed)
+		} else if(mgrowth > allowed) {
+			T.log(T.erm + "𐄂 failed. Rerunning"+T.off)
+			return false
+		}
+	}
+
+	return true
 }
 
 if(T.NODE)

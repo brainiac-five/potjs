@@ -30,6 +30,10 @@ func setHang(_ js.Value, _ []js.Value) interface{} {
 	return nil
 }
 
+func setNoop(_ js.Value, _ []js.Value) interface{} {
+	return nil
+}
+
 func mockFail() bool {
 	return false
 }
