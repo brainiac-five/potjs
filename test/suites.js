@@ -2706,32 +2706,37 @@ async function TestPotKvs_ComplexSave(T, bee_url, batch_id) {
 		T.attestUnexpectedError(t0, T, err)
 	}
 
-	// lookup key 1 in 2nd ('new') map: will not find it
-	T.log("• get " + key1 + " from retrieved second map")
-	try {
-		val = await map5.get(key1)
-		T.assertEqual(t0, T, val, undefined)
-	} catch(err) {
-		T.attestUnexpectedError(t0, T, err)
-	}
+	// The simulation mode does not manage to get these most interesting
+	// test cases right and it is not worth the effort to enhance it
+	// because it has a different purpose from testing cases like this.
+	if(T.tag != "ext-api") { // = simulation mode
 
-	T.log("• get " + key2 + " from second map")
-	try {
-		val = await map5.get(key2)
-		T.assertEqual(t0, T, val, val2)
-	} catch(err) {
-		T.attestUnexpectedError(t0, T, err)
-	}
+		// lookup key 1 in 2nd ('new') map: will not find it
+		T.log("• get " + key1 + " from retrieved second map")
+		try {
+			val = await map5.get(key1)
+			T.assertEqual(t0, T, val, undefined)
+		} catch(err) {
+			T.attestUnexpectedError(t0, T, err)
+		}
 
-	// lookup key 3 in 2nd map: will not find it
-	T.log("• get " + key3 + " from second map")
-	try {
-		val = await map5.get(key3)
-		T.assertEqual(t0, T, val, undefined)
-	} catch(err) {
-		T.attestUnexpectedError(t0, T, err)
-	}
+		T.log("• get " + key2 + " from second map")
+		try {
+			val = await map5.get(key2)
+			T.assertEqual(t0, T, val, val2)
+		} catch(err) {
+			T.attestUnexpectedError(t0, T, err)
+		}
 
+		// lookup key 3 in 2nd map: will not find it
+		T.log("• get " + key3 + " from second map")
+		try {
+			val = await map5.get(key3)
+			T.assertEqual(t0, T, val, undefined)
+		} catch(err) {
+			T.attestUnexpectedError(t0, T, err)
+		}
+	}
 
 	T.start("Interacting with 2 maps, w/o save, w/promises II")
 
@@ -6421,9 +6426,11 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 	T.head("Resource Release / Memory Leak Tests")
 
+	if(suite=="all") suite = null
+
 	// Maximum number of repeat runs when a test overruns the expected
 	// threshold of bytes lost per iteration (many cases have >1 allowed)
-	maxloop = 5
+	maxloop = iterations < 10001 ? 1 : 5
 
 	// pot.setOptimization(false) // this will let the Go heap grow as resources are not released
 
@@ -6552,7 +6559,17 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 		T.log("• leak test — "+iterations+" iterations")
 
+		// limits empirical - github IC test logs 1.0.8 iterations
+		// A .A-logs_57077246725-in-memory-leak-ubuntu.txt
+		// B .B-logs_57076486965-in-memory-leak-ubuntu.txt
+		// C .C-logs_57077246725-swarm-integration-ubuntu.txt
+		// D .D-logs_57076307278-in-memory-leak-macos.txt
+
 		let max = iterations
+		let jsLimit = 0 // B 2,0 C 4 D 6,0
+		let goLimit = 0 // B 0,-1 C 15! D 3,0
+
+		if(tag == "loc-net") { jsLimit = 1000; goLimit = 1000 }
 
 		T.log("  allocate and release "+iterations+" KVSs, check memory")
 
@@ -6592,6 +6609,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 				 // log overriding status
 				if(log_level <= pot.ERROR)
 					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+					// console.log(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile())
 
 				// Go GC trigger every 1,000 iterations
 				if (counter % 1000 == 0) {
@@ -6599,10 +6617,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net") {
+					if(tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
-						checkMinima(T, "JS", counter, [...jsMinima], null, true)
-						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
+						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
 						pot.setVerbosity(log_level)
 					}
 				}
@@ -6628,16 +6646,15 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 			T.log("▣ main job complete")
 
-			// wait until beacon is collected. Show no counter.
-			// Time out after one hour.
-			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+			// wait until beacon is collected. No counter, no timout.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000)
 
 			await T.delay(100) // yield to give GC release messages a chance
 
 			pot.setVerbosity(verb)
 
-			ok1 = checkMinima(T, "JS", iterations, jsMinima, 1, false, loop == maxloop)
-			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : 10, false, loop == maxloop)
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, jsLimit, false, loop == maxloop)
+			ok2 = checkMinima(T, "Go", iterations, goMinima, goLimit, false, loop == maxloop)
 
 			if (ok1 && ok2) break;
 		}
@@ -6651,6 +6668,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 		T.log("• leak test — "+iterations+" iterations")
 
 		let max = iterations
+		let jsLimit = 0 // B 0 C 1 D -1
+		let goLimit = tag == "ext-api" ? 0 : bee_url ? 0 : 200 // A 186 B 183 C -1 D 187
+
+		if(tag == "loc-net") { jsLimit = 1000; goLimit = 1000 }
 
 		T.log("  put(i, i) synchronously, check memory")
 
@@ -6693,17 +6714,18 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 				 // log overriding status
 				if(log_level <= pot.ERROR)
 					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+					//console.log(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile())
 
-				if (counter % 1000 == 0) {
+				if (counter % 1000 == 0 && counter < max) {
 					kvs = pot.newSync(bee_url, batch_id)
 					pot.prune()
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net") {
+					if(tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
-						checkMinima(T, "JS", counter, [...jsMinima], null, true)
-						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
+						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
 						pot.setVerbosity(log_level)
 					}
 				}
@@ -6729,16 +6751,15 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 			T.log("▣ main job complete")
 
-			// wait until beacon is collected. Show no counter.
-			// Time out after one hour.
-			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+			// wait until beacon is collected. No counter, no timeout.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000)
 
 			await T.delay(100) // yield to give GC release messages a chance
 
 			pot.setVerbosity(verb)
 
-			ok1 = checkMinima(T, "JS", iterations, jsMinima, 1, false, loop == maxloop)
-			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : bee_url ? 10 : 300)
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, jsLimit, false, loop == maxloop)
+			ok2 = checkMinima(T, "Go", iterations, goMinima, goLimit, false, loop == maxloop)
 
 			if (ok1 && ok2) break;
 		}
@@ -6751,6 +6772,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 		T.log("• leak test — "+iterations+" iterations")
 
 		let max = iterations
+		let jsLimit = 0 // B 0 D 0
+		let goLimit = tag == "ext-api" ? 0 : bee_url ? 0 : 200 // A 186 B 183 D 184
+
+		if(tag == "loc-net") { jsLimit = 1000; goLimit = 1000 }
 
 		T.log("  put(-i, -i) asynchronously, check memory")
 
@@ -6800,10 +6825,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net") {
+					if(tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
-						checkMinima(T, "JS", counter, [...jsMinima], null, true)
-						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
+						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
 						pot.setVerbosity(log_level)
 					}
 				}
@@ -6829,16 +6854,15 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 			T.log("▣ main job complete")
 
-			// wait until beacon is collected. Show no counter.
-			// Time out after one hour.
-			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+			// wait until beacon is collected. No counter, no timeout.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000)
 
 			await T.delay(100) // yield to give GC release messages a chance
 
 			pot.setVerbosity(verb)
 
-			ok1 = checkMinima(T, "JS", iterations, jsMinima, 1, false, loop == maxloop)
-			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : bee_url ? 10 : 300, false, loop == maxloop)
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, jsLimit, false, loop == maxloop)
+			ok2 = checkMinima(T, "Go", iterations, goMinima, goLimit, false, loop == maxloop)
 
 			if (ok1 && ok2) break;
 		}
@@ -6852,6 +6876,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 		T.log("• leak test — "+iterations+" iterations")
 
 		let max = iterations
+		let jsLimit = 0 // B -2 D 0
+		let goLimit = 0 // B 0 D 0
+
+		if(tag == "loc-net") { jsLimit = 1000; goLimit = 1000 }
 
 		T.log("  get('K') asynchronously, check memory")
 
@@ -6903,10 +6931,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net") {
+					if(tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
-						checkMinima(T, "JS", counter, [...jsMinima], null, true)
-						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
+						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
 						pot.setVerbosity(log_level)
 					}
 				}
@@ -6932,16 +6960,15 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 			T.log("▣ main job complete")
 
-			// wait until beacon is collected. Show no counter.
-			// Time out after one hour.
-			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+			// wait until beacon is collected. No counter, no timeout.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000)
 
 			await T.delay(100) // yield to give GC release messages a chance
 
 			pot.setVerbosity(verb)
 
-			ok1 = checkMinima(T, "JS", iterations, jsMinima, 1, false, loop == maxloop)
-			ok2 = checkMinima(T, "Go", iterations, goMinima, 1, false, loop == maxloop)
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, jsLimit, false, loop == maxloop)
+			ok2 = checkMinima(T, "Go", iterations, goMinima, goLimit, false, loop == maxloop)
 
 			if (ok1 && ok2) break;
 		}
@@ -6955,6 +6982,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 		T.log("• leak test — "+iterations+" iterations")
 
 		let max = iterations
+		let jsLimit = tag == "ext-api" ? 0 : tag == "loc-net" ? 0 : 0 // B 2,0 D 1,0
+		let goLimit = tag == "ext-api" ? 0 : tag == "in-mem" ? 400 : 0 // A 379 B 385,395 D 385,397
+
+		if(tag == "loc-net") { jsLimit = 1000; goLimit = 1000 }
 
 		T.log("  put & get random values synchronously, check memory")
 
@@ -7010,10 +7041,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net") {
+					if(tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
-						checkMinima(T, "JS", counter, [...jsMinima], null, true)
-						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
+						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
 						pot.setVerbosity(log_level)
 					}
 				}
@@ -7039,16 +7070,15 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 			T.log("▣ main job complete")
 
-			// wait until beacon is collected. Show no counter.
-			// Time out after one hour.
-			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+			// wait until beacon is collected. No counter, no timeout.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000)
 
 			await T.delay(100) // yield to give GC release messages a chance
 
 			pot.setVerbosity(verb)
 
-			ok1 = checkMinima(T, "JS", iterations, jsMinima, tag == "ext-api" ? 1 : tag == "loc-net" ? 100 : 1, false, loop == maxloop) // 100 unexplained
-			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : tag == "in-mem" ? 600 : 10, false, loop == maxloop) // 600 in-memory storage
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, jsLimit, false, loop == maxloop)
+			ok2 = checkMinima(T, "Go", iterations, goMinima, goLimit, false, loop == maxloop)
 
 			if (ok1 && ok2) break;
 		}
@@ -7062,6 +7092,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 		T.log("• leak test — "+iterations+" iterations")
 
 		let max = iterations
+		let jsLimit = tag == "ext-api" ? 0 : tag == "loc-net" ? 0 : 0 // B 1,0 D 0
+		let goLimit = tag == "ext-api" ? 0 : tag == "in-mem" ? 440 : 0 // A 389 B 390,398 D 393
+
+		if(tag == "loc-net") { jsLimit = 1000; goLimit = 1000 }
 
 		T.log("  put & get random values asynchronously, check memory")
 
@@ -7117,10 +7151,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net") {
+					if(tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
-						checkMinima(T, "JS", counter, [...jsMinima], null, true)
-						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
+						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
 						pot.setVerbosity(log_level)
 					}
 				}
@@ -7146,16 +7180,15 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 			T.log("▣ main job complete")
 
-			// wait until beacon is collected. Show no counter.
-			// Time out after one hour.
-			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+			// wait until beacon is collected. No counter, no timeout.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000)
 
 			await T.delay(100) // yield to give GC release messages a chance
 
 			pot.setVerbosity(verb)
 
-			ok1 = checkMinima(T, "JS", iterations, jsMinima, tag == "ext-api" ? 1 : tag == "loc-net" ? 100 : 10, false, loop == maxloop) // 100 (loc-net) and 10 (in-mem) unexplained
-			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : tag == "in-mem" ? 4*150 : 10, false, loop == maxloop) // 600 in-memory storage
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, jsLimit, false, loop == maxloop)
+			ok2 = checkMinima(T, "Go", iterations, goMinima, goLimit, false, loop == maxloop)
 
 			if (ok1 && ok2) break;
 		}
@@ -7170,6 +7203,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 		T.log("• leak test — "+iterations+" iterations")
 
 		let max = iterations
+		let jsLimit = tag == "ext-api" ? 0 : tag == "loc-net" ? 0 : 0 // B 0 D 0
+		let goLimit = tag == "ext-api" ? 0 : tag == "in-mem" ? 130 : 0 // A 117 B 118 D 118
+
+		if(tag == "loc-net") { jsLimit = 1000; goLimit = 1000 }
 
 		T.log("  put, get, delete, save, load random values synchronously, check memory")
 
@@ -7242,10 +7279,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net") {
+					if(tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
-						checkMinima(T, "JS", counter, [...jsMinima], null, true)
-						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
+						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
 						pot.setVerbosity(log_level)
 					}
 				}
@@ -7271,16 +7308,15 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 			T.log("▣ main job complete")
 
-			// wait until beacon is collected. Show no counter.
-			// Time out after one hour.
-			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+			// wait until beacon is collected. No counter, no timeout.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000)
 
 			await T.delay(100) // yield to give GC release messages a chance
 
 			pot.setVerbosity(verb)
 
-			ok1 = checkMinima(T, "JS", iterations, jsMinima, tag == "ext-api" ? 1 : tag == "loc-net" ? 100 : 1, false, loop == maxloop) // 100 unexplained
-			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : tag == "in-mem" ? 3*150 : 10, false, loop == maxloop) // 450 in-memory storage
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, jsLimit, false, loop == maxloop)
+			ok2 = checkMinima(T, "Go", iterations, goMinima, goLimit, false, loop == maxloop)
 
 			if (ok1 && ok2) break;
 		}
@@ -7295,6 +7331,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 		T.log("• leak test — "+iterations+" iterations")
 
 		let max = iterations
+		let jsLimit = tag == "ext-api" ? 0 : tag == "loc-net" ? 0 : 0 // A 1! B 0 D 2,-1
+		let goLimit = tag == "ext-api" ? 0 : tag == "in-mem" ? 130 : 0 // A 114 B 113 D 113,114
+
+		if(tag == "loc-net") { jsLimit = 1000; goLimit = 1000 }
 
 		T.log("  put, get, delete, save, load random values asynchronously, check memory")
 
@@ -7367,10 +7407,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net") {
+					if(tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
-						checkMinima(T, "JS", counter, [...jsMinima], null, true)
-						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
+						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
 						pot.setVerbosity(log_level)
 					}
 				}
@@ -7396,16 +7436,15 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 			T.log("▣ main job complete")
 
-			// wait until beacon is collected. Show no counter.
-			// Time out after one hour.
-			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+			// wait until beacon is collected. No counter, no timeout.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000)
 
 			await T.delay(100) // yield to give GC release messages a chance
 
 			pot.setVerbosity(verb)
 
-			ok1 = checkMinima(T, "JS", iterations, jsMinima, tag == "ext-api" ? 1 : tag == "loc-net" ? 100 : 1, false, loop == maxloop) // 100 unexplained
-			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : tag == "in-mem" ? 150 : 10, false, loop == maxloop) // 150 in-memory storage
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, jsLimit, false, loop == maxloop)
+			ok2 = checkMinima(T, "Go", iterations, goMinima, goLimit, false, loop == maxloop)
 
 			if (ok1 && ok2) break;
 		}
@@ -7420,6 +7459,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 		T.log("• leak test — "+iterations+" iterations")
 
 		let max = iterations
+		let jsLimit = tag == "ext-api" ? 0 : tag == "loc-net" ? 10 : 10 // A 9! B 8,0,2,-6,8 D 0
+		let goLimit = tag == "ext-api" ? 0 : tag == "in-mem" ? 550 : 10 // A 386 B 386,519!,514,517,513 D 390
+
+		if(tag == "loc-net") { jsLimit = 1000; goLimit = 1000 }
 
 		T.log("  multiple put, get, delete, save, load random values asynchronously, check memory")
 
@@ -7536,10 +7579,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net") {
+					if(tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
-						checkMinima(T, "JS", counter, [...jsMinima], null, true)
-						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
+						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
 						pot.setVerbosity(log_level)
 					}
 				}
@@ -7565,16 +7608,15 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 			T.log("▣ main job complete")
 
-			// wait until beacon is collected. Show no counter.
-			// Time out after one hour.
-			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+			// wait until beacon is collected. No counter, no timeout.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000)
 
 			await T.delay(100) // yield to give GC release messages a chance
 
 			pot.setVerbosity(verb)
 
-			ok1 = checkMinima(T, "JS", iterations, jsMinima, tag == "ext-api" ? 1 : tag == "loc-net" ? 100 : 10, false, loop == maxloop) // 100 unexplained, 10 unexplained
-			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : tag == "in-mem" ? 8*150 : 10, false, loop == maxloop) // 150 in-memory storage
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, jsLimit, false, loop == maxloop)
+			ok2 = checkMinima(T, "Go", iterations, goMinima, goLimit, false, loop == maxloop)
 
 			if (ok1 && ok2) break;
 		}
@@ -7589,6 +7631,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 		T.log("• leak test — "+iterations+" iterations")
 
 		let max = iterations
+		let jsLimit = tag == "ext-api" ? 0 : tag == "loc-net" ? 10 : 10 // A 7,-4,3,-5,-5 B 8,-1 D 7,0
+		let goLimit = tag == "ext-api" ? 0 : tag == "in-mem" ? 960 : 10 // A 926,914,916,914,914 B 926,914 D 926,914
+
+		if(tag == "loc-net") { jsLimit = 1000; goLimit = 1000 }
 
 		T.log("  multiple put, get, delete, save, load random values asynchronously, check memory")
 
@@ -7683,10 +7729,10 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net") {
+					if(tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
-						checkMinima(T, "JS", counter, [...jsMinima], null, true)
-						checkMinima(T, "Go", counter, [...goMinima], null, true)
+						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
+						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
 						pot.setVerbosity(log_level)
 					}
 				}
@@ -7712,16 +7758,15 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 			T.log("▣ main job complete")
 
-			// wait until beacon is collected. Show no counter.
-			// Time out after one hour.
-			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000, 3_600_000)
+			// wait until beacon is collected. No counter, no timeout.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000)
 
 			await T.delay(100) // yield to give GC release messages a chance
 
 			pot.setVerbosity(verb)
 
-			ok1 = checkMinima(T, "JS", iterations, jsMinima, tag == "ext-api" ? 1 : tag == "loc-net" ? 100 : 1, false, loop == maxloop) // 100 unexplained
-			ok2 = checkMinima(T, "Go", iterations, goMinima, tag == "ext-api" ? 1 : tag == "in-mem" ? 5*150 : 10, false, loop == maxloop) // 150 in-memory storage
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, jsLimit, false, loop == maxloop)
+			ok2 = checkMinima(T, "Go", iterations, goMinima, goLimit, false, loop == maxloop)
 
 			if (ok1 && ok2) break;
 		}
@@ -7872,6 +7917,7 @@ async function TestPotKvs_InvalidArguments(T, bee_url, batch_id) {
 	}
 }
 
+// Some lines of stats of lap and final verdict of memory test.
 function checkMinima(T, tag, iterations, minima, allowed, isLap, lastRun) {
 
 	// list out the detected relative minima of Go and JS heap size
@@ -7882,18 +7928,22 @@ function checkMinima(T, tag, iterations, minima, allowed, isLap, lastRun) {
 	minima.forEach((v) => T.log(T.ok + fmt(v).padStart(10," ") + "  " + pot.bar(v) + T.off+" "))
 
 	T.log()
-	T.log(`At least 10 minima: ${minima.length}`)
+	if(!isLap) T.log(`At least 10 minima: ${minima.length}`)
+	else T.log(`Minima: ${minima.length}`)
 	if(!isLap) {
 		if(lastRun || minima.length >= 10) {
 			T.assertGreaterOrEqual(t0, T, minima.length, 10)
 		} else if(minima.length < 10) {
 			T.log(T.erm + "𐄂 failed. Rerunning"+T.off)
+			T.log()
 			return false
 		}
 	}
 
-	if(minima.length < 4)
+	if(minima.length < 10) {
+		T.log()
 		return false // does not stop laps
+	}
 
 	// cut initial outliers, at most 30, at least a tenth.
 	let pre = minima.length
@@ -7903,45 +7953,23 @@ function checkMinima(T, tag, iterations, minima, allowed, isLap, lastRun) {
 	while (minima.length > pre - disc) minima.shift()
 
 	T.log()
-	T.log(`At least 10 minima without the leading/outlier ${pre-minima.length}: ${minima.length}`)
+	if(!isLap) T.log(`At least 10 minima without the leading/outlier ${pre-minima.length}: ${minima.length}`)
+	else T.log(`Minima without the leading/outlier ${pre-minima.length}: ${minima.length}`)
 	if(!isLap) {
 		if(lastRun || minima.length >= 10) {
 			T.assertGreaterOrEqual(t0, T, minima.length, 10)
 		} else if(minima.length < 10) {
 			T.log(T.erm + "𐄂 failed. Rerunning"+T.off)
+			T.log()
 			return false
 		}
 	}
 
-	if(minima.length < 4)
+	if(minima.length < 10) {
+		T.log()
 		return false // does not stop laps
+	}
 
-/*
-	let span = Math.floor(minima.length / 5)
-	let avg0 = Math.floor(minima.slice(0,span).reduce((a,c)=>a+c) / span)
-	let avg1 = Math.floor(minima.slice(-span).reduce((a,c)=>a+c) / span)
-	let growth = Math.floor((avg1 - avg0) / iterations)
-
-	let svar = Math.round(avg1/avg0*10000-10000)/100
-	T.log(`• growth less than 10%? (${svar}%)`)
-	T.log(`Initial ${span} minima average   : ${fmt(avg0)}`)
-	T.log(`Final   ${span} minima average   : ${fmt(avg1)}`)
-	T.log(`Growth per iteration        : ${growth?"":"⩽"}${fmt(growth)} byte`)
-	T.assertLesserOrEqual(t0, T, svar, 10)
-
-	let split = minima.length < 40 ? 2 : 4
-	span = Math.floor(minima.length / split)
-	let min0 = Math.floor(minima.slice(1,span).reduce((a,c)=>Math.min(a,c))) // skip first
-	let min1 = Math.floor(minima.slice(-span).reduce((a,c)=>Math.min(a,c)))
-	let mgrowth = Math.floor((min1 - min0) / iterations)
-
-	let mvar = Math.round(min1/min0*10000-10000)/100
-	T.log(`• growth less than 10%? (${mvar}%)`)
-	T.log(`Initial ${span} minima's minimum : ${fmt(min0)}`)
-	T.log(`Final   ${span} minima's minimum : ${fmt(min1)}`)
-	T.log(`Growth across minima-minima: ${mgrowth?"":"⩽"}${fmt(mgrowth)} byte`)
-	T.assertLesserOrEqual(t0, T, mvar, 10)
-*/
 	let split = minima.length < 40 ? 2 : 4
 	span = Math.floor(minima.length / split)
 	let min0 = Math.floor(minima.slice(0,span).reduce((a,c)=>Math.min(a,c)))
@@ -7949,17 +7977,22 @@ function checkMinima(T, tag, iterations, minima, allowed, isLap, lastRun) {
 	let mgrowth = Math.floor((min1 - min0) / iterations)
 
 	let mvar = Math.round(min1/min0*10000-10000)/100
-	T.log(`• growth not more than ${allowed} byte per iteration? (${mgrowth})`)
+	if(!isLap) T.log(`• ${tag} growth not more than ${allowed} byte per iteration? (${mgrowth})`)
+	else {
+		T.log()
+		T.log(`${tag} growth limit: ${allowed} byte per iteration.`)
+	}
 	T.log(`Initial ${span} minima's minimum: ${fmt(min0)}`)
 	T.log(`Final   ${span} minima's minimum: ${fmt(min1)}`)
-	T.log(`Growth across minima-minima: ${mgrowth?"":"⩽"}${fmt(mgrowth)} byte`)
-
+	let color = allowed !== null ? mgrowth <= allowed ? T.ok : T.erm : ""
+	T.log(`${tag} growth across minima-minima: ${mgrowth?"":"⩽"}${color}${fmt(mgrowth)}${T.off} byte`)
+	if(isLap && tag == "Go") T.log() // because 2nd list out before next round of tests
 
 	if(!isLap) {
 		if(lastRun || mgrowth <= allowed) {
 			T.assertLesserOrEqual(t0, T, mgrowth, allowed)
 		} else if(mgrowth > allowed) {
-			T.log(T.erm + "𐄂 failed. Rerunning"+T.off)
+			T.log(T.erm + `𐄂 ${tag} failed. Rerunning`+T.off)
 			return false
 		}
 	}

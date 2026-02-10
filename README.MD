@@ -18,10 +18,15 @@ For more on POT see the [manual](doc/POT_JS_manual.pdf).
 ## Status
 
 
-| Installation | Simulation | In-Memory | Integration | Stress |
-|--------------|------------|-----------|-------------|--------|
-| [![Installation Tests](https://github.com/brainiac-five/potjs/actions/workflows/inst-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inst-tests-ubuntu.yml) | [![Simulation Tests](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-ubuntu.yml) | [![In-Memory Tests](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-ubuntu.yml) | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests-ubuntu.yml) | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-ubuntu.yml) |
-| [![Installation Tests](https://github.com/brainiac-five/potjs/actions/workflows/inst-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inst-tests-macos.yml) | [![Simulation Tests](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-macos.yml) | [![In-Memory Tests](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-macos.yml) | | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-macos.yml) |
+| Installation | Simulation | In-Memory | Integration |
+|--------------|------------|-----------|-------------|
+| [![Installation Tests](https://github.com/brainiac-five/potjs/actions/workflows/inst-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inst-tests-ubuntu.yml) | [![Simulation Tests](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-ubuntu.yml) | [![In-Memory Tests](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-ubuntu.yml) | [![Swarm Integration](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/locnet-tests-ubuntu.yml) |
+| [![Installation Tests](https://github.com/brainiac-five/potjs/actions/workflows/inst-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inst-tests-macos.yml) | [![Simulation Tests](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/sim-tests-macos.yml) | [![In-Memory Tests](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inmem-tests-macos.yml) | |
+
+| Stress | Simulation / Leaks | In-Memory / Leaks | Integration / Leaks |
+|--------|--------------------|-------------------|---------------------|
+| [![Stress](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-ubuntu.yml) | [![Simulation Leak Tests](https://github.com/brainiac-five/potjs/actions/workflows/sim-memory-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/sim-memory-ubuntu.yml) | [![In-Memory Leaks Tests](https://github.com/brainiac-five/potjs/actions/workflows/inmem-memory-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inmem-memory-ubuntu.yml) | [![Swarm Leaks (Ops 2)](https://github.com/brainiac-five/potjs/actions/workflows/locnet-memory-ops2-ubuntu.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/locnet-memory-ops2-ubuntu.yml) |
+| [![Stress](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/stress-tests-macos.yml) | [![Simulation Leak Tests](https://github.com/brainiac-five/potjs/actions/workflows/sim-memory-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/sim-memory-macos.yml) | [![In-Memory Leak Tests](https://github.com/brainiac-five/potjs/actions/workflows/inmem-memory-macos.yml/badge.svg?branch=dev)](https://github.com/brainiac-five/potjs/actions/workflows/inmem-memory-macos.yml) | |
 
 
 
@@ -728,10 +733,10 @@ This (re-)creates `pot.wasm`.
 	go: creating new go.mod: module potjs
 	go: to add module requirements and sums:
 		go mod tidy
-	go mod edit -replace github.com/ethersphere/proximity-order-trie=github.com/ethersphere/proximity-order-trie@v1.0.2-alpha.1
+	go mod edit -replace github.com/ethersphere/proximity-order-trie=github.com/ethersphere/proximity-order-trie@v1.0.2-alpha.2
 	go get
 	go: added github.com/beorn7/perks v1.0.1
-	go: added github.com/ethersphere/proximity-order-trie v1.0.2-alpha.1
+	go: added github.com/ethersphere/proximity-order-trie v1.0.2-alpha.2
 	go: added github.com/cespare/xxhash/v2 v2.2.0
 	go: added github.com/ethersphere/bee/v2 v2.5.0
 	go: added github.com/hashicorp/errwrap v1.0.0

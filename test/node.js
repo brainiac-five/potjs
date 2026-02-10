@@ -148,6 +148,8 @@ console.log(`
 
 		T.balance()
 
+		T.exit()
+
 	} catch(err) {
 		T.log(err)
 	}

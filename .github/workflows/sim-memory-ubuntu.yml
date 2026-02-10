@@ -1,4 +1,4 @@
-name: In-Memory Ubuntu
+name: Sim Leak Ubuntu
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
     branches: [ dev ]
 
 jobs:
-  in-memory-tests-ubuntu:
-    name: In-Memory Tests Ubuntu
+  api-simulation-leak-tests:
+    name: Simulation Leak Tests Ubuntu
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -22,14 +22,14 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '22'
+        node-version: '23'
 
     - name: Set up zsh
       run: |
         sudo apt-get remove --purge man-db
         sudo apt-get -y install zsh
 
-    - name: Run in-memory tests
+    - name: Run simulation leak tests
       run: |
-        make node_inmem_test
+        make clean node_sim_memory
 

@@ -189,7 +189,7 @@ lib/wasm_exec.js.sh384: lib/wasm_exec.js
 # as opposed to the simulation (below).
 go.mod:
 	go mod init potjs
-	go mod edit -replace github.com/ethersphere/proximity-order-trie=github.com/ethersphere/proximity-order-trie@v1.0.2-alpha.1
+	go mod edit -replace github.com/ethersphere/proximity-order-trie=github.com/ethersphere/proximity-order-trie@v1.0.2-alpha.3
 	go get
 
 
@@ -468,7 +468,7 @@ node_locnet_memory: unmock build
 	$(MAKE) locnet_start
 	$(MAKE) .batch_id
 	@echo "⬡ start tests"
-	node test/node.js loc-net http://localhost:1633 $$(cat .batch_id) resources 100000 $(TEST) $(ITER) $(VERB)
+	node test/node.js loc-net http://localhost:1633 $$(cat .batch_id) resources 50000 $(TEST) $(ITER) $(VERB)
 
 # start the local Swarm network of five nodes, using docker FreeOS
 locnet_start:

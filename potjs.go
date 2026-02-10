@@ -203,7 +203,6 @@ var jsSaveSync js.Func
 // potmargin is the distance of the heap profile added to the logmargin
 var potmargin = 16
 
-
 // MAIN ----------------------------------------------------------------------
 
 // main() exposes the functions to be called from JS-land, and stays running on
@@ -266,7 +265,7 @@ func main() {
 		slot, exists := SlotMap[ref32]
 
 		if !exists {
-			log(CRIT, "### gc error: kvs to be released does not exist ‹" + ref32 + "›")
+			log(CRIT, "### gc error: kvs to be released does not exist ‹"+ref32+"›")
 			return nil
 		}
 
@@ -375,6 +374,15 @@ func main() {
 	jsDeleteSync = js.FuncOf(deleteSync)
 	jsSave = js.FuncOf(save)
 	jsSaveSync = js.FuncOf(saveSync)
+
+	// colored output
+	colorFlag := js.Global().Get("COLOR")
+	if colorFlag.Type() == js.TypeBoolean && colorFlag.Bool() {
+		colorLow = "\033[90m"
+		colorMid = "\033[38;5;214m"
+		colorMem = "\033[36m" // cyan
+		colorOff = "\033[0m"
+	}
 
 	log(INFO, "» init done")
 
@@ -540,7 +548,7 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 		}
 	}
 
-	msglen := len("+ new slot "+strconv.Itoa(slots+1))
+	msglen := len("+ new slot " + strconv.Itoa(slots+1))
 	log(INFO, "» new slot "+colorMid+strconv.Itoa(slots+1)+colorOff+spaces(potmargin-msglen)+_profile())
 
 	// --------------------------------------------------------------
@@ -757,7 +765,7 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 		debug = "[" + jsToString(parameters[2]) + "]"
 	}
 
-	msglen := len("+ load slot "+strconv.Itoa(slots+1))
+	msglen := len("+ load slot " + strconv.Itoa(slots+1))
 	log(INFO, "» load slot "+colorMid+strconv.Itoa(slots+1)+colorOff+spaces(potmargin-msglen)+_profile())
 
 	// -------------------------------------------------------------------
@@ -770,7 +778,7 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 	}
 
 	// register context and kvs handle, take numerical index as handle
-	slot_ref, sref32 := newID(slots,true)
+	slot_ref, sref32 := newID(slots, true)
 	SlotMap[sref32] = Slot{Ctx: ctx, Kvs: kvs, Ref: slot_ref, Ref32: sref32, Ls: ls, allowSync: allowSync}
 
 	log(DEB, "› slot ref: "+debug+" "+strconv.Itoa(slot_ref))
@@ -1576,7 +1584,7 @@ func promise(this js.Value, parameters []js.Value, timeOutPos int, name string, 
 			// This leads to the cancel function disappearing once
 			// the promise has been resolved.
 			// but promise.Set("cancel", js.Null) is not possible
-			// here as it would require a circular order of 
+			// here as it would require a circular order of
 			// definitions
 			if optimization > NONE {
 				jsCancel.Release()
@@ -1670,10 +1678,12 @@ func jsError(msg string) js.Value {
 	return js.Global().Get("Error").New(msg)
 }
 
-var colorLow = "\033[90m"
-var colorMid = "\033[38;5;214m"
-var colorMem = "\033[36m" // cyan
-var colorOff = "\033[0m"
+// set in main() if JS COLOR is true
+var colorLow = ""
+var colorMid = ""
+var colorMem = ""
+var colorOff = ""
+
 var logrex = regexp.MustCompile(`([0-9a-fA-Fx]{32})([0-9a-fA-Fx]+)`)
 
 // log() makes a standardized log message to browser console or terminal,
@@ -1702,11 +1712,17 @@ func log(level int, msg string) {
 		msg = logrex.ReplaceAllString(msg, "$1…")
 	}
 
+	// reduce trailing white space
+	white := "  "
+	if len(msg) < 1 {
+		white = ""
+	}
+
 	// log to stderr for CRITICAL and ERROR, else to stdout
 	if level <= ERR {
-		fmt.Fprintln(os.Stderr, "pot:  "+t+"  "+msg)
+		fmt.Fprintln(os.Stderr, "pot:  "+t+white+msg)
 	} else {
-		fmt.Println("pot:  " + t + "  " + msg)
+		fmt.Println("pot:  "+t+white+msg)
 	}
 }
 
@@ -1906,6 +1922,8 @@ func spaces(w int) string {
 
 // MEMORY PROFILING ------------------------------------------------------------
 
+var useColor bool
+
 func getGoHeapSize(_ js.Value, _ []js.Value) interface{} {
 
 	// Go memory stats
@@ -1947,7 +1965,7 @@ func _profile() string {
 	// Go memory stats
 	var goMem runtime.MemStats
 	runtime.ReadMemStats(&goMem)
-	p := "Go heap " + npad(int(goMem.Alloc/1024),6) + "K " + _bar(int(goMem.Alloc))
+	p := "Go heap " + npad(int(goMem.Alloc/1024), 6) + "K " + _bar(int(goMem.Alloc))
 
 	// JS memory stats / node.js
 	process := js.Global().Get("process")
@@ -1955,7 +1973,7 @@ func _profile() string {
 		memUse := process.Get("memoryUsage")
 		if !memUse.IsUndefined() {
 			mem := process.Call("memoryUsage").Get("heapUsed").Int()
-			p = p + " JS heap " + npad(mem/1024,6) + "K " + _bar(mem)
+			p = p + " JS heap " + npad(mem/1024, 6) + "K " + _bar(mem)
 		}
 	}
 
@@ -1965,7 +1983,7 @@ func _profile() string {
 		memory := performance.Get("memory")
 		if !memory.IsUndefined() {
 			mem := memory.Get("usedJSHeapSize").Int()
-			p = p + " JS heap " + npad(mem/1024,6) + "K " + _bar(mem)
+			p = p + " JS heap " + npad(mem/1024, 6) + "K " + _bar(mem)
 		}
 	}
 
@@ -2038,7 +2056,7 @@ func getOptimization(_ js.Value, _ []js.Value) interface{} {
 // double checks the index by the double-link in the slot structure, `Ref`.
 func getSlot(this js.Value) (Slot, error) {
 
-	jsSlotRef := this.Get("slot_ref")
+	jsSlotRef := this.Get("slot_ref") /// TODO cover removed element
 	jsSlotRef32 := this.Get("ref32")
 
 	if jsSlotRef.Type() != js.TypeNumber {

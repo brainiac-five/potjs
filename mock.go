@@ -27,12 +27,12 @@ import (
 // SwarmKvs is a mock struct replacing pot.SwarmKvs of the Go implementation
 type SwarmKvs struct {
 	Slot_ref int
-	Ref32	 string
+	Ref32    string
 	Store    map[string][]byte
 }
 
 // Saved is the simulated storage where KVSs are `saved` to on save()
-// the key is a randomly created pseudo save reference, the value the 
+// the key is a randomly created pseudo save reference, the value the
 // string of the hex digits of the KVS's ref32.
 var Saved = make(map[string]string)
 
@@ -350,7 +350,7 @@ func (ps *SwarmKvs) Save(ctx context.Context) (rref []byte, rerr error) {
 	// slot to 'save' (clone)
 	slot, exists := SlotMap[ps.Ref32]
 	if !exists {
-		msg := "invalid slot ‹"+ps.Ref32+"›"
+		msg := "invalid slot ‹" + ps.Ref32 + "›"
 		log(CRIT, msg)
 		return []byte{}, errors.New(msg)
 	}

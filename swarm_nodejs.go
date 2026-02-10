@@ -163,7 +163,8 @@ func (sls *SwarmNodeJsLoadSaver) Save(ctx context.Context, data []byte) ([]byte,
 
 	refHex := response.Reference
 	if len(refHex) != 64 {
-		return nil, fmt.Errorf("invalid save reference length: expected 64 hex chars, got %d", len(refHex))
+		fmt.Printf("snp:  ∙ response body: %v\n", respBody)
+		return nil, fmt.Errorf("invalid reference length: expected 64 hex chars, got %d", len(refHex))
 	}
 	reference, err := hex.DecodeString(refHex)
 	if err != nil {

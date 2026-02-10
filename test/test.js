@@ -1,16 +1,31 @@
-/* POT JS Test Frame */
-
-const hi   = "\033[97m"
-const mid  = "\033[37m"
-const low  = "\033[90m"
-const erm  = "\033[91m"
-const warn = "\033[38;5;214m"
-const ok   = "\033[36m"
-const job  = "\033[34m"
-const pink = "\033[35m"
-const off  = "\033[0m"
+// -----------------------------------------------------------------------------
+//
+// # SWARM POT JS Cross-Platform WASM Integration Test Framework
+//
+// This custom JS test framework supports special-case single-source test suites
+// to test WASM integration in-browser, or using node.js, in several modes.
+//
+// See % make explain_tests.
+//
+// -----------------------------------------------------------------------------
 
 const NODE = (typeof window === 'undefined')
+
+globalThis.COLOR = process.stdout.isTTY
+
+const hi   = COLOR ? "\033[97m" : ""
+const mid  = COLOR ? "\033[37m" : ""
+const low  = COLOR ? "\033[90m" : ""
+const erm  = COLOR ? "\033[91m" : ""
+const warn = COLOR ? "\033[38;5;214m" : ""
+const ok   = COLOR ? "\033[36m" : ""
+const job  = COLOR ? "\033[34m" : ""
+const pink = COLOR ? "\033[35m" : ""
+const off  = COLOR ? "\033[0m" : ""
+
+console.log(process.env.PS1)
+console.log(process.stdin.isTTY)
+//process.exit()
 
 globalThis.T = {
         tests:            0,
@@ -22,6 +37,7 @@ globalThis.T = {
         log:              log_and_display,
         box_display:      box_display,
         balance:          balance,
+        exit:		  exit,
         tag:              null,
         inside:           false,
         connection_issue: null,
@@ -38,7 +54,7 @@ globalThis.T = {
         off:              off,
 }
 
-// Write both to browser consol and, briefer and more formatted, to web page.
+// Write both to browser console and, briefer and more formatted, to web page.
 function log_and_display(one, two, three, four) {
 
 	if(two) {
@@ -290,6 +306,13 @@ function balance() {
 	}
 }
 
+function exit() {
+
+	process.exit(T.errors ? 1 : 0)
+
+}
+
+
 // -----------------------------------------------------------------------------
 
 T.assertNoError = function(t, T, err, suppress_ok, box) {
@@ -492,7 +515,7 @@ T.completion = async function(t, T, threads, interval, max) {
 
 T.completion2 = async function(t, T, done, outer_count, interval, max) {
 	T.log(t, "  waiting for completion")
-	for (let count = 0; !done() && count++ < max / interval;) {
+	for (let count = 0; !done() && (!max || count++ < max / interval);) {
 		if(outer_count)
 			T.log(t, "  iterations: " + outer_count())
 		await T.delay(interval)
