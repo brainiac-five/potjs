@@ -98,7 +98,7 @@ func (sls *SwarmNodeJsLoadSaver) Load(ctx context.Context, reference []byte) ([]
 		js.CopyBytesToGo(data, got)
 		trace(sls, "swarm node.js persister load: fetch call response ‹%x›", data)
 	} else if got.Type() == js.TypeString {
-		return nil, fmt.Errorf("failed to retrieve data from swarm, wrong response type from js fetch, string ‹%s∙", got.String())
+		return nil, fmt.Errorf("failed to retrieve data from swarm, wrong response type from js fetch, string ‹%s›", got.String())
 	} else {
 		return nil, fmt.Errorf("failed to retrieve data from swarm, wrong response type from js fetch")
 	}
@@ -157,16 +157,19 @@ func (sls *SwarmNodeJsLoadSaver) Save(ctx context.Context, data []byte) ([]byte,
 	}
 	err = json.Unmarshal(respBody, &response)
 	if err != nil {
+		fmt.Printf("snp:  ∙ response body: %v\n", got.String()) ///
 		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
 	trace(sls, "swarm node.js persister save: json unmarshal done", nil)
 
 	refHex := response.Reference
 	if len(refHex) != 64 {
-		return nil, fmt.Errorf("invalid save reference length: expected 64 hex chars, got %d", len(refHex))
+		fmt.Printf("snp:  ∙ response body: %v\n", got.String()) ///
+		return nil, fmt.Errorf("invalid reference length: expected 64 hex chars, got %d", len(refHex))
 	}
 	reference, err := hex.DecodeString(refHex)
 	if err != nil {
+		fmt.Printf("snp:  ∙ response body: %v\n", got.String()) ///
 		return nil, fmt.Errorf("failed to decode reference hex: %w", err)
 	}
 

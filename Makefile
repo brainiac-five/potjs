@@ -153,8 +153,9 @@ example8: examples/lib build
 	open http://127.0.0.1:3000
 	node examples/$@.js
 
-# completely identical to example 8. It can be because pot.new()
-# automatically switches to network use when arguments are not null
+# Functionally identical to example 8, just: started with different
+# arguments — a network url and a batch id — by the calling make rule;
+# and POT calls used are synchronously blocking instead of promises.
 example9: examples/lib build
 	$(MAKE) locnet_start
 	$(MAKE) .batch_id
@@ -165,10 +166,10 @@ example9: examples/lib build
 example10: examples/lib mockbuild
 	node examples/$@.js
 
-# update the integrity hashes in example 2 when potjs.js or wasm_exec.js change
+# update the integrity hashes in example 2 when wasm_exec.js changes
 integrity: examples/example2.html lib/wasm_exec.js.sha384
 
-# update integrity hashes in example files that are affected (currently, #2)
+# update integrity hashes in example files that are affected (currently only #2)
 examples/example*.html: lib/pot-web.js.sha384
 	for fn in $?; do sed -i.bak -e "s/\($${fn:4:-7}\".*integrity=\)[^>]*/\1\"sha384-$${$$(cat $${fn})//[\/]/\\/}\"/" $@ ; rm -f $@.bak ; done
 
@@ -183,13 +184,14 @@ examples/example*.html: lib/pot-web.js.sha384
 lib/wasm_exec.js:
 	cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" lib/
 
+# new integrity hash file when wasm_exec.js changes
 lib/wasm_exec.js.sh384: lib/wasm_exec.js
 
 # create the go mod file and set pot package to the real go pot implementation
 # as opposed to the simulation (below).
 go.mod:
 	go mod init potjs
-	go mod edit -replace github.com/ethersphere/proximity-order-trie=github.com/ethersphere/proximity-order-trie@v1.0.2-alpha.1
+	go mod edit -replace github.com/ethersphere/proximity-order-trie=github.com/ethersphere/proximity-order-trie@v1.0.2-alpha.2
 	go get
 
 
@@ -197,13 +199,13 @@ go.mod:
 # Go pot implementation (not the exception simulation), with node.js.
 test: explain_tests jest_test
 
-# the test picked as 2nd standard test: in-memory (not network), using the real
+# the 2nd standard test: in-memory (not network), using the real
 # Go pot implementation (not the exception simulation), in the terminal.
-nodetest: explain_tests node_inmem_test
+nodetest: node_inmem_test
 
-# the test picked as 3rd standard test: in-memory (not network), using the real
+# the 3rd standard test: in-memory (not network), using the real
 # Go pot implementation (not the exception simulation), in the browser.
-webtest: explain_tests web_inmem_test
+webtest: web_inmem_test
 
 # print available test rules.
 explain_tests:
@@ -285,6 +287,37 @@ explain_tests:
 	#
 	# Verbosity can be set with VERB. This works only if ITER is given.
 	# ITER works only when TEST is given.
+	#
+	# Continuous Integration runs these tests on push:
+	#
+	# inst-tests-macos.yml:           make jest_test
+	# inst-tests-ubuntu.yml:          make jest_test
+	# inmem-tests-macos.yml:          make node_inmem_test
+	# inmem-tests-ubuntu.yml:         make node_inmem_test
+	# inmem-memory-macos.yml:         make node_inmem_memory
+	# inmem-memory-ubuntu.yml:        make node_inmem_memory
+	# sim-tests-macos.yml:            make node_sim_test
+	# sim-tests-ubuntu.yml:           make node_sim_test
+	# sim-memory-macos.yml:           make clean node_sim_memory
+	# sim-memory-ubuntu.yml:          make clean node_sim_memory
+	# stress-tests-macos.yml:         make clean node_inmem_stress
+	# stress-tests-ubuntu.yml:        make node_inmem_stress
+	# stress-tests-ubuntu.yml:        make node_locnet_stress
+	# locnet-memory-put1-ubuntu.yml:  make node_locnet_memory TEST=gc-put-sync
+	# locnet-memory-put2-ubuntu.yml:  make node_locnet_memory TEST=gc-put-async
+	# locnet-memory-get1-ubuntu.yml:  make node_locnet_memory TEST=gc-get-async-fix
+	# locnet-memory-get2-ubuntu.yml:  make node_locnet_memory TEST=gc-put-get-sync-rand
+	# locnet-memory-get3-ubuntu.yml:  make node_locnet_memory TEST=gc-put-get-async-rand
+	# locnet-memory-get4-ubuntu.yml:  make node_locnet_memory TEST=gc-put-get-async-rand-2
+	# locnet-memory-get5-ubuntu.yml:  make node_locnet_memory TEST=gc-put-get-async-rand-3
+	# locnet-memory-ops1-ubuntu.yml:  make node_locnet_memory TEST=gc-basics-sync-rand
+	# locnet-memory-ops2-ubuntu.yml:  make node_locnet_memory TEST=gc-basics-async-rand
+	# locnet-memory-ops3-ubuntu.yml:  make node_locnet_memory TEST=gc-multiop1-async-rand ITER=30000
+	# locnet-memory-ops4-ubuntu.yml:  make node_locnet_memory TEST=gc-multiop2-async-rand ITER=30000
+	# locnet-memory-exp1-ubuntu.yml:  make node_locnet_memory TEST=gc-exp1
+	# locnet-memory-exp2-ubuntu.yml:  make node_locnet_memory TEST=gc-exp2
+	# locnet-tests-ubuntu.yml:        make node_locnet_test
+	#
 
 # jest integration tests
 jest: jest_test
@@ -468,7 +501,7 @@ node_locnet_memory: unmock build
 	$(MAKE) locnet_start
 	$(MAKE) .batch_id
 	@echo "⬡ start tests"
-	node test/node.js loc-net http://localhost:1633 $$(cat .batch_id) resources 100000 $(TEST) $(ITER) $(VERB)
+	node test/node.js loc-net http://localhost:1633 $$(cat .batch_id) resources 50000 $(TEST) $(ITER) $(VERB)
 
 # start the local Swarm network of five nodes, using docker FreeOS
 locnet_start:

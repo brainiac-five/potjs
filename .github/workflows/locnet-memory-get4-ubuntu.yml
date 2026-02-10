@@ -1,0 +1,54 @@
+name: Swarm Leak Ubuntu - Get 4
+
+on:
+  push:
+    branches: [ dev ]
+  pull_request:
+    branches: [ dev ]
+
+jobs:
+  swarm-integration-tests-get-ubuntu:
+    name: Swarm Integration Leak Tests Ubuntu - Get 4
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '23'
+
+    - name: Set up zsh
+      run: |
+        sudo apt-get remove --purge man-db
+        sudo apt-get -y install zsh
+
+    - name: Install fdp-play
+      run: |
+        npm install -g @fairdatasociety/fdp-play
+        fdp-play --version
+
+    - name: Install swarm-cli
+      run: |
+        npm install --global @ethersphere/swarm-cli
+        swarm-cli --version
+
+    - name: Start fdp-play environment
+      run: |
+        fdp-play start --detach
+
+    - name: Run swarm integration tests - get 4
+      run: |
+        make node_locnet_memory TEST=gc-put-get-async-rand-2
+
+    - name: Stop fdp-play environment
+      if: always()
+      run: |
+        fdp-play stop
+

@@ -1,16 +1,34 @@
-/* POT JS Test Frame */
-
-const hi   = "\033[97m"
-const mid  = "\033[37m"
-const low  = "\033[90m"
-const erm  = "\033[91m"
-const warn = "\033[38;5;214m"
-const ok   = "\033[36m"
-const job  = "\033[34m"
-const pink = "\033[35m"
-const off  = "\033[0m"
+// -----------------------------------------------------------------------------
+//
+// # SWARM POT JS Cross-Platform WASM Integration Test Framework
+//
+// This custom JS test framework supports special-case single-source test suites
+// to test WASM integration in-browser, or using node.js, in several modes.
+//
+// See % make explain_tests.
+//
+// -----------------------------------------------------------------------------
 
 const NODE = (typeof window === 'undefined')
+
+// running counter of memory leak tests
+const GAUGE = process.stdout.isTTY
+
+// stats every 1,000 iterations for local network memory leak tests
+const LAPS = process.stdout.isTTY
+
+// color codes in test logs
+globalThis.COLOR = process.stdout.isTTY
+
+const hi   = COLOR ? "\033[97m" : ""
+const mid  = COLOR ? "\033[37m" : ""
+const low  = COLOR ? "\033[90m" : ""
+const erm  = COLOR ? "\033[91m" : ""
+const warn = COLOR ? "\033[38;5;214m" : ""
+const ok   = COLOR ? "\033[36m" : ""
+const job  = COLOR ? "\033[34m" : ""
+const pink = COLOR ? "\033[35m" : ""
+const off  = COLOR ? "\033[0m" : ""
 
 globalThis.T = {
         tests:            0,
@@ -22,11 +40,14 @@ globalThis.T = {
         log:              log_and_display,
         box_display:      box_display,
         balance:          balance,
+        exit:		  exit,
         tag:              null,
         inside:           false,
         connection_issue: null,
         time:             null,
         NODE:             NODE,
+        GAUGE:            GAUGE,
+        LAPS:             LAPS,
 
         hi:               hi,
         mid:              mid,
@@ -38,7 +59,7 @@ globalThis.T = {
         off:              off,
 }
 
-// Write both to browser consol and, briefer and more formatted, to web page.
+// Write both to browser console and, briefer and more formatted, to web page.
 function log_and_display(one, two, three, four) {
 
 	if(two) {
@@ -273,12 +294,18 @@ function balance() {
 	T.log("••• tests cases run: " + T.cases + " • assertions: " + T.tests + "  •••")
 
 	if(NODE) {
-		if(T.errors)
+		if(!T.cases)
+			T.log(erm + "no tests" + off)
+		else if(T.errors)
 			T.log(erm + "errors: " + T.errors  + off)
 		else
 			T.log(ok + "no errors" + off)
 	} else {
-		if(T.errors) {
+		if(!T.cases) {
+			T.log("<h4 class=err> no tests </h4>")
+			document.getElementById("status").className="err"
+			document.getElementById("status").innerHTML="no tests"
+		} else if(T.errors) {
 			T.log("<h4 class=err> errors: " + T.errors + " </h4>")
 			document.getElementById("status").className="err"
 			document.getElementById("status").innerHTML="errors: " + T.errors
@@ -289,6 +316,20 @@ function balance() {
 		}
 	}
 }
+
+// Error code 3 for failed tests, 4 for no test selected
+function exit() {
+
+	if(T.errors)
+		process.exit(3)
+
+	if(!T.cases)
+		process.exit(4)
+
+	process.exit(0)
+
+}
+
 
 // -----------------------------------------------------------------------------
 
@@ -492,7 +533,7 @@ T.completion = async function(t, T, threads, interval, max) {
 
 T.completion2 = async function(t, T, done, outer_count, interval, max) {
 	T.log(t, "  waiting for completion")
-	for (let count = 0; !done() && count++ < max / interval;) {
+	for (let count = 0; !done() && (!max || count++ < max / interval);) {
 		if(outer_count)
 			T.log(t, "  iterations: " + outer_count())
 		await T.delay(interval)

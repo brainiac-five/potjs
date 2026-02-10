@@ -179,6 +179,9 @@ const (
 // default log level
 var verbosity = DEB
 
+// downgrade release error to info
+// var silentFailedRelease = false
+
 // pre-cooked, recyclable methods of all js KVS objects
 // They are singled out because they are not auto garbage collected
 var jsPut js.Func
@@ -199,10 +202,10 @@ var jsGetStringSync js.Func
 var jsDeleteSync js.Func
 var jsSave js.Func
 var jsSaveSync js.Func
+var jsRelease js.Func
 
 // potmargin is the distance of the heap profile added to the logmargin
 var potmargin = 16
-
 
 // MAIN ----------------------------------------------------------------------
 
@@ -260,13 +263,17 @@ func main() {
 	// CleanUps may never be called. This mechanism is to signal back to Go.
 	jsRegistry = js.Global().Get("FinalizationRegistry").New(js.FuncOf(func(_ js.Value, p []js.Value) interface{} {
 
-		/// check type for abundance
+		/// check type, for abundance of caution
 
 		ref32 := p[0].String()
 		slot, exists := SlotMap[ref32]
 
 		if !exists {
-			log(CRIT, "### gc error: kvs to be released does not exist ‹" + ref32 + "›")
+			//if !silentFailedRelease {
+				log(CRIT, "### gc error: kvs to be released does not exist ‹"+ref32+"›")
+			//} else {
+			//	log(MEM, "⦿ release of ‹"+ref32+"› by gc attempted")
+			//}
 			return nil
 		}
 
@@ -277,7 +284,7 @@ func main() {
 		// stop mutex
 		slot.Kvs.Close()
 
-		// take resources offline
+		// take resources offline. This will make slot unreachable.
 		delete(SlotMap, ref32)
 
 		// -------------------------------------------------------------
@@ -287,13 +294,12 @@ func main() {
 	// The following js.Funcs are created once and not released for the
 	// lifetime of the executable.
 
-	// KVS
+	// KVS-related
 	// -------------------------------------------------
 	pot_.Set("new", js.FuncOf(new_))
 	pot_.Set("newSync", js.FuncOf(newSync))
 	pot_.Set("load", js.FuncOf(load))
 	pot_.Set("loadSync", js.FuncOf(loadSync))
-	pot_.Set("release", js.FuncOf(release))
 	pot_.Set("gc", js.FuncOf(gc))
 	pot_.Set("prune", js.FuncOf(prune))
 	pot_.Set("purge", js.FuncOf(purge))
@@ -375,6 +381,16 @@ func main() {
 	jsDeleteSync = js.FuncOf(deleteSync)
 	jsSave = js.FuncOf(save)
 	jsSaveSync = js.FuncOf(saveSync)
+	jsRelease = js.FuncOf(release)
+
+	// colored output
+	colorFlag := js.Global().Get("COLOR")
+	if colorFlag.Type() == js.TypeBoolean && colorFlag.Bool() {
+		colorLow = "\033[90m"
+		colorMid = "\033[38;5;214m"
+		colorMem = "\033[36m" // cyan
+		colorOff = "\033[0m"
+	}
 
 	log(INFO, "» init done")
 
@@ -540,7 +556,7 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 		}
 	}
 
-	msglen := len("+ new slot "+strconv.Itoa(slots+1))
+	msglen := len("+ new slot " + strconv.Itoa(slots+1))
 	log(INFO, "» new slot "+colorMid+strconv.Itoa(slots+1)+colorOff+spaces(potmargin-msglen)+_profile())
 
 	// --------------------------------------------------------------
@@ -757,7 +773,7 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 		debug = "[" + jsToString(parameters[2]) + "]"
 	}
 
-	msglen := len("+ load slot "+strconv.Itoa(slots+1))
+	msglen := len("+ load slot " + strconv.Itoa(slots+1))
 	log(INFO, "» load slot "+colorMid+strconv.Itoa(slots+1)+colorOff+spaces(potmargin-msglen)+_profile())
 
 	// -------------------------------------------------------------------
@@ -770,7 +786,7 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 	}
 
 	// register context and kvs handle, take numerical index as handle
-	slot_ref, sref32 := newID(slots,true)
+	slot_ref, sref32 := newID(slots, true)
 	SlotMap[sref32] = Slot{Ctx: ctx, Kvs: kvs, Ref: slot_ref, Ref32: sref32, Ls: ls, allowSync: allowSync}
 
 	log(DEB, "› slot ref: "+debug+" "+strconv.Itoa(slot_ref))
@@ -785,7 +801,7 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 // ref32 is an key to.
 func createMapObject(slot_ref int, ref32 string) js.Value {
 
-	// create Javascript handle object
+	// create Javascript object
 	jsMap := js.ValueOf(make(map[string]interface{}))
 
 	// the numeric handle bridges preserved ctx and persister to JS.
@@ -811,41 +827,70 @@ func createMapObject(slot_ref int, ref32 string) js.Value {
 	jsMap.Set("deleteSync", jsDeleteSync)
 	jsMap.Set("save", jsSave)
 	jsMap.Set("saveSync", jsSaveSync)
+	jsMap.Set("release", jsRelease)
 
-	// this closure is called when GC finds the jsMap object unreachable
-	// runtime.AddCleanup(&jsMap, func(slot_ref int) {
-	//	log(MEM, colorMid+"⦿ Go-side KVS slot "+strconv.Itoa(slot_ref)+" reference clean up"+colorOff+"  "+_profile())
-	// }, slot_ref)
+	/// this closure is called when GC finds the jsMap object unreachable
+	/// runtime.AddCleanup(&jsMap, func(slot_ref int) {
+	///	log(MEM, colorMid+"⦿ Go-side KVS slot "+strconv.Itoa(slot_ref)+" reference clean up"+colorOff+"  "+_profile())
+	/// }, slot_ref)
 
 	// this registers a clean up call when the JS GC finds the jsMap unreachable
-	jsRegistry.Call("register", jsMap, ref32)
+	jsRegistry.Call("register", jsMap, ref32, jsMap)
 
 	return jsMap
 }
 
 // GC --------------------------------------------------------------------------
 
-// JS release() triggers the clean up on the Go side from the JS garbage
-// collector.
+// JS release() explicitly triggers the KVS resource clean up on the Go side.
+// This is not the routine way of doing it but exists for memory tests.
+// Garbage collection is generally automated across runtimes, see docs.
+// Use of a JS KVS object after release is called is undefined behavior.
+// At least, state and methods of the object will just not exist. There is
+// no reason generally to use it in production as the gc will become active
+// if space is needed. It could help to call release() to exercise control
+// over when the delay caused by the garbage collector might be most tolerable.
 func release(this js.Value, parameters []js.Value) (result interface{}) {
 
-	if len(parameters) < 1 {
-		log(CRIT, "Go release call misses slot ref parameter")
-	} else if parameters[0].Type() != js.TypeNumber {
-		log(CRIT, "Go release call slot ref parameter type error, need int")
-	} else {
-		slot_ref := parameters[0].Int()
-		releaseMapObject(slot_ref)
+	jsRef32 := this.Get("ref32")
+
+	if jsRef32.Type() != js.TypeString {
+		msg := "### critical error: ref32 member missing or altered"
+		log(CRIT, msg)
+		return errors.New(msg)
+	}
+	ref32 := jsRef32.String()
+
+	if len(ref32) != 64 {
+		msg := "### critical error: ref32 member invalid"
+		log(CRIT, msg)
+		return errors.New(msg)
 	}
 
-	return js.Null()
-}
+	slot, exists := SlotMap[ref32]
 
-// releaseMapObject() cleans up the functions and slot reference objects held
-// on the Go side for a KVS. Noop stub.
-func releaseMapObject(slot_ref int) {
+	if !exists {
+		msg := "### crtical error: invalid or expired slot reference ‹" + ref32 + "›"
+		log(CRIT, msg)
+		return errors.New(msg)
+	}
 
-	log(NONE, "map release, slot "+strconv.Itoa(slot_ref))
+	log(MEM, colorMid+"⦿ force release of kvs slot "+strconv.Itoa(slot.Ref)+colorOff)
+
+	// -------------------------------------------------------------
+
+	// stop mutex
+	slot.Kvs.Close()
+
+	// take resources offline. This will make the slot unreachable.
+	delete(SlotMap, ref32)
+
+	// unregister from JS garbage collection. WASM calls are single-thread.
+	jsRegistry.Call("unregister", this)
+
+	// -------------------------------------------------------------
+
+	return js.ValueOf(slot.Ref)
 }
 
 // JS gc() triggers the Go garbage collector. Empirically, KVS objects are
@@ -888,8 +933,22 @@ func prune(this js.Value, parameters []js.Value) (result interface{}) {
 	return js.Null()
 }
 
+// JS flush() releases the network load saver and replaces it with a new one.
+// This is for long-running servers to release memory that is not released 
+// when a KVS becomes unreachable and is garbage collected. No warnings if no
+// network loadSaver is actually used, e.g., when generally storing in-memory.
+func flush(this js.Value, parameters []js.Value) (result interface{}) {
+
+	log(MEM, colorMid+"⦿ flush cache"+colorOff+spaces(potmargin-13)+_profile())
+
+	inMemoryPersister = persister.NewInmemLoadSaver()
+
+	return js.Null()
+}
+
 // JS purge() deletes the in-memory load saver and replaces it with a new one.
-// It is for tests. No warnings if no in-memory loadSaver is actually used,
+// This means that all data stored in-memory is released and lost. This is
+// mainly for tests. No warnings if no in-memory loadSaver is actually used,
 // e.g., when generally storing to local network.
 func purge(this js.Value, parameters []js.Value) (result interface{}) {
 
@@ -1576,7 +1635,7 @@ func promise(this js.Value, parameters []js.Value, timeOutPos int, name string, 
 			// This leads to the cancel function disappearing once
 			// the promise has been resolved.
 			// but promise.Set("cancel", js.Null) is not possible
-			// here as it would require a circular order of 
+			// here as it would require a circular order of
 			// definitions
 			if optimization > NONE {
 				jsCancel.Release()
@@ -1670,10 +1729,12 @@ func jsError(msg string) js.Value {
 	return js.Global().Get("Error").New(msg)
 }
 
-var colorLow = "\033[90m"
-var colorMid = "\033[38;5;214m"
-var colorMem = "\033[36m" // cyan
-var colorOff = "\033[0m"
+// set in main() if JS COLOR is true
+var colorLow = ""
+var colorMid = ""
+var colorMem = ""
+var colorOff = ""
+
 var logrex = regexp.MustCompile(`([0-9a-fA-Fx]{32})([0-9a-fA-Fx]+)`)
 
 // log() makes a standardized log message to browser console or terminal,
@@ -1702,11 +1763,17 @@ func log(level int, msg string) {
 		msg = logrex.ReplaceAllString(msg, "$1…")
 	}
 
+	// reduce trailing white space
+	white := "  "
+	if len(msg) < 1 {
+		white = ""
+	}
+
 	// log to stderr for CRITICAL and ERROR, else to stdout
 	if level <= ERR {
-		fmt.Fprintln(os.Stderr, "pot:  "+t+"  "+msg)
+		fmt.Fprintln(os.Stderr, "pot:  "+t+white+msg)
 	} else {
-		fmt.Println("pot:  " + t + "  " + msg)
+		fmt.Println("pot:  "+t+white+msg)
 	}
 }
 
@@ -1906,6 +1973,8 @@ func spaces(w int) string {
 
 // MEMORY PROFILING ------------------------------------------------------------
 
+var useColor bool
+
 func getGoHeapSize(_ js.Value, _ []js.Value) interface{} {
 
 	// Go memory stats
@@ -1947,7 +2016,7 @@ func _profile() string {
 	// Go memory stats
 	var goMem runtime.MemStats
 	runtime.ReadMemStats(&goMem)
-	p := "Go heap " + npad(int(goMem.Alloc/1024),6) + "K " + _bar(int(goMem.Alloc))
+	p := "Go heap " + npad(int(goMem.Alloc/1024), 6) + "K " + _bar(int(goMem.Alloc))
 
 	// JS memory stats / node.js
 	process := js.Global().Get("process")
@@ -1955,7 +2024,7 @@ func _profile() string {
 		memUse := process.Get("memoryUsage")
 		if !memUse.IsUndefined() {
 			mem := process.Call("memoryUsage").Get("heapUsed").Int()
-			p = p + " JS heap " + npad(mem/1024,6) + "K " + _bar(mem)
+			p = p + " JS heap " + npad(mem/1024, 6) + "K " + _bar(mem)
 		}
 	}
 
@@ -1965,7 +2034,7 @@ func _profile() string {
 		memory := performance.Get("memory")
 		if !memory.IsUndefined() {
 			mem := memory.Get("usedJSHeapSize").Int()
-			p = p + " JS heap " + npad(mem/1024,6) + "K " + _bar(mem)
+			p = p + " JS heap " + npad(mem/1024, 6) + "K " + _bar(mem)
 		}
 	}
 
@@ -2038,7 +2107,7 @@ func getOptimization(_ js.Value, _ []js.Value) interface{} {
 // double checks the index by the double-link in the slot structure, `Ref`.
 func getSlot(this js.Value) (Slot, error) {
 
-	jsSlotRef := this.Get("slot_ref")
+	jsSlotRef := this.Get("slot_ref") /// TODO cover corruptingly removed element
 	jsSlotRef32 := this.Get("ref32")
 
 	if jsSlotRef.Type() != js.TypeNumber {

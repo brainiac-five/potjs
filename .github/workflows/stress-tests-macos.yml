@@ -26,5 +26,5 @@ jobs:
 
     - name: Run in-memory stress tests
       run: |
-        make node_inmem_stress
+        make clean node_inmem_stress
 
