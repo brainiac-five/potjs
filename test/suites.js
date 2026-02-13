@@ -6599,7 +6599,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 				await T.delay(0) // yield to cleanly stop
 
 				if (counter++ >= max) {
-					process.stdout.write("\n")
+					if(T.GAUGE) process.stdout.write("\n")
 					return
 				}
 
@@ -6608,7 +6608,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 				 // log overriding status
 				if(log_level <= pot.ERROR)
-					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+					if(T.GAUGE) process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
 					// console.log(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile())
 
 				// Go GC trigger every 1,000 iterations
@@ -6617,7 +6617,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net" && counter < max) {
+					if(T.LAPS && tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
 						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
 						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
@@ -6703,7 +6703,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 				await T.delay(0) // yield to cleanly stop
 
 				if (counter++ >= max) {
-					process.stdout.write("\n")
+					if(T.GAUGE) process.stdout.write("\n")
 					return
 				}
 
@@ -6713,7 +6713,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 				 // log overriding status
 				if(log_level <= pot.ERROR)
-					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+					if(T.GAUGE) process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
 					//console.log(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile())
 
 				if (counter % 1000 == 0 && counter < max) {
@@ -6722,7 +6722,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net" && counter < max) {
+					if(T.LAPS && tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
 						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
 						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
@@ -6807,7 +6807,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 				await T.delay(0) // yield to cleanly stop
 
 				if (counter++ >= max) {
-					process.stdout.write("\n")
+					if(T.GAUGE) process.stdout.write("\n")
 					return
 				}
 
@@ -6817,7 +6817,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 				 // log overriding status
 				if(log_level <= pot.ERROR)
-					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+					if(T.GAUGE) process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
 
 				if (counter % 1000 == 0) {
 					kvs = pot.newSync(bee_url, batch_id)
@@ -6825,7 +6825,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net" && counter < max) {
+					if(T.LAPS && tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
 						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
 						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
@@ -6912,7 +6912,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 				await T.delay(0) // yield to cleanly stop
 
 				if (counter++ >= max) {
-					process.stdout.write("\n")
+					if(T.GAUGE) process.stdout.write("\n")
 					return
 				}
 
@@ -6922,7 +6922,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 				 // log overriding status
 				if(log_level <= pot.ERROR)
-					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+					if(T.GAUGE) process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
 
 				if (counter % 1000 == 0) {
 					kvs = pot.newSync(bee_url, batch_id)
@@ -6931,7 +6931,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net" && counter < max) {
+					if(T.LAPS && tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
 						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
 						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
@@ -7017,7 +7017,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 				await T.delay(0) // yield to cleanly stop
 
 				if (counter++ >= max) {
-					process.stdout.write("\n")
+					if(T.GAUGE) process.stdout.write("\n")
 					return
 				}
 
@@ -7031,7 +7031,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 				 // log overriding status
 				if(log_level <= pot.ERROR)
-					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+					if(T.GAUGE) process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
 
 				if (counter % 1000 == 0) {
 
@@ -7041,7 +7041,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net" && counter < max) {
+					if(T.LAPS && tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
 						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
 						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
@@ -7127,7 +7127,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 				await T.delay(0) // yield to cleanly stop
 
 				if (counter++ >= max) {
-					process.stdout.write("\n")
+					if(T.GAUGE) process.stdout.write("\n")
 					return
 				}
 
@@ -7141,7 +7141,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 				 // log overriding status
 				if(log_level <= pot.ERROR)
-					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+					if(T.GAUGE) process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
 
 				if (counter % 1000 == 0) {
 
@@ -7151,7 +7151,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net" && counter < max) {
+					if(T.LAPS && tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
 						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
 						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
@@ -7236,7 +7236,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 				await T.delay(0) // yield to cleanly stop
 
 				if (counter++ >= max) {
-					process.stdout.write("\n")
+					if(T.GAUGE) process.stdout.write("\n")
 					return
 				}
 
@@ -7269,7 +7269,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 				 // log overriding status
 				if(log_level <= pot.ERROR)
-					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+					if(T.GAUGE) process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
 
 				if (counter % 1000 == 0) {
 
@@ -7279,7 +7279,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net" && counter < max) {
+					if(T.LAPS && tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
 						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
 						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
@@ -7324,6 +7324,254 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 	}
 
 
+	if (!suite || suite.includes("gc-exp1")) {
+
+		T.start("Experimental 1 Leak Test")
+
+		T.log("• leak test — "+iterations+" iterations")
+
+		let max = iterations
+		let jsLimit = tag == "ext-api" ? 0 : tag == "loc-net" ? 0 : 0 // A 1! B 0 D 2,-1
+		let goLimit = tag == "ext-api" ? 0 : tag == "in-mem" ? 130 : 0 // A 114 B 113 D 113,114
+
+		if(tag == "loc-net") { jsLimit = 1000; goLimit = 1000 }
+
+		T.log(" experimental 1") 
+
+		for (let loop = 1; loop <= maxloop; loop++) {
+
+			T.log("• test run #" + loop)
+
+			let counter = 0
+
+			let verb = pot.setVerbosity(log_level)
+
+			if(tag == "in-mem") {
+				T.log("  purge in-memory storage to start from a minimum Go heap size")
+				pot.purge()
+			}
+
+			T.log("  trigger Go GC to start from a minimum Go heap size")
+			pot.gc()
+
+			let jsHeap0 = 0
+			let goHeap0 = 0
+			let jsMinima = new Array()
+			let goMinima = new Array()
+
+			;(async function allocate() {
+
+				await T.delay(0) // yield to cleanly stop
+
+				if (counter++ >= max) {
+					if(T.GAUGE) process.stdout.write("\n")
+					return
+				}
+
+				let key = counter
+				let val = counter
+
+				let kvs = pot.newSync(bee_url, batch_id)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs.put(key, val)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				let res = await kvs.get(key)
+				if(tag != "ext-api")
+					T.assertEqual(t0, T, res, val)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				let ref = await kvs.save()
+
+				if(tag == "ext-api") pot.setNoop(true)
+				kvs = await pot.load(ref, bee_url, batch_id)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				res = await kvs.get(key)
+				if(tag != "ext-api")
+					T.assertEqual(t0, T, res, val)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs.delete(key)
+
+				 // log overriding status
+				if(log_level <= pot.ERROR)
+					if(T.GAUGE) process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+
+				if (counter % 1000 == 0) {
+
+					kvs = pot.newSync(bee_url, batch_id)
+
+					pot.prune()
+					pot.gc()
+					pot.gc()
+
+					if(T.LAPS && tag == "loc-net" && counter < max) {
+						pot.setVerbosity(verb)
+						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
+						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
+						pot.setVerbosity(log_level)
+					}
+				}
+
+				// track heap size
+				let goHeap = pot.getGoHeapSize()
+				let jsHeap = pot.getJSHeapSize()
+
+				if (jsHeap < jsHeap0)
+					jsMinima.push(jsHeap)
+
+				if (goHeap < goHeap0)
+					goMinima.push(goHeap)
+
+				jsHeap0 = jsHeap
+				goHeap0 = goHeap
+
+				// Use setTimeout to loop continuation passing style to
+				// make each allocation a different job, so the JS GC
+				// can fire inbetween.
+				setTimeout(allocate);
+			})();
+
+			T.log("▣ main job complete")
+
+			// wait until beacon is collected. No counter, no timeout.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000)
+
+			await T.delay(100) // yield to give GC release messages a chance
+
+			pot.setVerbosity(verb)
+
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, jsLimit, false, loop == maxloop)
+			ok2 = checkMinima(T, "Go", iterations, goMinima, goLimit, false, loop == maxloop)
+
+			if (ok1 && ok2) break;
+		}
+
+	}
+
+	if (!suite || suite.includes("gc-exp2")) {
+
+		T.start("Experimental 2 Leak Test")
+
+		T.log("• leak test — "+iterations+" iterations")
+
+		let max = iterations
+		let jsLimit = tag == "ext-api" ? 0 : tag == "loc-net" ? 0 : 0 // A 1! B 0 D 2,-1
+		let goLimit = tag == "ext-api" ? 0 : tag == "in-mem" ? 130 : 0 // A 114 B 113 D 113,114
+
+		if(tag == "loc-net") { jsLimit = 1000; goLimit = 1000 }
+
+		T.log(" experimental 2") 
+
+		for (let loop = 1; loop <= maxloop; loop++) {
+
+			T.log("• test run #" + loop)
+
+			let counter = 0
+
+			let verb = pot.setVerbosity(log_level)
+
+			if(tag == "in-mem") {
+				T.log("  purge in-memory storage to start from a minimum Go heap size")
+				pot.purge()
+			}
+
+			T.log("  trigger Go GC to start from a minimum Go heap size")
+			pot.gc()
+
+			let jsHeap0 = 0
+			let goHeap0 = 0
+			let jsMinima = new Array()
+			let goMinima = new Array()
+
+			let kvs = pot.newSync(bee_url, batch_id)
+
+			;(async function allocate() {
+
+				await T.delay(0) // yield to cleanly stop
+
+				if (counter++ >= max) {
+					if(T.GAUGE) process.stdout.write("\n")
+					return
+				}
+
+				let key = -counter
+				let val = -counter
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs.put(key, val)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				let res = await kvs.get(key)
+				if(tag != "ext-api")
+					T.assertEqual(t0, T, res, val)
+
+				if(tag == "ext-api") pot.setNoop(true)
+				await kvs.delete(key)
+
+				 // log overriding status
+				if(log_level <= pot.ERROR)
+					if(T.GAUGE) process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+
+				if (counter % 1000 == 0) {
+
+					kvs = pot.newSync(bee_url, batch_id)
+
+					pot.prune()
+					pot.gc()
+					pot.gc()
+
+					if(T.LAPS && tag == "loc-net" && counter < max) {
+						pot.setVerbosity(verb)
+						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
+						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
+						pot.setVerbosity(log_level)
+					}
+				}
+
+				// track heap size
+				let goHeap = pot.getGoHeapSize()
+				let jsHeap = pot.getJSHeapSize()
+
+				if (jsHeap < jsHeap0)
+					jsMinima.push(jsHeap)
+
+				if (goHeap < goHeap0)
+					goMinima.push(goHeap)
+
+				jsHeap0 = jsHeap
+				goHeap0 = goHeap
+
+				// Use setTimeout to loop continuation passing style to
+				// make each allocation a different job, so the JS GC
+				// can fire inbetween.
+				setTimeout(allocate);
+			})();
+
+			T.log("▣ main job complete")
+
+			// wait until beacon is collected. No counter, no timeout.
+			await T.completion2(null, T, ()=>{ return counter >= max }, null, 1_000)
+
+			await T.delay(100) // yield to give GC release messages a chance
+
+			pot.setVerbosity(verb)
+
+			ok1 = checkMinima(T, "JS", iterations, jsMinima, jsLimit, false, loop == maxloop)
+			ok2 = checkMinima(T, "Go", iterations, goMinima, goLimit, false, loop == maxloop)
+
+			if (ok1 && ok2) break;
+		}
+
+	}
+
+
+
+
+
+
 	if (!suite || suite.includes("gc-basics-async-rand")) {
 
 		T.start("Async Basics Leak Test")
@@ -7364,7 +7612,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 				await T.delay(0) // yield to cleanly stop
 
 				if (counter++ >= max) {
-					process.stdout.write("\n")
+					if(T.GAUGE) process.stdout.write("\n")
 					return
 				}
 
@@ -7397,7 +7645,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 				 // log overriding status
 				if(log_level <= pot.ERROR)
-					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+					if(T.GAUGE) process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
 
 				if (counter % 1000 == 0) {
 
@@ -7407,7 +7655,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net" && counter < max) {
+					if(T.LAPS && tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
 						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
 						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
@@ -7492,7 +7740,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 				await T.delay(0) // yield to cleanly stop
 
 				if (counter++ >= max) {
-					process.stdout.write("\n")
+					if(T.GAUGE) process.stdout.write("\n")
 					return
 				}
 
@@ -7569,7 +7817,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 				 // log overriding status
 				if(log_level <= pot.ERROR)
-					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+					if(T.GAUGE) process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
 
 				if (counter % 1000 == 0) {
 
@@ -7579,7 +7827,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net" && counter < max) {
+					if(T.LAPS && tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
 						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
 						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)
@@ -7664,7 +7912,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 				await T.delay(0) // yield to cleanly stop
 
 				if (counter++ >= max) {
-					process.stdout.write("\n")
+					if(T.GAUGE) process.stdout.write("\n")
 					return
 				}
 
@@ -7719,7 +7967,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 
 				 // log overriding status
 				if(log_level <= pot.ERROR)
-					process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
+					if(T.GAUGE) process.stdout.write(`${potlogmargin}  ${counter}/${max} `.padEnd(16+potlogmargin.length) + pot.profile() + "\r")
 
 				if (counter % 1000 == 0) {
 
@@ -7729,7 +7977,7 @@ async function TestPotKvs_Release(T, bee_url, batch_id, iterations, suite, tag, 
 					pot.gc()
 					pot.gc()
 
-					if(tag == "loc-net" && counter < max) {
+					if(T.LAPS && tag == "loc-net" && counter < max) {
 						pot.setVerbosity(verb)
 						checkMinima(T, "JS", counter, [...jsMinima], jsLimit, true)
 						checkMinima(T, "Go", counter, [...goMinima], goLimit, true)

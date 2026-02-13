@@ -11,6 +11,13 @@
 
 const NODE = (typeof window === 'undefined')
 
+// running counter of memory leak tests
+const GAUGE = process.stdout.isTTY
+
+// stats every 1,000 iterations for local network memory leak tests
+const LAPS = process.stdout.isTTY
+
+// color codes in test logs
 globalThis.COLOR = process.stdout.isTTY
 
 const hi   = COLOR ? "\033[97m" : ""
@@ -22,10 +29,6 @@ const ok   = COLOR ? "\033[36m" : ""
 const job  = COLOR ? "\033[34m" : ""
 const pink = COLOR ? "\033[35m" : ""
 const off  = COLOR ? "\033[0m" : ""
-
-console.log(process.env.PS1)
-console.log(process.stdin.isTTY)
-//process.exit()
 
 globalThis.T = {
         tests:            0,
@@ -43,6 +46,8 @@ globalThis.T = {
         connection_issue: null,
         time:             null,
         NODE:             NODE,
+        GAUGE:            GAUGE,
+        LAPS:             LAPS,
 
         hi:               hi,
         mid:              mid,
@@ -289,12 +294,18 @@ function balance() {
 	T.log("••• tests cases run: " + T.cases + " • assertions: " + T.tests + "  •••")
 
 	if(NODE) {
-		if(T.errors)
+		if(!T.cases)
+			T.log(erm + "no tests" + off)
+		else if(T.errors)
 			T.log(erm + "errors: " + T.errors  + off)
 		else
 			T.log(ok + "no errors" + off)
 	} else {
-		if(T.errors) {
+		if(!T.cases) {
+			T.log("<h4 class=err> no tests </h4>")
+			document.getElementById("status").className="err"
+			document.getElementById("status").innerHTML="no tests"
+		} else if(T.errors) {
 			T.log("<h4 class=err> errors: " + T.errors + " </h4>")
 			document.getElementById("status").className="err"
 			document.getElementById("status").innerHTML="errors: " + T.errors
@@ -306,9 +317,16 @@ function balance() {
 	}
 }
 
+// Error code 3 for failed tests, 4 for no test selected
 function exit() {
 
-	process.exit(T.errors ? 1 : 0)
+	if(T.errors)
+		process.exit(3)
+
+	if(!T.cases)
+		process.exit(4)
+
+	process.exit(0)
 
 }
 

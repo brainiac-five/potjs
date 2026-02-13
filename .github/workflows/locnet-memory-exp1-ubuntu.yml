@@ -1,4 +1,4 @@
-name: Swarm Leak Ubuntu - Get 3
+name: Swarm Leak Ubuntu - Exp 1
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
     branches: [ dev ]
 
 jobs:
-  swarm-integration-tests-get-ubuntu:
-    name: Swarm Integration Leak Tests Ubuntu - Get 3
+  swarm-integration-tests-ops1-ubuntu:
+    name: Swarm Integration Leak Tests Ubuntu - Exp 1
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -43,9 +43,9 @@ jobs:
       run: |
         fdp-play start --detach
 
-    - name: Run swarm integration tests - get 3
+    - name: Run swarm integration tests - exp 1
       run: |
-        make node_locnet_memory TEST=gc-put-get-async-rand
+        make node_locnet_memory TEST=gc-exp1
 
     - name: Stop fdp-play environment
       if: always()

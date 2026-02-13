@@ -27,7 +27,7 @@ console.log("bee       ", bee)
 console.log("batch     ", batch)
 console.log("branch    ", branch)
 console.log("iterations", iterations)
-console.log("log level ", log_level)
+console.log("log level ", log_level ?? "default")
 
 T.tag = tag
 
