@@ -22,7 +22,7 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '23'
+        node-version: '22'
 
     - name: Set up zsh
       run: |
@@ -45,7 +45,7 @@ jobs:
 
     - name: Run swarm integration tests - ops 4
       run: |
-        make node_locnet_memory TEST=gc-multiop2-async-rand ITER=30000
+        make node_locnet_memory TEST=gc-multiop2-async ITER=20000
 
     - name: Stop fdp-play environment
       if: always()

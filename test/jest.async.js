@@ -754,8 +754,48 @@ describe('Asynchronous Edge Cases (Promises)', () => {
 		expect( await kvs.delete(k1)       ).toBe(null)
 	});
 
-	test('Create a KVS, saving it empty fails - async', async () => {
+	test('Create a KVS, saving it empty returns 0 reference - async', async () => {
 		expect( kvs  = await pot.new()     ).toBeDefined()
-		expect( kvs.save()                 ).rejects.toThrow()
+		expect( await kvs.save()           ).toBe("0000000000000000000000000000000000000000000000000000000000000000")
 	});
+
+	test('Create a KVS from a 0 reference - async', async () => {
+		expect( await pot.load("0000000000000000000000000000000000000000000000000000000000000000") ).toBeDefined()
+	});
+
+	test('Create a KVS from a 0 reference, test behavior - async', async () => {
+		expect( kvs = await pot.load("0000000000000000000000000000000000000000000000000000000000000000") ).toBeDefined()
+		expect( await kvs.put(k1, v1)      ).toBe(null)
+		expect( await kvs.get(k1)          ).toStrictEqual(v1)
+		expect( await kvs.save()           ).toBeDefined()
+		expect( await kvs.delete(k1)       ).toBe(null)
+		expect( await kvs.save()           ).toBe("0000000000000000000000000000000000000000000000000000000000000000")
+	});
+});
+
+describe('Asynchronous Regression Tests (Promises)', () => {
+
+	test('Save after storing identical key-value twice - async', async () => {
+		expect( kvs = await pot.new()      ).toBeDefined()
+		expect( await kvs.put(k1, v1)      ).toBe(null)
+		expect( await kvs.put(k1, v1)      ).toBe(null)
+		expect( await kvs.save()           ).toBeDefined()
+	});
+
+	test('Save after deletion of non-existent key (non-empty KVS) - async', async () => {
+		expect( kvs = await pot.new()      ).toBeDefined()
+		expect( await kvs.put(k1, v1)      ).toBe(null)
+		expect( await kvs.delete(k2)       ).toBe(null)
+		expect( await kvs.save()           ).toBeDefined()
+	});
+
+	test('Saving a KVS empty returns 0 reference - async', async () => {
+		expect( kvs  = await pot.new()     ).toBeDefined()
+		expect( await kvs.save()           ).toBe("0000000000000000000000000000000000000000000000000000000000000000")
+	});
+
+	test('Create a KVS from a 0 reference - async', async () => {
+		expect( kvs = await pot.load("0000000000000000000000000000000000000000000000000000000000000000") ).toBeDefined()
+	});
+
 });

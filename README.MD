@@ -14,7 +14,7 @@ store a key-value layout, including updates and deletions, to a trie of nodes
 persisted on any immutable, content-addressed storage. This implementation also
 offers an in-memory mode.
 
-For more on POT see the [manual](doc/POT_JS_manual.pdf).
+For more on proximity order tries see the [manual](doc/POT_JS_manual.pdf).
 
 
 ## Status
@@ -36,11 +36,11 @@ For more on POT see the [manual](doc/POT_JS_manual.pdf).
 
 To use POT JS:
 
-* Drop `pot.wasm`, and `pot-web.js`, or `pot-node.js` in a directory.
+* Drop `pot.wasm`, and `pot-web.js`, or `pot-node.js` in a directory. You find them in `lib/`.
 * Write some html and js like seen in [example 1](examples/example1.html).
 
-Check out the [manual](doc/POT_JS_manual.pdf) — for examples, an introduction
-or the tutorial — as well as the [function reference](doc/POT_JS_function_reference.pdf).
+Check out the [manual](doc/POT_JS_manual.pdf) for examples, an introduction
+or the tutorial. Also the [function reference](doc/POT_JS_function_reference.pdf).
 
 
 ## Use
@@ -63,8 +63,8 @@ this:
 ```
 
 After `pot.ready()` resolves, the `pot` object can be used to create a
-new key-value store (KVS), in this example called `kvs`. Its methods `put` and
-`get` store and retrieve values to the KVS.
+new key-value store (KVS). Its methods `put()` and
+`get()` store and retrieve values to the KVS.
 
 ```js
 
@@ -90,9 +90,9 @@ For further instructions, examples and a tutorial, see the
 
 ## Examples
 
-There are 10 [examples](examples/) in this repository. They are described in
+There are 10 [examples](examples/) in this repository. They are discussed in
 detail in the [manual](doc/POT_JS_manual.pdf). There are more examples scripts
-in the [tutorial](tutorial/) folder, which illustrate the tutorial section of
+in the [tutorial](tutorial/) folder, which illustrate the tutorials in
 the manual.
 
 This is a complete example for the browser:
@@ -115,14 +115,17 @@ This is a complete example for the browser:
 	</script>
 ```
 
-`pot.new()` creates a new POT key-value store. The method `kvs.put()` stores a
-value to the POT, `kvs.get()` retrieves it. The result is shown in the console.
-All of these functions return promises.
+`pot-web.js` starts the WASM executable `pot.wasm`, `pot.ready()` waits for its
+initialization to finish. `pot.new()` creates a new POT key-value store. The
+method `kvs.put()` stores a value to the KVS, `kvs.get()` retrieves it. The
+result is shown in the console. All of the methods return promises, hence the
+`await`s.
 
 To run this example, serve the main directory with `npx http-server .` and open
 `http://127.0.0.1:8080/examples/example1.html`, which contains above code.
 
-The example can also be started with
+The example can also be started by a make rule, which starts a web server and 
+opens a browser for you:
 
 ```sh
 	% make example1
@@ -255,7 +258,7 @@ Create a new key-value store.
 
 The parameters are optional. Leaving them out creates a key-value store
 in memory. Giving both conects to a Swarm Bee node to store the KVS to a Swarm
-network (with `save()`).
+network.
 
 ```js
 	kvs = await pot.new()
@@ -289,8 +292,8 @@ of the POT trie that `save` provides, they cannot be retrieved.
 	kvs.save([timeout : int]) ⟶   promise of reference : string
 ```
 
-The bee URL and batch ID are taken from the `new()` call. The timeout is
-optional, and in milliseconds.
+The bee URL and batch ID denoting the destination of the saving was determined
+by the `new()` call. The timeout is optional, and in milliseconds.
 
 ```js
 	ref = kvs.save()

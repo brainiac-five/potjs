@@ -14,7 +14,7 @@ require("./lib/pot-node")
 	await pot.ready()
 	pot.setVerbosity(pot.INFO)
 
-	kvs = await pot.new()
+	kvs = new pot.Kvs()
 
 	pot.setDelay(1000)
 

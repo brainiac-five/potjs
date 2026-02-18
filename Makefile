@@ -191,7 +191,7 @@ lib/wasm_exec.js.sh384: lib/wasm_exec.js
 # as opposed to the simulation (below).
 go.mod:
 	go mod init potjs
-	go mod edit -replace github.com/ethersphere/proximity-order-trie=github.com/ethersphere/proximity-order-trie@v1.0.2-alpha.2
+	go mod edit -replace github.com/ethersphere/proximity-order-trie=github.com/ethersphere/proximity-order-trie@v1.0.2-alpha.7
 	go get
 
 
@@ -274,12 +274,13 @@ explain_tests:
 	# gc-put-sync		  leak-test sync put with counter as key and value
 	# gc-put-async		  leak-test async put with negative of counter as key and value
 	# gc-get-async-fix	  leak-test async get of value for fix key "K"
-	# gc-put-get-sync-rand	  leak-test sync put, get of random keys and values
-	# gc-put-get-async-rand	  leak-test async put, get of random keys and values
-	# gc-basics-sync-rand	  leak-test sync put, get, save, load, get, delete
-	# gc-basics-async-rand	  leak-test async put, get, save, load, get, delete
-	# gc-multiop1-async-rand  leak-test 3x async put, get, save, load, get, delete, get
-	# gc-multiop2-async-rand  leak-test 3x async put, get, delete, get
+	# gc-put-get-sync     	  leak-test sync put, get of random keys and values
+	# gc-put-get-async     	  leak-test async put, get of random keys and values
+	# gc-put-get-async-del    leak-test async put, get, delete of random keys and values
+	# gc-basics-sync          leak-test sync put, get, save, load, get, delete
+	# gc-basics-async         leak-test async put, get, save, load, get, delete
+	# gc-multiop1-async       leak-test 3x async put, get, save, load, get, delete, get
+	# gc-multiop2-async       leak-test 3x async put, get, delete, get
 	#
 	# The number of iterations can also be adjusted. Below 100,000 is less usefull. E.g.:
 	#
@@ -306,16 +307,12 @@ explain_tests:
 	# locnet-memory-put1-ubuntu.yml:  make node_locnet_memory TEST=gc-put-sync
 	# locnet-memory-put2-ubuntu.yml:  make node_locnet_memory TEST=gc-put-async
 	# locnet-memory-get1-ubuntu.yml:  make node_locnet_memory TEST=gc-get-async-fix
-	# locnet-memory-get2-ubuntu.yml:  make node_locnet_memory TEST=gc-put-get-sync-rand
-	# locnet-memory-get3-ubuntu.yml:  make node_locnet_memory TEST=gc-put-get-async-rand
-	# locnet-memory-get4-ubuntu.yml:  make node_locnet_memory TEST=gc-put-get-async-rand-2
-	# locnet-memory-get5-ubuntu.yml:  make node_locnet_memory TEST=gc-put-get-async-rand-3
-	# locnet-memory-ops1-ubuntu.yml:  make node_locnet_memory TEST=gc-basics-sync-rand
-	# locnet-memory-ops2-ubuntu.yml:  make node_locnet_memory TEST=gc-basics-async-rand
-	# locnet-memory-ops3-ubuntu.yml:  make node_locnet_memory TEST=gc-multiop1-async-rand ITER=30000
-	# locnet-memory-ops4-ubuntu.yml:  make node_locnet_memory TEST=gc-multiop2-async-rand ITER=30000
-	# locnet-memory-exp1-ubuntu.yml:  make node_locnet_memory TEST=gc-exp1
-	# locnet-memory-exp2-ubuntu.yml:  make node_locnet_memory TEST=gc-exp2
+	# locnet-memory-get2-ubuntu.yml:  make node_locnet_memory TEST=gc-put-get-sync
+	# locnet-memory-get3-ubuntu.yml:  make node_locnet_memory TEST=gc-put-get-async
+	# locnet-memory-ops1-ubuntu.yml:  make node_locnet_memory TEST=gc-basics-sync
+	# locnet-memory-ops2-ubuntu.yml:  make node_locnet_memory TEST=gc-basics-async
+	# locnet-memory-ops3-ubuntu.yml:  make node_locnet_memory TEST=gc-multiop1-async ITER=10000
+	# locnet-memory-ops4-ubuntu.yml:  make node_locnet_memory TEST=gc-multiop2-async ITER=30000
 	# locnet-tests-ubuntu.yml:        make node_locnet_test
 	#
 
@@ -582,6 +579,8 @@ unmock: go.mod
 ifneq ($(MOCKED),)
 	@echo "⬡ undoing simulation build settings"
 	go mod edit -dropreplace github.com/ethersphere/proximity-order-trie
+	go mod edit -replace github.com/ethersphere/proximity-order-trie=github.com/ethersphere/proximity-order-trie@v1.0.2-alpha.7
+	go get
 	go mod tidy
 endif
 

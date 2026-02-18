@@ -15,7 +15,8 @@ const qs = require("querystring")
 const fs = require("fs")
 require("./lib/wasm_exec")
 
-const form = `<pre>
+const form = `<!DOCTYPE html><head><meta charset="UTF-8"></head>
+	<pre>
 
 
 		POT JS Example 8: Node.js Web App Server
@@ -60,7 +61,7 @@ global.onPotInitialized = async () => {
 	bee = process.argv[2]
 	batch = process.argv[3]
 
-	kvs = await pot.new(bee, batch)
+	kvs = await new pot.Kvs(bee, batch)
 
 	// There is no catching of early calls of put() and get()
 	// in this example, which in theory could race the loading
