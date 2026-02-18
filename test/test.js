@@ -12,13 +12,13 @@
 const NODE = (typeof window === 'undefined')
 
 // running counter of memory leak tests
-const GAUGE = process.stdout.isTTY
+const GAUGE = !!process.stdout?.isTTY
 
 // stats every 1,000 iterations for local network memory leak tests
-const LAPS = process.stdout.isTTY
+const LAPS = !!process.stdout?.isTTY
 
 // color codes in test logs
-globalThis.COLOR = process.stdout.isTTY
+globalThis.COLOR = !!process.stdout?.isTTY
 
 const hi   = COLOR ? "\033[97m" : ""
 const mid  = COLOR ? "\033[37m" : ""

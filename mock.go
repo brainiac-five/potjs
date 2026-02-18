@@ -121,7 +121,7 @@ func mockDelay(ctx context.Context) error {
 	d := time.Duration(delay) * time.Millisecond
 	delay = 0
 	if d > 0 {
-		now := time.Now().UnixNano() / int64(time.Millisecond)
+		now := time.Now().UnixNano()/int64(time.Millisecond)
 		log(INFO, "» mock delay …")
 		select {
 		case <-ctx.Done():
@@ -143,7 +143,7 @@ func mockHang(ctx context.Context) error {
 	h := hang
 	hang = false
 	if h {
-		now := time.Now().UnixNano() / int64(time.Millisecond)
+		now := time.Now().UnixNano()/int64(time.Millisecond)
 		log(INFO, "» mock hanging …")
 		select {
 		case <-ctx.Done():
@@ -355,13 +355,6 @@ func (ps *SwarmKvs) Save(ctx context.Context) (rref []byte, rerr error) {
 		return []byte{}, errors.New(msg)
 	}
 
-	// check 0 length -- this is a feature of the pot.InMemLoadSaver
-	if len(slot.Kvs.Store) < 1 {
-		msg := "nothing to store"
-		log(ERR, msg)
-		return []byte{}, errors.New(msg)
-	}
-
 	// new, cloned slot#
 	slot_ref, ref32 := newID(slots, false)
 
@@ -370,7 +363,10 @@ func (ps *SwarmKvs) Save(ctx context.Context) (rref []byte, rerr error) {
 	SlotMap[ref32] = Slot{Ctx: context.Background(), Kvs: kvs, Ref: slot_ref, Ref32: ref32, Ls: slot.Ls, allowSync: slot.allowSync}
 
 	saveRef32 := make([]byte, 32)
-	rand.Read(saveRef32)
+	// check 0 length of pot to be saved
+	if len(slot.Kvs.Store) > 0 {
+		rand.Read(saveRef32)
+	}
 	log(DEB, "› simulated save reference "+bHex(saveRef32))
 
 	Saved[bHex(saveRef32)] = ref32

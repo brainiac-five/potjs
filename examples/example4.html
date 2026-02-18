@@ -6,8 +6,9 @@
 	Check source and browser console.
 
 
-	This page uses synchronous calls that can be helpful for
-	prototyping but don't work for network connections in the browser.
+	This page uses synchronous calls that can be helpful
+	for prototyping but don't work for network connections
+	in the browser.
 
 
 	<img src=favicon.ico>
@@ -21,7 +22,7 @@
 
 function onPotInitialized() {
 
-	kvs = pot.newSync()
+	kvs = new pot.Kvs()
 
 	kvs.putSync("hello", "POT!")
 

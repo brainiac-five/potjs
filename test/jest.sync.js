@@ -756,6 +756,42 @@ describe('Synchronous Edge Cases', () => {
 
 	test('Create a KVS, saving it empty fails - sync', async () => {
 		expect( kvs  = pot.newSync()     ).toBeDefined()
-		expect( kvs.saveSync()           ).toBeInstanceOf(Error)
+		expect( kvs.saveSync()           ).toBe("0000000000000000000000000000000000000000000000000000000000000000")
 	});
+
+	test('Create a KVS from a 0 reference, test behavior - sync', async () => {
+		expect( kvs = pot.loadSync("0000000000000000000000000000000000000000000000000000000000000000") ).toBeDefined()
+		expect( kvs.putSync(k1, v1)      ).toBe(null)
+		expect( kvs.getSync(k1)          ).toStrictEqual(v1)
+		expect( kvs.saveSync()           ).toBeDefined()
+		expect( kvs.deleteSync(k1)       ).toBe(null)
+		expect( kvs.saveSync()           ).toBe("0000000000000000000000000000000000000000000000000000000000000000")
+	});
+});
+
+describe('Synchronous Regression Tests', () => {
+
+	test('Save after storing identical key-value twice - sync', async () => {
+		expect( kvs = pot.newSync()      ).toBeDefined()
+		expect( kvs.putSync(k1, v1)      ).toBe(null)
+		expect( kvs.putSync(k1, v1)      ).toBe(null)
+		expect( kvs.saveSync()           ).toBeDefined()
+	});
+
+	test('Save after deletion of non-existent key (non-empty KVS) - sync', async () => {
+		expect( kvs = pot.newSync()      ).toBeDefined()
+		expect( kvs.putSync(k1, v1)      ).toBe(null)
+		expect( kvs.deleteSync(k2)       ).toBe(null)
+		expect( kvs.saveSync()           ).toBeDefined()
+	});
+
+	test('Saving a KVS empty returns 0 reference - sync', async () => {
+		expect( kvs  = pot.newSync()     ).toBeDefined()
+		expect( kvs.saveSync()           ).toBe("0000000000000000000000000000000000000000000000000000000000000000")
+	});
+
+	test('Create a KVS from a 0 reference - sync', async () => {
+		expect( kvs = pot.loadSync("0000000000000000000000000000000000000000000000000000000000000000") ).toBeDefined()
+	});
+
 });

@@ -17,8 +17,8 @@ const http = require("http")
 const qs = require("querystring")
 require("./lib/pot-node")
 
-const form = `<pre>
-
+const form = `<!DOCTYPE html><head><meta charset="UTF-8"></head>
+	<pre>
 
 		POT JS Example 9: Node.js Web App / local Swarm network
 
@@ -57,8 +57,7 @@ global.onPotInitialized = () => {
 
 	bee = process.argv[2]
 	batch = process.argv[3]
-
-	kvs = pot.newSync(bee, batch)
+	kvs = new pot.Kvs(bee, batch)
 
 	// There is no catching of early calls of put() and get()
 	// in this example, which in theory could race the loading

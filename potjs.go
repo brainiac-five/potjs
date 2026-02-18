@@ -254,6 +254,10 @@ func main() {
 	// create pot module object
 	if js.Global().Get("pot").IsUndefined() {
 		js.Global().Set("pot", js.ValueOf(make(map[string]interface{})))
+		jsPot := js.Global().Get("pot")
+		jsPot.Set("Kvs", js.FuncOf(func(this js.Value, parameter []js.Value) interface{} {
+			return newSync(this, parameter)
+		}))
 	}
 	pot_ := js.Global().Get("pot")
 
@@ -462,7 +466,7 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 	var ls persister.LoadSaver
 	var allowSync bool
 
-	// allow-raw parameter first to not create loadsavers in vain.
+	// allow-raw parameter first to not create loadsavers in vain. /// TODO document or eliminate
 	allowRaw := false
 	if len(parameters) >= 4 {
 		jsAllowRaw := parameters[3]
@@ -570,10 +574,9 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 
 	// register context and kvs handle, take numerical index as handle
 	slot_ref, ref32 := newID(slots, true)
-
 	SlotMap[ref32] = Slot{Ctx: ctx, Kvs: kvs, Ref: slot_ref, Ref32: ref32, Ls: ls, allowRaw: allowRaw, allowSync: allowSync}
 
-	log(INFO, "› slot ref: "+strconv.Itoa(slot_ref)+" "+ref32)
+	log(DEB, "› slot ref: "+strconv.Itoa(slot_ref)+" "+ref32)
 
 	return createMapObject(slot_ref, ref32), true
 }
@@ -776,9 +779,20 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 	msglen := len("+ load slot " + strconv.Itoa(slots+1))
 	log(INFO, "» load slot "+colorMid+strconv.Itoa(slots+1)+colorOff+spaces(potmargin-msglen)+_profile())
 
-	// -------------------------------------------------------------------
-	kvs, err := NewSwarmKvsReference(ctx, ls, ref32)
-	// -------------------------------------------------------------------
+	var kvs *SwarmKvs
+
+	// special case: 0-reference, create new KVS instead of loading as
+	// Go POT will error and not return a new POT.
+	if bytes.Equal(ref32, make([]byte, 32)) {
+
+		// --------------------------------------------------------------
+		kvs, err = NewSwarmKvs(ls)
+		// --------------------------------------------------------------
+	} else {
+		// -------------------------------------------------------------------
+		kvs, err = NewSwarmKvsReference(ctx, ls, ref32)
+		// -------------------------------------------------------------------
+	}
 	if err != nil {
 		msg := "### error in load*(): " + err.Error()
 		log(ERR, msg)
@@ -789,8 +803,7 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 	slot_ref, sref32 := newID(slots, true)
 	SlotMap[sref32] = Slot{Ctx: ctx, Kvs: kvs, Ref: slot_ref, Ref32: sref32, Ls: ls, allowSync: allowSync}
 
-	log(DEB, "› slot ref: "+debug+" "+strconv.Itoa(slot_ref))
-	log(DEB, "›    ref32: "+sref32)
+	log(DEB, "› slot ref: "+debug+" "+strconv.Itoa(slot_ref)+" "+sref32)
 
 	return createMapObject(slot_ref, sref32), true
 }
@@ -828,11 +841,6 @@ func createMapObject(slot_ref int, ref32 string) js.Value {
 	jsMap.Set("save", jsSave)
 	jsMap.Set("saveSync", jsSaveSync)
 	jsMap.Set("release", jsRelease)
-
-	/// this closure is called when GC finds the jsMap object unreachable
-	/// runtime.AddCleanup(&jsMap, func(slot_ref int) {
-	///	log(MEM, colorMid+"⦿ Go-side KVS slot "+strconv.Itoa(slot_ref)+" reference clean up"+colorOff+"  "+_profile())
-	/// }, slot_ref)
 
 	// this registers a clean up call when the JS GC finds the jsMap unreachable
 	jsRegistry.Call("register", jsMap, ref32, jsMap)
@@ -1011,9 +1019,14 @@ func _save(ctx context.Context, this js.Value, parameters []js.Value, _ bool, _ 
 	ref32, err := slot.Kvs.Save(ctx)
 	// -------------------------------------------------------------------
 	if err != nil {
-		msg := "### error on saving: " + err.Error()
-		log(ERR, msg)
-		return jsError(msg), false
+		// special case: empty pot
+		if err.Error() == "failed to store pot root node is nil" {
+			ref32 = make([]byte, 32)
+		} else {
+			msg := "### error on saving: " + err.Error()
+			log(ERR, msg)
+			return jsError(msg), false
+		}
 	}
 
 	ref32Hex := bHex(ref32)
@@ -1524,6 +1537,35 @@ func _delete(ctx context.Context, this js.Value, parameters []js.Value, _ bool, 
 
 	return js.Null(), true // success
 }
+
+/*
+// ITERATION -------------------------------------------------------------------
+
+func iteration(this js.Value, parameters []js.Value) (result interface{}) {
+
+	return promise(this, parameters, 2, "iteration", _iteration, TYPED, nil)
+}
+
+func iterationSync(this js.Value, parameters []js.Value) (result interface{}) {
+
+	return syncWrap(this, parameters, 2, "iteration", _iteration, TYPED, nil)
+}
+
+// _iteration() is the internal function that handles the iteration*() variants.
+// It is blocking, and async iteration() wraps it into a promise.
+func _iteration(ctx context.Context, this js.Value, parameters []js.Value, _ bool, _ func([]byte) (js.Value, error), sync bool) (result js.Value, ok bool) {
+
+	// on panic, log, and return js Error object in first result position
+	defer func() {
+		if err := recover(); err != nil {
+			msg := "### panic in iteration*(): " + toString(err)
+			log(CRIT, msg)
+			result = jsError(msg)
+			ok = false
+		}
+	}()
+}
+*/
 
 // -----------------------------------------------------------------------------
 //

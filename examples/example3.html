@@ -3,10 +3,10 @@
 
 	POT JS Example 3: The Root, Alternate Initialization, Delete
 
-	This page demonstrates the trie root value and to that end,
-	how to delete key-value pairs from the KVS. It does not use
-	pot-web.js but initializes pot.wasm directly. And it uses a
-	global variable to set verbosity.
+	This page demonstrates the trie root value, and how to delete
+	key-value pairs from the KVS. It does not use pot-web.js but
+	initializes pot.wasm directly. It uses a global variable to
+	set the verbosity level early.
 
 
 
@@ -40,7 +40,7 @@
 	WebAssembly.instantiateStreaming(fetch("lib/pot.wasm"), go.importObject)
 		.then(async (r)=>{
 			go.run(r.instance)
-			kvs = await pot.new()
+			kvs = new pot.Kvs()
 		})
 
 	const field = (id) => { return document.getElementById(id) }
@@ -70,7 +70,7 @@
 
 	async function save() {
 
-		ref = await kvs.save(key)
+		ref = await kvs.save()
 		field('root').value = ref
 		pot.log("root: " + ref)
 	}

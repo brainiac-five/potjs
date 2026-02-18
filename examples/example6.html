@@ -8,9 +8,9 @@
 
 	This page connects to a local Swarm network.
 
-	It can be tried by running `make example6`, which takes care
-	of the local network and the batch id. The script connects to
-	the http server at port 8080, the Swarm queen node at 1633.
+	It can be tried by running `make example6`, which takes care of
+	the local network and the Swarm batch id. The script connects
+	to the http server at port 8080, the Swarm queen node at 1633.
 
 	What those make rules do is essentially:
 
@@ -20,11 +20,11 @@
 		npx http-server -c1 . &
 		open "http://127.0.0.1:8080/example6.html?bee=http://127.0.0.1:1633&batch=$(cat .batch_id)"
 
-	If the batch id file exists, or the http server is already running, the
-	make rules will skip the respective lines.
+	If the batch id file exists, or the http server is already
+	running, the make rules will skip the respective lines.
 
-	Use `make stop` to stop the servers, or keep them running for the next
-	examples.
+	Use `make stop` to stop the servers, or keep them running for
+	the next examples.
 
 
 	<img src=favicon.ico>
@@ -41,7 +41,7 @@
 
 	batch = new URLSearchParams(window.location.search).get('batch');
 
-	kvs1 = await pot.new("http://localhost:1633", batch)
+	kvs1 = new pot.Kvs("http://localhost:1633", batch)
 
 	console.log("kvs #1 -- put hello      : POT!")
 

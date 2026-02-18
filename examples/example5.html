@@ -6,15 +6,16 @@
 	Check source and browser console.
 
 
-	This page connects to a local Swarm network.
+	`put()` persists a value. The purpose of `save()` is to obtain
+	a reference to retrieve the entire KVS by at a later time.
 
-	It persists a value. put() stores to cache, save() stores to the
-	network.
+	This page connects to a local Swarm network.
 
 	To test it, use `make example5`, which will start a local Swarm
 	network and update the batch id literal in the pot.new() call
-	in this example, after creating a new batch. Note that some other
-	make rules will if it exists, re-use this batch id (file .batch_id).
+	in this example, after creating a new batch. Note that some
+	other make rules will if it exists, re-use this batch id (file
+	.batch_id).
 
 
 
@@ -31,9 +32,9 @@
 
 	await pot.ready()
 
-	kvs = await pot.new("http://localhost:1633", "0c3426baea54e462160184ec48f74ec0ab9e1d9dcce7fe09fc376c5fc1e2d3c8")
+	kvs = new pot.Kvs("http://localhost:1633", "0c3426baea54e462160184ec48f74ec0ab9e1d9dcce7fe09fc376c5fc1e2d3c8")
 
-	kvs.putSync("hello", "POT!")
+	await kvs.put("hello", "POT!")
 
 	ref = await kvs.save()
 

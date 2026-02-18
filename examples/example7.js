@@ -13,7 +13,7 @@ require("./lib/pot-node")
 
 	await pot.ready()
 
-	kvs = await pot.new()
+	kvs = new pot.Kvs()
 
 	await kvs.put("hello", "node")
 
