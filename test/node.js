@@ -3,8 +3,7 @@
 */
 
 const fs = require("fs")
-//potjs_verbosity = 3 // memory stats: + 2048
-potjs_verbosity = 3 + 2048
+potVerbosity = 3 + 2048 // INFO + memory stats
 require("../lib/pot-node.js")
 require("./test")
 const tests = require("./suites")

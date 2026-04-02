@@ -24,23 +24,21 @@
 	var kvs
 
 	(async () => {
-		await pot.ready()
-		pot.setVerbosity(pot.NONE)
+	 	await pot.ready()
+		pot.setVerbosity(pot.INFO)
 		kvs = await pot.new()
 	})()
 
-	const field = (id) => { return document.getElementById(id) }
-
 	async function put() {
-		key = field('key').value
-		value = field('value').value
+		key = document.getElementById('key').value
+		value = document.getElementById('value').value
 		await kvs.put(key, value)
 	}
 
 	async function get() {
-		key = document.getElementById ('search').value
+		key = document.getElementById('search').value
 		value = await kvs.get(key)
-		document.getElementById ('result').value = value
+		document.getElementById('result').value = value
 	}
 
 </script>

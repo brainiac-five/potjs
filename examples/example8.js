@@ -53,6 +53,8 @@ var kvs
 
 var go = new Go()
 
+globalThis.potVerbosity = 3
+
 WebAssembly.instantiate(fs.readFileSync("lib/pot.wasm"), go.importObject)
 	.then((r) => { go.run(r.instance) })
 
@@ -61,7 +63,7 @@ global.onPotInitialized = async () => {
 	bee = process.argv[2]
 	batch = process.argv[3]
 
-	kvs = await new pot.Kvs(bee, batch)
+	kvs = new pot.Kvs(bee, batch)
 
 	// There is no catching of early calls of put() and get()
 	// in this example, which in theory could race the loading
@@ -99,7 +101,7 @@ const server = http.createServer((request, response) => {
 			case 'get': log = await get(search)
 			}
 			response.writeHead(200)
-			response.end(form + log)
+			response.end(form + log + `\n</pre>`)
 	})
 })
 .listen(3000, '127.0.0.1')

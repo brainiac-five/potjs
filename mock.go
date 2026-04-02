@@ -53,7 +53,7 @@ func testMode(_ js.Value, parameters []js.Value) interface{} {
 // testing.
 func setFail(_ js.Value, parameters []js.Value) interface{} {
 	if parameters[0].Bool() {
-		log(INFO, "» set up for failure")
+		log(INFO, "↯ set up for failure")
 	}
 	fail = parameters[0].Bool()
 	return nil
@@ -63,7 +63,7 @@ func setFail(_ js.Value, parameters []js.Value) interface{} {
 // testing.
 func setPanic(_ js.Value, parameters []js.Value) interface{} {
 	if parameters[0].Bool() {
-		log(INFO, "» set up for panic")
+		log(INFO, "↯ set up for panic")
 	}
 	panix = parameters[0].Bool()
 	return nil
@@ -72,7 +72,7 @@ func setPanic(_ js.Value, parameters []js.Value) interface{} {
 // setDelay() instructs the next mock POT KVS function called to delay
 // execution, for mS milliseconds, for testing.
 func setDelay(_ js.Value, parameters []js.Value) interface{} {
-	log(INFO, "» set up delay of "+strconv.Itoa(parameters[0].Int())+" ms")
+	log(INFO, "↯ set up delay of "+strconv.Itoa(parameters[0].Int())+" ms")
 	delay = parameters[0].Int()
 	return nil
 }
@@ -81,7 +81,7 @@ func setDelay(_ js.Value, parameters []js.Value) interface{} {
 // for testing.
 func setHang(_ js.Value, parameters []js.Value) interface{} {
 	if parameters[0].Bool() {
-		log(INFO, "» set up for hanging")
+		log(INFO, "↯ set up for hanging")
 	}
 	hang = parameters[0].Bool()
 	return nil
@@ -91,7 +91,7 @@ func setHang(_ js.Value, parameters []js.Value) interface{} {
 // or get or delete anything to not use any memory in leak-testing.
 func setNoop(_ js.Value, parameters []js.Value) interface{} {
 	if parameters[0].Bool() {
-		log(INFO, "» set no-op")
+		log(INFO, "↯ set no-op")
 	}
 	noop = parameters[0].Bool()
 	return nil
@@ -109,7 +109,7 @@ func mockFail() bool {
 // unless setPanic() was called again.
 func mockPanic(where string) {
 	if panix {
-		log(INFO, "» mock panic …")
+		log(INFO, "↯ mock panic …")
 		panix = false
 		panic("mock panic at " + where)
 	}
@@ -122,15 +122,15 @@ func mockDelay(ctx context.Context) error {
 	delay = 0
 	if d > 0 {
 		now := time.Now().UnixNano()/int64(time.Millisecond)
-		log(INFO, "» mock delay …")
+		log(INFO, "↯ mock delay …")
 		select {
 		case <-ctx.Done():
 			then := time.Now().UnixNano()/int64(time.Millisecond) - now
-			log(INFO, "» mock delay done at "+strconv.Itoa(int(then))+" ms")
+			log(INFO, "↯ mock delay done at "+strconv.Itoa(int(then))+" ms")
 			return ctx.Err()
 		case <-time.After(d):
 			then := time.Now().UnixNano()/int64(time.Millisecond) - now
-			log(INFO, "» mock delay over after "+strconv.Itoa(int(then))+" ms")
+			log(INFO, "↯ mock delay over after "+strconv.Itoa(int(then))+" ms")
 		}
 	}
 	return nil
@@ -144,11 +144,11 @@ func mockHang(ctx context.Context) error {
 	hang = false
 	if h {
 		now := time.Now().UnixNano()/int64(time.Millisecond)
-		log(INFO, "» mock hanging …")
+		log(INFO, "↯ mock hanging …")
 		select {
 		case <-ctx.Done():
 			then := time.Now().UnixNano()/int64(time.Millisecond) - now
-			log(INFO, "» mock hanging done at "+strconv.Itoa(int(then))+" ms")
+			log(INFO, "↯ mock hanging done at "+strconv.Itoa(int(then))+" ms")
 			return ctx.Err()
 		}
 	}

@@ -106,7 +106,7 @@
 
 		const go = new Go()
 
-		globalThis.potjs_verbosity = 3 + 2048
+		globalThis.potVerbosity = 3 + 2048
 		result = await WebAssembly.instantiateStreaming(
 				fetch("../lib/pot.wasm"), go.importObject)
 

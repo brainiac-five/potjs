@@ -505,8 +505,8 @@ For details see the [function reference](doc/POT_JS_function_reference.pdf).
       pot.setValueSizeLimit        cap of value byte size. Can be set to any number.
       pot.getValueSizeLimit        learn the cap of value byte size. Can be set to any number.
 
-      globalThis.potjs_optimization  setting optimization before initialization
-      globalThis.potjs_verbosity     setting verbosity before initialization
+      globalThis.potOptimization   setting optimization before initialization
+      globalThis.potVerbosity      setting verbosity before initialization
 
       pot.gc                       trigger Go garbage collection
       pot.prune                    compress the Go state map of KVSs
@@ -1565,7 +1565,6 @@ Possible future improvements:
 	•  tree walk functions
 	•  js-native persisters
 	•  typescript version
-	•  use of js new operator
 	•  error message clean up
 	•  wasm restart after crash
 

@@ -19,9 +19,9 @@ require("./lib/pot-node")
 	pot.setDelay(1000)
 
 	put = kvs.put("hello", "node")
-	put.catch((e)=>console.log(">>>> ", e.message))
+	put.catch((e)=>console.log(">>>> caught in kvs.put:", e.message))
 	put.cancel()
 
-	console.log(">>>>  hello:", await kvs.get("hello"))
+	console.log(">>>> value of hello:", await kvs.get("hello"))
 })()
 

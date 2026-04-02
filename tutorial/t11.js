@@ -2,7 +2,8 @@ const http = require("http")
 const qs = require("querystring")
 require("./potjs/lib/pot-node")
 
-const form = `<pre>
+const form = `<!DOCTYPE html><head><meta charset="UTF-8"></head>
+        <pre>
 
 		<form method=post action="http://localhost:3000">
 
@@ -30,7 +31,7 @@ var kvs
 
 ; (async () => {
 	await pot.ready()
-	kvs = pot.newSync()
+	kvs = new pot.Kvs()
 })()
 
 async function put(key, value) {

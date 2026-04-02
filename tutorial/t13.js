@@ -2,9 +2,9 @@ require("./potjs/lib/pot-node")
 
 ; (async () => {
 	await pot.ready()
-        swarm_url = process.argv[2]
-        batch_id = process.argv[3]
-	kvs = await pot.new(swarm_url, batch_id)
+        swarmUrl = process.argv[2]
+        batchId = process.argv[3]
+	kvs = new pot.Kvs(swarmUrl, batchId)
 	await kvs.put("hello", "P.O.T.")
 	pot.setVerbosity(pot.TRACE)
 	await kvs.save()

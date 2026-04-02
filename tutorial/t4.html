@@ -1,11 +1,11 @@
-<script src="potjs/lib/pot-web.js" verbosity=3></script>
+<script src="potjs/lib/pot-web.js" verbosity=2></script>
 
 <script>
 
 ; (async () => {
 
 	await pot.ready()
-	kvs = await pot.new()
+	kvs = new pot.Kvs()
 	await kvs.put("hello", "P.O.T.")
 	value = await kvs.get("hello")
 	console.log("hello:", value)

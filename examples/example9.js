@@ -15,7 +15,7 @@ console.log(`
 
 const http = require("http")
 const qs = require("querystring")
-require("./lib/pot-node")
+require("./lib/pot-node")(3)
 
 const form = `<!DOCTYPE html><head><meta charset="UTF-8"></head>
 	<pre>

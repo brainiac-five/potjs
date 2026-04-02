@@ -24,7 +24,8 @@
 	var kvs
 
 	(async () => {
-		await pot.ready()
+	 	await pot.ready()
+		pot.setVerbosity(pot.NONE)
 		kvs = await pot.new()
 	})()
 

@@ -105,7 +105,7 @@ var maxValueSize = 100000 // in byte including potential leading type byte.
 // considers the character count the string length, Go, the byte size.
 const maxKeySize = 32 // in byte
 
-// array of all slots
+// map of all slots
 var slots = 0
 var SlotMap = make(map[string]Slot)
 
@@ -172,8 +172,10 @@ const (
 	INFO  = 3
 	DEB   = 4
 	TRACE = 5
+	FLAGS = 2048 // to modulo the following flags out
 	MEM   = 2048
 	NOCUT = 4096
+	MSEC  = 8192
 )
 
 // default log level
@@ -218,14 +220,15 @@ var potmargin = 16
 func main() {
 
 	// verbosity setting per variable
-	v := js.Global().Get("potjs_verbosity")
+	v := js.Global().Get("potVerbosity")
 	if v.Type() == js.TypeNumber {
 		verbosity = v.Int()
-		log(CRIT, "verbosity set "+jsToString(v))
+		log(DEB, "verbosity set "+jsToString(v))
 	}
 	if v.Type() == js.TypeString {
 		var err error
 		intVer, err := strconv.ParseInt(v.String(), 0, 0)
+		// catch confusion of path with verbosity value
 		if err != nil {
 			log(CRIT, "verbosity setting invalid: "+v.String())
 		} else {
@@ -237,7 +240,7 @@ func main() {
 	log(INFO, "» POTWASM")
 
 	// optimization setting per variable
-	o := js.Global().Get("potjs_optimization")
+	o := js.Global().Get("potOptimization")
 	if o.Type() == js.TypeNumber {
 		optimization = o.Int()
 	}
@@ -333,8 +336,10 @@ func main() {
 	pot_.Set("INFO", 3)
 	pot_.Set("DEBUG", 4)
 	pot_.Set("TRACE", 5)
+	pot_.Set("FLAGS", 2048)
 	pot_.Set("MEMORY", 2048)
 	pot_.Set("NOCUT", 4096)
+	pot_.Set("MSEC", 8192)
 
 	// test functions
 	// -------------------------------------------------
@@ -560,8 +565,13 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 		}
 	}
 
-	msglen := len("+ new slot " + strconv.Itoa(slots+1))
-	log(INFO, "» new slot "+colorMid+strconv.Itoa(slots+1)+colorOff+spaces(potmargin-msglen)+_profile())
+	msg := "» new slot "+colorMid+strconv.Itoa(slots+1)+colorOff
+	// pressing memory heap information into the same log line
+	if verbosity&MEM == MEM {
+		msglen := len("+ new slot " + strconv.Itoa(slots+1))
+		msg = msg + spaces(potmargin-msglen)+_profile()
+	}
+	log(INFO, msg)
 
 	// --------------------------------------------------------------
 	kvs, err := NewSwarmKvs(ls)
@@ -662,7 +672,7 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 	}
 
 	if parameters[0].Type() != js.TypeString {
-		msg := "### error in load*(): KVS reference type error, must be hex digit string"
+		msg := "### error in load*(): KVS reference type error, must be hex digit string" /// separately catch empty
 		log(ERR, msg)
 		return jsError(msg), false
 	}
@@ -776,8 +786,13 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 		debug = "[" + jsToString(parameters[2]) + "]"
 	}
 
-	msglen := len("+ load slot " + strconv.Itoa(slots+1))
-	log(INFO, "» load slot "+colorMid+strconv.Itoa(slots+1)+colorOff+spaces(potmargin-msglen)+_profile())
+	msg := "» load slot "+colorMid+strconv.Itoa(slots+1)+colorOff
+	// pressing memory heap information into the same log line
+	if verbosity&MEM == MEM {
+		msglen := len("+ load slot " + strconv.Itoa(slots+1))
+		msg = msg + spaces(potmargin-msglen)+_profile()
+	}
+	log(INFO, msg)
 
 	var kvs *SwarmKvs
 
@@ -1022,6 +1037,7 @@ func _save(ctx context.Context, this js.Value, parameters []js.Value, _ bool, _ 
 		// special case: empty pot
 		if err.Error() == "failed to store pot root node is nil" {
 			ref32 = make([]byte, 32)
+			log(DEB, "› creating a 0 reference for empty KVS - ref32: "+bHex(ref32))
 		} else {
 			msg := "### error on saving: " + err.Error()
 			log(ERR, msg)
@@ -1452,11 +1468,13 @@ func _get(ctx context.Context, this js.Value, parameters []js.Value, raw bool, c
 
 // DELETE ----------------------------------------------------------------------
 
+// JS delete_() deletes a key-value pair from a KVS.
 func delete_(this js.Value, parameters []js.Value) (result interface{}) {
 
 	return promise(this, parameters, 2, "delete", _delete, TYPED, nil)
 }
 
+// JS deleteSync() deletes a key-value pair from a KVS.
 func deleteSync(this js.Value, parameters []js.Value) (result interface{}) {
 
 	return syncWrap(this, parameters, 2, "delete", _delete, TYPED, nil)
@@ -1538,21 +1556,25 @@ func _delete(ctx context.Context, this js.Value, parameters []js.Value, _ bool, 
 	return js.Null(), true // success
 }
 
-/*
+
 // ITERATION -------------------------------------------------------------------
 
+/*
+
+// JS iteration() iterates through the trie of key-value pairs.
 func iteration(this js.Value, parameters []js.Value) (result interface{}) {
 
 	return promise(this, parameters, 2, "iteration", _iteration, TYPED, nil)
 }
 
+// JS iteration() iterates through the trie of key-value pairs.
 func iterationSync(this js.Value, parameters []js.Value) (result interface{}) {
 
 	return syncWrap(this, parameters, 2, "iteration", _iteration, TYPED, nil)
 }
 
 // _iteration() is the internal function that handles the iteration*() variants.
-// It is blocking, and async iteration() wraps it into a promise.
+// It is blocking. iteration() wraps it into a promise.
 func _iteration(ctx context.Context, this js.Value, parameters []js.Value, _ bool, _ func([]byte) (js.Value, error), sync bool) (result js.Value, ok bool) {
 
 	// on panic, log, and return js Error object in first result position
@@ -1564,7 +1586,23 @@ func _iteration(ctx context.Context, this js.Value, parameters []js.Value, _ boo
 			ok = false
 		}
 	}()
+
+	n := 0
+	pivot := make([]byte, 4)
+	err := idx.Iterate(ctx, nil, pivot, func(e elements.Entry) (bool, error) {
+		log("iteration")
+		n++
+		return false, nil
+	})
+	if err != nil {
+		msg := "### error in iteration*(): " + toString(err)
+		log(CRIT, msg)
+		return jsError(msg), false
+	}
+	log("iterations: " + strconv.Itoa(n))
+	return n, true
 }
+
 */
 
 // -----------------------------------------------------------------------------
@@ -1785,10 +1823,10 @@ var logrex = regexp.MustCompile(`([0-9a-fA-Fx]{32})([0-9a-fA-Fx]+)`)
 // ignored. NONE, CRITICAL and ERROR are logged to stderr, higher to stdout.
 func log(level int, msg string) {
 
-	cut := verbosity&level&NOCUT == 0
+	cut := verbosity&NOCUT == 0
 
 	// log if set verbosity level is matched or exceeded
-	log := verbosity%MEM >= level
+	log := verbosity%FLAGS >= level
 
 	// or, log if it is a MEM and MEMORY is set in the verbosity level
 	log = log || (verbosity&level&MEM == MEM)
@@ -1797,8 +1835,11 @@ func log(level int, msg string) {
 		return
 	}
 
-	t0 := strconv.Itoa(int(time.Now().UnixMilli() % 1000))
-	t := strings.Repeat("0", 3-len(t0)) + t0
+	t := ""
+	if verbosity&MSEC == MSEC {
+		t0 := strconv.Itoa(int(time.Now().UnixMilli() % 1000))
+		t = strings.Repeat("0", 3-len(t0)) + t0
+	}
 
 	// abbreviate long strings and hex numbers unless TRACE level is on
 	if cut {
@@ -1806,16 +1847,20 @@ func log(level int, msg string) {
 	}
 
 	// reduce trailing white space
-	white := "  "
+	white1 := "  "
+	white2 := "  "
+	if len(t) < 1 {
+		white1 = ""
+	}
 	if len(msg) < 1 {
-		white = ""
+		white2 = ""
 	}
 
 	// log to stderr for CRITICAL and ERROR, else to stdout
 	if level <= ERR {
-		fmt.Fprintln(os.Stderr, "pot:  "+t+white+msg)
+		fmt.Fprintln(os.Stderr, "pot:"+white1+t+white2+msg)
 	} else {
-		fmt.Println("pot:  "+t+white+msg)
+		fmt.Println("pot:"+white1+t+white2+msg)
 	}
 }
 

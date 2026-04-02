@@ -35,13 +35,17 @@
 
 	const go = new Go()
 
-	window.potjs_verbosity = 3
+	window.potVerbosity = 3
 
 	WebAssembly.instantiateStreaming(fetch("lib/pot.wasm"), go.importObject)
 		.then(async (r)=>{
 			go.run(r.instance)
 			kvs = new pot.Kvs()
 		})
+
+	// There is no catching of early calls of put() and get()
+	// in this example, which in theory could race the loading
+	// of pot.wasm and the creation of kvs.
 
 	const field = (id) => { return document.getElementById(id) }
 
@@ -50,7 +54,7 @@
 		key = field('key').value
 		value = field('value').value
 		await kvs.put(key, value)
-		save()
+		save() // note this is not kvs.save()
 	}
 
 	async function get() {

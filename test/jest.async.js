@@ -5,7 +5,7 @@
 const config = require('./jest.json');
 const verbosity = config?.verbose ? 3 : 1
 
-potjs_verbosity = verbosity
+potVerbosity = verbosity
 require("../lib/pot-node.js")
 
 // make logging succinct

@@ -1,6 +1,4 @@
-<script src="potjs/lib/pot-web.js"></script>
-
-<script>
+require("./potjs/lib/pot-node")("lib2/pot.wasm", 5 | 4096)
 
 ; (async () => {
 	await pot.ready()
@@ -10,4 +8,3 @@
 	console.log("hello:", value)
 })()
 
-</script>

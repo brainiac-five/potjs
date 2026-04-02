@@ -7,17 +7,17 @@
 # POT JS can be used without building, as downloaded or cloned. The files needed
 # are lib/pot.wasm; lib/pot-node.js, lib/pot-web.js, or lib/wasm_exec.js. They
 # can be used as they come with no building required. This Makefile helps
-# building, developing and testing. It also simplifies running examples.
+# building, developing & testing pot.wasm. It also simplifies running examples.
 #
 # To run an example, have 'make' installed and execute from the command line:
 #
 #	% make example1
 #
-# To build WITHOUT using make and this Makefile, do:
+# To build without using make and this Makefile, do:
 #
 #	% GOOS=js GOARCH=wasm go build -o lib/pot.wasm potjs.go swarm_nodejs.go nomock.go
 #
-# To build the same with make, do:
+# To build the same with make:
 #
 #	% make
 #
@@ -28,9 +28,11 @@
 SHELL = /bin/zsh
 
 # project state
+
 # MOCKED means that pot.wasm has been compiled for simulation tests
-# SERVING means that a test http server is currently runnning
 MOCKED = $(shell grep -s mock go.mod)
+
+# SERVING means that a test http server is currently runnning
 SERVING = $(shell ps ax | grep 'npm exec http-server' | grep -v grep | head -n 1 | sed 's/^ *//' | cut -d ' ' -f 1)
 
 # screen colors
@@ -58,39 +60,44 @@ help:
 	#  run with `make <rule>`
 	#
 	#  build               build executables
-	#  example<n>          start server and run example <n>. n = 1-9
-	#  test                explain test modes and run jest installation test
-	#  nodetest            explain test modes and run node_inmem_test
-	#  webtest             explain test modes and run web_inmem_test
+	#  help                this list of rules
+	#  example<n>          start server and run example <n>. n = 1-11
+	#  test                explain test rules and modes and run jest installation test
+	#  nodetest            explain test rules and modes and run node_inmem_test
+	#  webtest             explain test rules and modes and run web_inmem_test
 	#  jest                run jest installation test
-	#  explain_tests       explain test modes
-	#  web_inmem_test      test api interaction with go pot in-memory persisting, web
-	#  web_inmem_stress    stress test with go pot in-memory persisting, web
-	#  web_sim_test        extended exceptions tests w/out go pot connection, web
-	#  web_locnet_test     standard tests with a locally installed Swarm network, web
-	#  web_locnet_quick    like web_locnet_test but re-using the last batch id, web
-	#  web_locnet_stress   stress test with a locally installed Swarm network, web
-	#  node_inmem_test     test api interaction with go pot in-memory persisting, node
-	#  node_inmem_stress   stress test with go pot in-memory persisting, node
-	#  node_sim_test       extended exceptions tests w/out go pot connection, node
-	#  node_locnet_test    test with a locally installed Swarm network, node
-	#  node_locnet_quick   like node_locnet_test but re-using the last batch id, node
-	#  node_locnet_stress  stress test with a locally installed Swarm network, node
+	#  explain_tests       explain test rules and modes
+	#  web_inmem_test      node.js memory leak tests with a locally installed Swarm network
+	#  web_inmem_stress    browser stress tests with go pot in-memory persisting
+	#  web_sim_test        browser exceptions tests w/out go pot connection
+	#  web_locnet_test     browser tests with a locally installed Swarm network
+	#  web_locnet_quick    like web_locnet_test but re-using the last batch id
+	#  web_locnet_stress   browser stress tests with a locally installed Swarm network
+	#  node_inmem_test     node.js tests with go pot in-memory persisting
+	#  node_inmem_stress   node.js stress tests with go pot in-memory persisting
+	#  node_inmem_memory   node.js memory leak tests with go pot in-memory persisting
+	#  node_sim_test       node.js exceptions tests w/out go pot connection
+	#  node_sim_memory     node.js memory leak tests w/out go pot connection
+	#  node_locnet_test    node.js tests with a locally installed Swarm network
+	#  node_locnet_quick   like node_locnet_test but re-using the last batch id
+	#  node_locnet_stress  node.js stress tests with a locally installed Swarm network
+	#  node_locnet_memory  node.js memory leak tests with a locally installed Swarm network
 	#  clean               prepare for building from scratch
 	#  distclean           prepare for commit to repository, including build
 	#
 	#  examples
 	#
-	#  example1            in-browser in-memory, logging to console
-	#  example2            in-browser in-memory, interactive
-	#  example3            in-browser in-memory, alternate initialization
-	#  example4            in-browser in-memory, synchronous calls
-	#  example5            in-browser local network, logging to console
-	#  example6            in-browser local network, like 5, parametrized
-	#  example7            node in-memory, logging to terminal
-	#  example8            node in-memory, interactive web app
-	#  example9            node local network, interactive web app (same as 8)
-	#  example10           node local network, simulation of cancelation
+	#  example1            minimal in-browser example as above, in-memory storage
+	#  example2            interactive in-browser example with input fields, integrity
+	#  example3            like example 2 but without using pot-web.js, plus, delete and save
+	#  example4            like example 1 but using synchronous access functions
+	#  example5            like example 1 but with local Swarm network storage
+	#  example6            like example 5, plus, save and load, WASM path, and verbosity
+	#  example7            like example 1 but for node.js
+	#  example8            similar to example 2, interactive web app for node.js, in-mem.
+	#  example9            identical to example 8, called to use a local Swarm network
+	#  example10           simulated demonstration of cancelation
+	#  example11           simulated demonstration of error handling
 	#
 	#  support & debugging
 	#
@@ -132,7 +139,7 @@ example5: examples/lib build http_serve
 	$(MAKE) locnet_start
 	rm -f .batch_id
 	$(MAKE) .batch_id
-	sed -i.bak -e "s/\(pot\.new.*\)\"[0-9a-fA-F]*\")/\1\"$$(cat .batch_id)\")/" examples/$@.html ; rm -f examples/$@.html.bak
+	sed -i.bak -e "s/\(pot\.Kvs.*\)\"[0-9a-fA-F]*\")/\1\"$$(cat .batch_id)\")/" examples/$@.html ; rm -f examples/$@.html.bak
 	open http://127.0.0.1:8080/examples/$@.html
 
 # example 6 - meaning of the save reference
@@ -163,14 +170,15 @@ example9: examples/lib build
 	node examples/$@.js "http://127.0.0.1:1633" "$$(cat .batch_id)"
 
 # simulation of cancelation
-example10: examples/lib mockbuild
+example10 example11: examples/lib mockbuild
 	node examples/$@.js
 
 # update the integrity hashes in example 2 when wasm_exec.js changes
-integrity: examples/example2.html lib/wasm_exec.js.sha384
+integrity: examples/example2.html tutorial/t3.html lib/wasm_exec.js.sha384
 
-# update integrity hashes in example files that are affected (currently only #2)
-examples/example*.html: lib/pot-web.js.sha384
+# update integrity hashes in example files that are affected
+# currently example #2 and tutorial #3.
+examples/example*.html tutorial/t3.html: lib/pot-web.js.sha384
 	for fn in $?; do sed -i.bak -e "s/\($${fn:4:-7}\".*integrity=\)[^>]*/\1\"sha384-$${$$(cat $${fn})//[\/]/\\/}\"/" $@ ; rm -f $@.bak ; done
 
 # create the file hashes for subsource integrity checking (see integrity rule)
@@ -214,11 +222,11 @@ explain_tests:
 	#
 	#    % make test
 	#
-	#  Deep regression tests can be run in 2x3x2 combinable deep test modes:
+	#  Deep regression tests can be run in ~2x3x3 combinable deep test modes:
 	#
-	#    browser / node + in-memory / simulated / network + standard / stress.
+	#  browser/node x in-memory/simulated/network x standard/stress/memory.
 	#
-	#  The deep test rules are composed from three tags. For example:
+	#  The deep test rules are accordingly composed from three tags. For example:
 	#
 	#    % make node_inmem_stress
 	#
@@ -232,88 +240,96 @@ explain_tests:
 	#  network     locnet  |  local Swarm network storage
 	#  --------------------+----------------------------------------------------------
 	#  standard    test    |  31 test suites of various flavors
-	#  recycle id  quick   |  like *_locnet_test but re-using the batch id
+	#  recycle ID  quick   |  like *_locnet_test but re-using the batch id
 	#  stress      stress  |  4 longer-running suites; mass & concurrent access
+	#  memory      memory  |  9 long-running suites testing for memory leaks
 	#
 	#
-	#  The following are all test make rules (for other rules use % make help):
+	#  These are the resulting test rules (for other rules use % make help):
 	#
 	#  Rule                |  Description
 	#  --------------------+----------------------------------------------------------
 	#  test                |  explain test modes and run jest test suite
-	#  jest                |  run installation test suite
+	#  jest                |  run installation test suite w/o test mode explanation
 	#  nodetest            |  explain test modes and run node_inmem_test
 	#  webtest             |  explain test modes and run web_inmem_test
 	#  --------------------+----------------------------------------------------------
-	#  web_inmem_test      |  test api interaction with go pot in-memory persisting, web
-	#  web_inmem_stress    |  stress test with go pot in-memory persisting, web
-	#  web_sim_test        |  extended exceptions tests w/out go pot connection, web
-	#  web_locnet_test     |  standard tests with a locally installed Swarm network, web
-	#  web_locnet_quick    |  like web_locnet_test but re-using the last batch id, web
-	#  web_locnet_stress   |  stress test with a locally installed Swarm network, web
-	#  node_inmem_test     |  test api interaction with go pot in-memory persisting, node
-	#  node_inmem_stress   |  stress test with go pot in-memory persisting, node
-	#  node_inmem_memory   |  memory leak test with go pot in-memory persisting, node
-	#  node_sim_test       |  extended exceptions tests w/out go pot connection, node
-	#  node_sim_memory     |  memory leak tests w/out go pot connection, node
-	#  node_locnet_test    |  test with a locally installed Swarm network, node
-	#  node_locnet_quick   |  like node_locnet_test but re-using the last batch id, node
-	#  node_locnet_stress  |  stress test with a locally installed Swarm network, node
-	#  node_locnet_memory  |  memory leak test with a locally installed Swarm network, node
+	#  web_inmem_test      |  browser tests with go pot in-memory persisting
+	#  web_inmem_stress    |  browser stress tests with go pot in-memory persisting
+	#  web_sim_test        |  browser exceptions tests w/out go pot connection
+	#  web_locnet_test     |  browser tests with a locally installed Swarm network
+	#  web_locnet_quick    |  like web_locnet_test but re-using the last batch id
+	#  web_locnet_stress   |  browser stress tests with a locally installed Swarm network
+	#  node_inmem_test     |  node.js tests with go pot in-memory persisting
+	#  node_inmem_stress   |  node.js stress tests with go pot in-memory persisting
+	#  node_inmem_memory   |  node.js memory leak tests with go pot in-memory persisting
+	#  node_sim_test       |  node.js exceptions tests w/out go pot connection
+	#  node_sim_memory     |  node.js memory leak tests w/out go pot connection
+	#  node_locnet_test    |  node.js tests with a locally installed Swarm network
+	#  node_locnet_quick   |  like node_locnet_test but re-using the last batch id
+	#  node_locnet_stress  |  node.js stress tests with a locally installed Swarm network
+	#  node_locnet_memory  |  node.js memory leak tests with a locally installed Swarm network
 	#
 	#  All node_* tests are run on push by github CI workloads, except *_quick and *_memory.
 	#  CI runs all those tests for ubuntu-latest, and all non-locnet for MacOS.
 	#
-	# Memory leak test cases can be picked via names, e.g.:
+	#  memory leak tests run only with node.js as they are only relevant for servers.
 	#
-	#  % make node_inmem_memory TEST="gc-response,gc-kvs-detection"
+	#  Individual memory leak test cases can be picked via names, e.g.:
 	#
-	# gc-response             check whether the Javascript GC can be triggered
-	# gc-kvs-detection	  check whether the collection of a kvs is detectable
-	# gc-kvs-creation	  leak-test sync kvs creation
-	# gc-put-sync		  leak-test sync put with counter as key and value
-	# gc-put-async		  leak-test async put with negative of counter as key and value
-	# gc-get-async-fix	  leak-test async get of value for fix key "K"
-	# gc-put-get-sync     	  leak-test sync put, get of random keys and values
-	# gc-put-get-async     	  leak-test async put, get of random keys and values
-	# gc-put-get-async-del    leak-test async put, get, delete of random keys and values
-	# gc-basics-sync          leak-test sync put, get, save, load, get, delete
-	# gc-basics-async         leak-test async put, get, save, load, get, delete
-	# gc-multiop1-async       leak-test 3x async put, get, save, load, get, delete, get
-	# gc-multiop2-async       leak-test 3x async put, get, delete, get
+	#    % make node_inmem_memory TEST="gc-response,gc-kvs-detection"
 	#
-	# The number of iterations can also be adjusted. Below 100,000 is less usefull. E.g.:
+	#  gc-response            check whether the Javascript GC can be triggered
+	#  gc-kvs-detection       check whether the collection of a kvs is detectable
+	#  gc-kvs-creation        leak-test sync kvs creation
+	#  gc-put-sync	          leak-test sync put with counter as key and value
+	#  gc-put-async	          leak-test async put with negative of counter as key and value
+	#  gc-get-async-fix       leak-test async get of value for fix key "K"
+	#  gc-put-get-sync        leak-test sync put, get of random keys and values
+	#  gc-put-get-async       leak-test async put, get of random keys and values
+	#  gc-put-get-async-del   leak-test async put, get, delete of random keys and values
+	#  gc-basics-sync         leak-test sync put, get, save, load, get, delete
+	#  gc-basics-async        leak-test async put, get, save, load, get, delete
+	#  gc-multiop1-async      leak-test 3x async put, get, save, load, get, delete, get
+	#  gc-multiop2-async      leak-test 3x async put, get, delete, get
 	#
-	#  % make node_sim_memory TEST="gc-kvs-creation" ITER=20000
+	#  The number of iterations can also be adjusted. Below 50,000 is less usefull. E.g.:
 	#
-	# Verbosity can be set with VERB. This works only if ITER is given.
-	# ITER works only when TEST is given.
+	#    % make node_sim_memory TEST="gc-kvs-creation" ITER=20000
 	#
-	# Continuous Integration runs these tests on push:
+	#  ITER works only when TEST is given. Verbosity can be set with VERB.
+	#  VERB works only if ITER is given.
 	#
-	# inst-tests-macos.yml:           make jest_test
-	# inst-tests-ubuntu.yml:          make jest_test
-	# inmem-tests-macos.yml:          make node_inmem_test
-	# inmem-tests-ubuntu.yml:         make node_inmem_test
-	# inmem-memory-macos.yml:         make node_inmem_memory
-	# inmem-memory-ubuntu.yml:        make node_inmem_memory
-	# sim-tests-macos.yml:            make node_sim_test
-	# sim-tests-ubuntu.yml:           make node_sim_test
-	# sim-memory-macos.yml:           make clean node_sim_memory
-	# sim-memory-ubuntu.yml:          make clean node_sim_memory
-	# stress-tests-macos.yml:         make clean node_inmem_stress
-	# stress-tests-ubuntu.yml:        make node_inmem_stress
-	# stress-tests-ubuntu.yml:        make node_locnet_stress
-	# locnet-memory-put1-ubuntu.yml:  make node_locnet_memory TEST=gc-put-sync
-	# locnet-memory-put2-ubuntu.yml:  make node_locnet_memory TEST=gc-put-async
-	# locnet-memory-get1-ubuntu.yml:  make node_locnet_memory TEST=gc-get-async-fix
-	# locnet-memory-get2-ubuntu.yml:  make node_locnet_memory TEST=gc-put-get-sync
-	# locnet-memory-get3-ubuntu.yml:  make node_locnet_memory TEST=gc-put-get-async
-	# locnet-memory-ops1-ubuntu.yml:  make node_locnet_memory TEST=gc-basics-sync
-	# locnet-memory-ops2-ubuntu.yml:  make node_locnet_memory TEST=gc-basics-async
-	# locnet-memory-ops3-ubuntu.yml:  make node_locnet_memory TEST=gc-multiop1-async ITER=10000
-	# locnet-memory-ops4-ubuntu.yml:  make node_locnet_memory TEST=gc-multiop2-async ITER=30000
-	# locnet-tests-ubuntu.yml:        make node_locnet_test
+	#  Continuous Integration runs these tests on push to github (.github/workflow):
+	#
+	#  inst-tests-macos.yml:           make jest_test
+	#  inst-tests-ubuntu.yml:          make jest_test
+	#  inmem-tests-macos.yml:          make node_inmem_test
+	#  inmem-tests-ubuntu.yml:         make node_inmem_test
+	#  inmem-memory-macos.yml:         make node_inmem_memory
+	#  inmem-memory-ubuntu.yml:        make node_inmem_memory
+	#  sim-tests-macos.yml:            make node_sim_test
+	#  sim-tests-ubuntu.yml:           make node_sim_test
+	#  sim-memory-macos.yml:           make clean node_sim_memory
+	#  sim-memory-ubuntu.yml:          make clean node_sim_memory
+	#  stress-tests-macos.yml:         make clean node_inmem_stress
+	#  stress-tests-ubuntu.yml:        make node_inmem_stress
+	#  stress-tests-ubuntu.yml:        make node_locnet_stress
+	#  locnet-memory-put1-ubuntu.yml:  make node_locnet_memory TEST=gc-put-sync
+	#  locnet-memory-put2-ubuntu.yml:  make node_locnet_memory TEST=gc-put-async
+	#  locnet-memory-get1-ubuntu.yml:  make node_locnet_memory TEST=gc-get-async-fix
+	#  locnet-memory-get2-ubuntu.yml:  make node_locnet_memory TEST=gc-put-get-sync
+	#  locnet-memory-get3-ubuntu.yml:  make node_locnet_memory TEST=gc-put-get-async
+	#  locnet-memory-ops1-ubuntu.yml:  make node_locnet_memory TEST=gc-basics-sync
+	#  locnet-memory-ops2-ubuntu.yml:  make node_locnet_memory TEST=gc-basics-async
+	#  locnet-memory-ops3-ubuntu.yml:  make node_locnet_memory TEST=gc-multiop1-async ITER=10000 (*)
+	#  locnet-memory-ops4-ubuntu.yml:  make node_locnet_memory TEST=gc-multiop2-async ITER=30000
+	#  locnet-tests-ubuntu.yml:        make node_locnet_test
+	#
+	#  (*) ops3 is too long-running when used with 50,000 iterations and the CI therefore
+	#  subject to ongoing changes.
+	#
+	#  CI results are at https://github.com/brainiac-five/potjs/actions.
 	#
 
 # jest integration tests
@@ -614,5 +630,5 @@ distclean:
 	$(MAKE) clean unmock build
 
 # this is a list of all rules that are not a file name and thus always trigger ///
-.PHONY: all help build mockbuild example1 example2 example3 example4 example5 example6 example7 example8 example9 example10 clean test nodetest webtest explain_tests jest jest_test web_inmem_test web_sim_test web_inmem_stress web_local_test web_local_quick web_local_stress node_inmem_test node_sim_test node_inmem_stress node_inmem_resources node_locnet_test node_locnet_quick node_locnet_stress locnet_start locnet_stop locnet_batch locnet_tests locnet_log locnet_clean locnet_install http_serve http_stop stop mock unmock vet lint clean distclean
+.PHONY: all help build mockbuild example1 example2 example3 example4 example5 example6 example7 example8 example9 example10 example11 clean test nodetest webtest explain_tests jest jest_test web_inmem_test web_sim_test web_inmem_stress web_local_test web_local_quick web_local_stress node_inmem_test node_sim_test node_inmem_stress node_inmem_resources node_locnet_test node_locnet_quick node_locnet_stress locnet_start locnet_stop locnet_batch locnet_tests locnet_log locnet_clean locnet_install http_serve http_stop stop mock unmock vet lint clean distclean
 
