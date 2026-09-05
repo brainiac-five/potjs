@@ -383,6 +383,42 @@ Delete a key-value pair. Timeout is optional, in milliseconds.
 ```
 
 
+#### ITERATION
+
+List or count keys, optionally narrowed to those starting with a given
+prefix. Cost is proportional to the number of matching keys, not the size of
+the whole store — the walk descends straight to the shared part of the trie
+and no further.
+
+```
+	kvs.keys([prefix : string, number, or Uint8Array][, timeout : int]) ⟶   promise of Uint8Array[]
+	kvs.entries([prefix][, timeout : int])                              ⟶   promise of [key, value][]
+	kvs.entriesRaw([prefix][, timeout : int])                           ⟶   promise of [key, Uint8Array][]
+	kvs.count([prefix][, timeout : int])                                ⟶   promise of number
+```
+
+Keys come back as 32-byte, zero-padded `Uint8Array`s; `pot.keyString(key)`
+recovers the original string for keys that were strings. `entries()` decodes
+values the same way `get()` does; `entriesRaw()` is its raw counterpart, for
+values written with `putRaw()`. `count()` with no prefix is free (the total
+is already kept on the KVS's root); with a prefix it costs the same as
+`keys()`.
+
+```js
+	await kvs.put("ticket/SB-1", "first")
+	await kvs.put("ticket/SB-2", "second")
+
+	keys = await kvs.keys("ticket/")
+	console.log(keys.map(pot.keyString))   // [ 'ticket/SB-1', 'ticket/SB-2' ]
+
+	n = await kvs.count("ticket/")         // 2
+```
+
+See [tutorial/t15.js](tutorial/t15.js) and
+[doc/ITERATION.md](doc/ITERATION.md) for a fuller walkthrough and the
+proposed manual/function-reference text.
+
+
 ### RAW BYTES
 
 By default, values are returned as the same type that was originally stored.
@@ -481,6 +517,16 @@ For details see the [function reference](doc/POT_JS_function_reference.pdf).
       kvs.putSync                  return a promise for null or Error. Synchronous.
       kvs.getSync                  return a promise for the typed get, i.e., the type will be as put. Sync.
       kvs.deleteSync               drop key-value pair from the KVS. Sync.
+
+      kvs.keys                     list keys, optionally by prefix, ascending byte order. Async.
+      kvs.entries                  list [key, value] pairs, optionally by prefix, type-aware. Async.
+      kvs.count                    count keys, optionally by prefix. Async.
+
+      kvs.keysSync                 list keys, optionally by prefix, ascending byte order. Sync.
+      kvs.entriesSync              list [key, value] pairs, optionally by prefix, type-aware. Sync.
+      kvs.countSync                count keys, optionally by prefix. Sync.
+
+      pot.keyString                recover a string key from a Uint8Array returned by keys/entries.
 
 #### RAW BYTE ACCESS
 

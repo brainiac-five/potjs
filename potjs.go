@@ -61,7 +61,7 @@ import (
 	"github.com/ethersphere/proximity-order-trie/pkg/persister"
 )
 
-var _ KeyValueStore = (*SwarmKvs)(nil)
+var _ KeyValueStore = (*Kvs)(nil)
 
 // inBrowser is true when WASM is running in a browser. Else it must be node.js.
 // This is detected and set first thing in main().
@@ -90,7 +90,7 @@ type Slot struct {
 	Ls        persister.LoadSaver
 	allowRaw  bool
 	allowSync bool
-	Kvs       *SwarmKvs
+	Kvs       *Kvs
 }
 
 // maximal byte size of a value. This number is arbitrary to protect the system
@@ -203,6 +203,14 @@ var jsGetNumberSync js.Func
 var jsGetStringSync js.Func
 var jsDeleteSync js.Func
 var jsSave js.Func
+var jsKeys js.Func
+var jsKeysSync js.Func
+var jsEntries js.Func
+var jsEntriesSync js.Func
+var jsEntriesRaw js.Func
+var jsEntriesRawSync js.Func
+var jsCount js.Func
+var jsCountSync js.Func
 var jsSaveSync js.Func
 var jsRelease js.Func
 
@@ -325,6 +333,7 @@ func main() {
 	pot_.Set("setValueSizeLimit", js.FuncOf(setValueSizeLimit))
 	pot_.Set("getValueSizeLimit", js.FuncOf(getValueSizeLimit))
 	pot_.Set("byteSize", js.FuncOf(byteSize))
+	pot_.Set("keyString", js.FuncOf(keyString))
 	pot_.Set("truncString", js.FuncOf(truncString))
 	pot_.Set("bar", js.FuncOf(bar))
 
@@ -389,6 +398,14 @@ func main() {
 	jsGetStringSync = js.FuncOf(getStringSync)
 	jsDeleteSync = js.FuncOf(deleteSync)
 	jsSave = js.FuncOf(save)
+	jsKeys = js.FuncOf(keys)
+	jsKeysSync = js.FuncOf(keysSync)
+	jsEntries = js.FuncOf(entries)
+	jsEntriesSync = js.FuncOf(entriesSync)
+	jsEntriesRaw = js.FuncOf(entriesRaw)
+	jsEntriesRawSync = js.FuncOf(entriesRawSync)
+	jsCount = js.FuncOf(count)
+	jsCountSync = js.FuncOf(countSync)
 	jsSaveSync = js.FuncOf(saveSync)
 	jsRelease = js.FuncOf(release)
 
@@ -574,7 +591,7 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 	log(INFO, msg)
 
 	// --------------------------------------------------------------
-	kvs, err := NewSwarmKvs(ls)
+	kvs, err := newKvs(ls)
 	// --------------------------------------------------------------
 	if err != nil {
 		msg := "### error in new*(): " + err.Error()
@@ -794,18 +811,18 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 	}
 	log(INFO, msg)
 
-	var kvs *SwarmKvs
+	var kvs *Kvs
 
 	// special case: 0-reference, create new KVS instead of loading as
 	// Go POT will error and not return a new POT.
 	if bytes.Equal(ref32, make([]byte, 32)) {
 
 		// --------------------------------------------------------------
-		kvs, err = NewSwarmKvs(ls)
+		kvs, err = newKvs(ls)
 		// --------------------------------------------------------------
 	} else {
 		// -------------------------------------------------------------------
-		kvs, err = NewSwarmKvsReference(ctx, ls, ref32)
+		kvs, err = newKvsReference(ctx, ls, ref32)
 		// -------------------------------------------------------------------
 	}
 	if err != nil {
@@ -854,6 +871,14 @@ func createMapObject(slot_ref int, ref32 string) js.Value {
 	jsMap.Set("getStringSync", jsGetStringSync)
 	jsMap.Set("deleteSync", jsDeleteSync)
 	jsMap.Set("save", jsSave)
+	jsMap.Set("keys", jsKeys)
+	jsMap.Set("keysSync", jsKeysSync)
+	jsMap.Set("entries", jsEntries)
+	jsMap.Set("entriesSync", jsEntriesSync)
+	jsMap.Set("entriesRaw", jsEntriesRaw)
+	jsMap.Set("entriesRawSync", jsEntriesRawSync)
+	jsMap.Set("count", jsCount)
+	jsMap.Set("countSync", jsCountSync)
 	jsMap.Set("saveSync", jsSaveSync)
 	jsMap.Set("release", jsRelease)
 
@@ -1558,52 +1583,228 @@ func _delete(ctx context.Context, this js.Value, parameters []js.Value, _ bool, 
 
 
 // ITERATION -------------------------------------------------------------------
+//
+// keys(), entries(), entriesRaw() and count() walk the trie. All take an
+// optional byte prefix as first parameter (a string, number or Uint8Array,
+// interpreted like a key but NOT zero-padded — its length is the prefix
+// length) and an optional timeout in milliseconds as second parameter.
+// Without prefix the whole store is walked. Results come in ascending byte
+// order of the (32-byte, zero-padded) keys.
+//
+//   kvs.keys([prefix[, timeout]])        ⟶  promise of Uint8Array[]
+//   kvs.entries([prefix[, timeout]])     ⟶  promise of [key, value][]  (typed values)
+//   kvs.entriesRaw([prefix[, timeout]])  ⟶  promise of [key, Uint8Array][]
+//   kvs.count([prefix[, timeout]])       ⟶  promise of number
+//
+// Each has a *Sync variant. Keys are returned as 32-byte Uint8Arrays because
+// that is what the trie stores; pot.keyString(key) turns a string key back
+// into a string (see below). Entries stored with putRaw() will not decode
+// with entries(); use entriesRaw() for those.
+//
+// The walk uses Go POT's Index.Iterate(): it descends to the sub-trie that
+// all keys with the prefix share, so listing 10 keys under "user/" in a store
+// of 100,000 costs 10 node loads plus the path, not 100,000.
 
-/*
+// iterationKind selects what _iterate collects.
+type iterationKind int
 
-// JS iteration() iterates through the trie of key-value pairs.
-func iteration(this js.Value, parameters []js.Value) (result interface{}) {
+const (
+	iterKeys iterationKind = iota
+	iterEntries
+	iterCount
+)
 
-	return promise(this, parameters, 2, "iteration", _iteration, TYPED, nil)
+// JS kvs.keys() asynchronously lists the keys with a given prefix.
+func keys(this js.Value, parameters []js.Value) (result interface{}) {
+	return promise(this, parameters, 2, "keys", iterFunc(iterKeys), TYPED, nil)
 }
 
-// JS iteration() iterates through the trie of key-value pairs.
-func iterationSync(this js.Value, parameters []js.Value) (result interface{}) {
-
-	return syncWrap(this, parameters, 2, "iteration", _iteration, TYPED, nil)
+// JS kvs.keysSync() synchronously lists the keys with a given prefix.
+func keysSync(this js.Value, parameters []js.Value) (result interface{}) {
+	return syncWrap(this, parameters, 2, "keys", iterFunc(iterKeys), TYPED, nil)
 }
 
-// _iteration() is the internal function that handles the iteration*() variants.
-// It is blocking. iteration() wraps it into a promise.
-func _iteration(ctx context.Context, this js.Value, parameters []js.Value, _ bool, _ func([]byte) (js.Value, error), sync bool) (result js.Value, ok bool) {
+// JS kvs.entries() asynchronously lists [key, value] pairs with a given prefix.
+func entries(this js.Value, parameters []js.Value) (result interface{}) {
+	return promise(this, parameters, 2, "entries", iterFunc(iterEntries), TYPED, nil)
+}
+
+// JS kvs.entriesSync() synchronously lists [key, value] pairs with a given prefix.
+func entriesSync(this js.Value, parameters []js.Value) (result interface{}) {
+	return syncWrap(this, parameters, 2, "entries", iterFunc(iterEntries), TYPED, nil)
+}
+
+// JS kvs.entriesRaw() asynchronously lists [key, Uint8Array] pairs with a given prefix.
+func entriesRaw(this js.Value, parameters []js.Value) (result interface{}) {
+	return promise(this, parameters, 2, "entriesRaw", iterFunc(iterEntries), RAW, nil)
+}
+
+// JS kvs.entriesRawSync() synchronously lists [key, Uint8Array] pairs with a given prefix.
+func entriesRawSync(this js.Value, parameters []js.Value) (result interface{}) {
+	return syncWrap(this, parameters, 2, "entriesRaw", iterFunc(iterEntries), RAW, nil)
+}
+
+// JS kvs.count() asynchronously counts the pairs with a given prefix.
+func count(this js.Value, parameters []js.Value) (result interface{}) {
+	return promise(this, parameters, 2, "count", iterFunc(iterCount), TYPED, nil)
+}
+
+// JS kvs.countSync() synchronously counts the pairs with a given prefix.
+func countSync(this js.Value, parameters []js.Value) (result interface{}) {
+	return syncWrap(this, parameters, 2, "count", iterFunc(iterCount), TYPED, nil)
+}
+
+// iterFunc binds the kind of result wanted into a `functionality` for the
+// promise/syncWrap wrappers.
+func iterFunc(kind iterationKind) functionality {
+	return func(ctx context.Context, this js.Value, parameters []js.Value, raw bool, _ func([]byte) (js.Value, error), sync bool) (js.Value, bool) {
+		return _iterate(ctx, this, parameters, raw, kind, sync)
+	}
+}
+
+// jsToPrefix() casts a JS value to a byte prefix for iteration. Same
+// conversions as jsToKey() but an undefined, null or empty value means "no
+// prefix" (walk everything) and the result is not padded.
+func jsToPrefix(p js.Value) ([]byte, error) {
+	if p.IsUndefined() || p.IsNull() {
+		return nil, nil
+	}
+	if p.Type() == js.TypeString && p.String() == "" {
+		return nil, nil
+	}
+	if p.Type() == js.TypeObject && p.Get("length").Type() == js.TypeNumber && p.Get("length").Int() == 0 {
+		return nil, nil
+	}
+	return jsToKey(p)
+}
+
+// _iterate() is the internal function behind keys*(), entries*() and count*().
+// It is blocking; promise() wraps it for the async variants.
+func _iterate(ctx context.Context, this js.Value, parameters []js.Value, raw bool, kind iterationKind, sync bool) (result js.Value, ok bool) {
+
+	name := map[iterationKind]string{iterKeys: "keys", iterEntries: "entries", iterCount: "count"}[kind]
 
 	// on panic, log, and return js Error object in first result position
 	defer func() {
 		if err := recover(); err != nil {
-			msg := "### panic in iteration*(): " + toString(err)
+			msg := "### panic in " + name + "*(): " + toString(err)
 			log(CRIT, msg)
 			result = jsError(msg)
 			ok = false
 		}
 	}()
 
-	n := 0
-	pivot := make([]byte, 4)
-	err := idx.Iterate(ctx, nil, pivot, func(e elements.Entry) (bool, error) {
-		log("iteration")
-		n++
-		return false, nil
-	})
+	wrap := func(err error) string { return "### error in " + name + "*(): " + err.Error() }
+
+	// get data slot of kvs
+	slot, err := getSlot(this)
 	if err != nil {
-		msg := "### error in iteration*(): " + toString(err)
+		msg := wrap(err)
 		log(CRIT, msg)
 		return jsError(msg), false
 	}
-	log("iterations: " + strconv.Itoa(n))
-	return n, true
+
+	if sync && !slot.allowSync {
+		msg := "### error in " + name + "*(): no sync calls to networks in-browser"
+		log(ERR, msg)
+		return jsError(msg), false
+	}
+
+	// optional prefix
+	var prefix []byte
+	if len(parameters) >= 1 {
+		prefix, err = jsToPrefix(parameters[0])
+		if err != nil {
+			msg := wrap(err)
+			log(ERR, msg)
+			return jsError(msg), false
+		}
+	}
+
+	// whole-store count is kept on the root node: no walk needed
+	if kind == iterCount && len(prefix) == 0 {
+		n := slot.Kvs.Size()
+		log(INFO, "» count: "+strconv.Itoa(n))
+		return js.ValueOf(n), true
+	}
+
+	// ascending order of distance from the zero key = ascending byte order
+	pivot := make([]byte, maxKeySize)
+
+	n := 0
+	var keys, values [][]byte
+	// -------------------------------------------------------------------
+	err = slot.Kvs.Iterate(ctx, prefix, pivot, func(key, value []byte) (bool, error) {
+		select {
+		case <-ctx.Done():
+			return true, ctx.Err()
+		default:
+		}
+		n++
+		if kind != iterCount {
+			keys = append(keys, key)
+		}
+		if kind == iterEntries {
+			values = append(values, value)
+		}
+		return false, nil
+	})
+	// -------------------------------------------------------------------
+	if err != nil {
+		msg := wrap(err)
+		log(ERR, msg)
+		return jsError(msg), false
+	}
+
+	log(INFO, "» "+name+" "+iif(len(prefix) > 0, "prefix "+bHex(prefix), "all")+": "+strconv.Itoa(n))
+
+	if kind == iterCount {
+		return js.ValueOf(n), true
+	}
+
+	// build the JS array
+	array := js.Global().Get("Array").New(n)
+	for i := 0; i < n; i++ {
+		jsKey := jsArrayFromBytes(keys[i])
+		if kind == iterKeys {
+			array.SetIndex(i, jsKey)
+			continue
+		}
+		var jsValue js.Value
+		if raw {
+			jsValue = jsArrayFromBytes(values[i])
+		} else {
+			jsValue, err = typeDecodedValue(values[i])
+			if err != nil {
+				msg := wrap(err)
+				log(ERR, msg)
+				return jsError(msg), false
+			}
+		}
+		pair := js.Global().Get("Array").New(2)
+		pair.SetIndex(0, jsKey)
+		pair.SetIndex(1, jsValue)
+		array.SetIndex(i, pair)
+		log(DEB, "› ⟵  "+bHex(keys[i])+": "+bHex(values[i]))
+	}
+
+	return array, true
 }
 
-*/
+// JS pot.keyString() turns a key as returned by keys() or entries() — a
+// 32-byte, zero-padded Uint8Array — back into the string it was put with.
+// Only meaningful for keys that were strings: number keys are 8-byte floats
+// and Uint8Array keys are arbitrary bytes; both come back as garbage or "".
+func keyString(_ js.Value, parameters []js.Value) interface{} {
+	if len(parameters) < 1 {
+		return jsError("### keyString(): key argument missing")
+	}
+	b, err := jsToBytes(parameters[0])
+	if err != nil {
+		return jsError("### keyString(): " + err.Error())
+	}
+	return string(bytes.TrimRight(b, "\x00"))
+}
 
 // -----------------------------------------------------------------------------
 //

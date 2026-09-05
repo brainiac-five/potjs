@@ -2,7 +2,10 @@ module potjs
 
 go 1.24.5
 
-replace github.com/ethersphere/proximity-order-trie => github.com/ethersphere/proximity-order-trie v1.0.2-alpha.7
+// Pinned to the authors' own fork/tag with the Iterate() fix applied
+// (see kvs.go and https://github.com/ethersphere/proximity-order-trie/pull/32)
+// until that PR is merged and released upstream.
+replace github.com/ethersphere/proximity-order-trie => github.com/brainiac-8/proximity-order-trie v1.0.2-alpha.8
 
 require github.com/ethersphere/proximity-order-trie v1.0.0
 
