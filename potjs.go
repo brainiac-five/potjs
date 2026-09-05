@@ -61,7 +61,7 @@ import (
 	"github.com/ethersphere/proximity-order-trie/pkg/persister"
 )
 
-var _ KeyValueStore = (*Kvs)(nil)
+var _ KeyValueStore = (*SwarmKvs)(nil)
 
 // inBrowser is true when WASM is running in a browser. Else it must be node.js.
 // This is detected and set first thing in main().
@@ -90,7 +90,7 @@ type Slot struct {
 	Ls        persister.LoadSaver
 	allowRaw  bool
 	allowSync bool
-	Kvs       *Kvs
+	Kvs       *SwarmKvs
 }
 
 // maximal byte size of a value. This number is arbitrary to protect the system
@@ -591,7 +591,7 @@ func _new(ctx context.Context, this js.Value, parameters []js.Value, _ bool,
 	log(INFO, msg)
 
 	// --------------------------------------------------------------
-	kvs, err := newKvs(ls)
+	kvs, err := NewSwarmKvs(ls)
 	// --------------------------------------------------------------
 	if err != nil {
 		msg := "### error in new*(): " + err.Error()
@@ -811,18 +811,18 @@ func _load(ctx context.Context, this js.Value, parameters []js.Value, raw bool, 
 	}
 	log(INFO, msg)
 
-	var kvs *Kvs
+	var kvs *SwarmKvs
 
 	// special case: 0-reference, create new KVS instead of loading as
 	// Go POT will error and not return a new POT.
 	if bytes.Equal(ref32, make([]byte, 32)) {
 
 		// --------------------------------------------------------------
-		kvs, err = newKvs(ls)
+		kvs, err = NewSwarmKvs(ls)
 		// --------------------------------------------------------------
 	} else {
 		// -------------------------------------------------------------------
-		kvs, err = newKvsReference(ctx, ls, ref32)
+		kvs, err = NewSwarmKvsReference(ctx, ls, ref32)
 		// -------------------------------------------------------------------
 	}
 	if err != nil {
