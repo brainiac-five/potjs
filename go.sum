@@ -1,13 +1,13 @@
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
+github.com/brainiac-8/proximity-order-trie v1.0.2-alpha.9 h1:K90EkaimpW9wgPcXYSsUZKpJ8ARYw5zOU5DciOWifFU=
+github.com/brainiac-8/proximity-order-trie v1.0.2-alpha.9/go.mod h1:rqEHTFOxGHJtANfMmprm6sveAJC4+TLltCwgrokn2KU=
 github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj44=
 github.com/cespare/xxhash/v2 v2.2.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/ethersphere/bee/v2 v2.5.0 h1:eqWJFw5GyT9qglXPxL+utgSN4J/77JQ9j74aXm7+ozQ=
 github.com/ethersphere/bee/v2 v2.5.0/go.mod h1:hwfKQuD3wUbcLrqow3hz9HIAPSqJAxJ8pYr59qd6eXA=
-github.com/ethersphere/proximity-order-trie v1.0.2-alpha.7 h1:2t6ZKxFjD7ACgluZCqLl/7LHbuVdpfAoWYBsYKjg1C0=
-github.com/ethersphere/proximity-order-trie v1.0.2-alpha.7/go.mod h1:rqEHTFOxGHJtANfMmprm6sveAJC4+TLltCwgrokn2KU=
 github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
 github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
 github.com/hashicorp/errwrap v1.0.0 h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=
